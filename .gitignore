@@ -1,0 +1,12 @@
+# Publish only the mod, documentation, and supplied screenshot.
+# Keep local build/install helpers, binaries, and experiments out of Git.
+*
+!.gitignore
+!README.md
+!LICENSE
+!CHANGELOG.md
+!brave-acrylic.wh.cpp
+!assets/
+!assets/**
+!docs/
+!docs/**
