@@ -1357,10 +1357,11 @@ static bool InstallChromeHooks(HMODULE hChrome) {
 
     // Resolution is by mangled name. The plain name on each entry is there to
     // document what the mangled string is -- Windhawk is told not to undecorate
-    // (see noUndecoratedSymbols below), so it never matches on those.
+    // (see the decorated-name option below), so it never matches on those.
     // Every hook is optional: a Brave update that changes one signature costs
     // that single hook, not the whole mod. See the report logged below.
-    const WindhawkUtils::SYMBOL_HOOK hooks[] = {
+    // chrome.dll
+    const WindhawkUtils::SYMBOL_HOOK chromeHooks[] = {
         // Chromium's own transparency gate. Brave 154 compiles it to
         // `return false` and never calls it, but other builds do consult it.
         {{LR"(?ShouldWindowContentsBeTransparent@BrowserDesktopWindowTreeHostWin_ChromiumImpl@@EEBA_NXZ)"},
@@ -1420,7 +1421,7 @@ static bool InstallChromeHooks(HMODULE hChrome) {
     // seconds, which would miss the first browser window on every launch.
     options.noUndecoratedSymbols = TRUE;
 
-    if (!WindhawkUtils::HookSymbols(hChrome, hooks, ARRAYSIZE(hooks), &options)) {
+    if (!WindhawkUtils::HookSymbols(hChrome, chromeHooks, ARRAYSIZE(chromeHooks), &options)) {
         Wh_Log(L"HookSymbols FAILED (could not read chrome.dll symbols at all)");
         return false;
     }
