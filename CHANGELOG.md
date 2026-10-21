@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.1 — Alpha
+
+- Remove the unused optional symbol-download path and its diagnostic-only hooks. The working local resolver remains the normal rendering path.
+- Use the standard architecture declaration and explicitly refuse unsupported native processors before installing hooks.
+- Retain the updated setup README, required Translucent Windows notice, alpha status, and compact-mode advice.
+
 ## 2.8 — Alpha
 
 First public submission.

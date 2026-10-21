@@ -102,13 +102,13 @@ The [advanced reference](docs/advanced.md) explains every switch, log collection
 
 Function addresses are cached for the exact `chrome.dll` build and rechecked before use. The named-color table is checked once per browser launch. There is no screenshot polling, webpage injection, or recurring full-module scan.
 
-The default path **does not download Brave's debug symbols**. Optional symbol resolution is intended for debugging and can require a multi-gigabyte download.
+Function discovery is local: **no Brave debug-symbol download is used**. The obsolete optional symbol-server path was removed in 2.8.1.
 
 ## Compatibility
 
 - Tested on **Windows 11 26H2**, **Brave 1.97.59** / **Chromium 155.0.8059.85**, x64.
 - The per-window check has been tested with regular, private, and Tor window themes.
-- The current resolver does not support native ARM64 or 32-bit Brave.
+- Native ARM64 and 32-bit Brave are not supported. Unsupported native processes are refused before any hooks are installed.
 - Website backgrounds remain under the website's control. Ordinary webpages are not made transparent by this mod.
 
 **This is an alpha release, not a guarantee of future Brave compatibility.** The resolver tolerates changing relocation addresses and validates cached function boundaries, but it still works with private Brave functions. If a required function or the named-color table cannot be identified, the transparency path stays disabled.

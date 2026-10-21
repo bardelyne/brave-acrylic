@@ -23,29 +23,23 @@ Use `key=value`, one setting per line. Blank lines and lines starting with `#` a
 A minimal diagnostic example:
 
 ```ini
-useSignatures=1
-useSymbols=0
 logColors=1
 ```
 
 After collecting colors, set `logColors=0` and restart Brave normally.
 
+Version 2.8.1 always uses the validated local resolver. Legacy `useSymbols`, `useSignatures`, `clearFrame`, `transparentContents`, `translucentHandler`, and `auraTransparent` keys are ignored if they remain in an older configuration file; they can be removed. No PDB download is performed.
+
 | Key | Default | Purpose |
 | --- | --- | --- |
-| `useSignatures` | `1` | Discover the required functions by validated byte signatures. This is the normal path. |
-| `useSymbols` | `0` | Use Brave's symbol server instead. Overrides the signature path and can download a multi-gigabyte PDB. Leave off unless diagnosing a resolver issue. |
 | `logColors` | `0` | Log distinct opaque color ID/RGB pairs, capped at 256 pairs per process. No page contents or URLs are recorded by this feature. |
 | `colorProvider` | `1` | Enable exact configured-color substitution. A complete clearing path is also required. |
 | `clearViews` | `1` | Clear eligible browser-container backgrounds before repainting. Turning this off disables the transparency path to avoid stale pixels. |
-| `clearFrame` | `1` | Enable the optional theme-checked frame-paint hooks when resolved through symbols. |
 | `backdropType` | `3` | DWM backdrop request: `-1` leaves it alone, `1` none, `2` Mica, `3` acrylic, `4` Mica Alt. Keep the required Translucent Windows setup consistent with the effect you want. |
 | `heartbeat` | `1` | Recheck browser frames periodically for window-style maintenance and new frames. It does not rescan `chrome.dll` or sample background pixels. |
 | `keepThickFrame` | `1` | Preserve the resize-frame style if Brave removes it. |
 | `dwmExtend` | `0` | Extend the DWM frame across the client area. Diagnostic option; it can expose a second set of caption buttons. Leave off normally. |
 | `gpuAlpha` | `1` | Request premultiplied alpha on intercepted DXGI swapchain creation. Whether these hooks are used depends on Brave's rendering path. |
-| `transparentContents` | `1` | Optional symbol-only hook for the native window-transparency gate. Some Brave builds do not call this function. It does not inject transparency into webpage DOM or CSS. |
-| `translucentHandler` | `0` | Optional symbol-only HWND handler translucency override. Experimental; leave off normally. |
-| `auraTransparent` | `0` | Optional symbol-only Aura transparency override. Experimental; leave off normally. |
 | `traceColor` | `0` | Log native call-stack offsets for the color selected by `bgColor`. For maintainer diagnostics. |
 | `bgColor` | `333C4D` | Hex RGB filter for `traceColor`; **does not replace the Windhawk color list**. |
 | `traceLimit` | `25` | Maximum number of trace stacks to record per process. |
