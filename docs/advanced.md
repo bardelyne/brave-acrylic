@@ -35,7 +35,7 @@ If `chrome.dll` is already present, the initial hook batch is registered in `Wh_
 
 Installation and `Wh_ModBeforeUninit` share a barrier. Disabling the mod stops activation and waits for any in-flight installation before the callback returns. There are no startup polling threads, worker-thread timeouts, or background window-restyling loops.
 
-Renderer and utility processes are skipped before reading settings. The GPU process only installs the narrowly scoped composition hook; it does not read browser color settings.
+Process types are read from complete Windows command-line arguments. A URL containing `--type=` cannot be mistaken for a process switch. Renderer and utility processes are skipped before reading settings. The GPU process only installs the narrowly scoped composition hook; it does not read browser color settings.
 
 ## GPU behavior
 
@@ -44,6 +44,8 @@ The mod never hooks `CreateSwapChainForHwnd`. HWND swap chains retain Brave's or
 For composition swap chains, alpha is requested only for compatible RGBA formats: BGRA8, RGBA8, RGBA16 float, and RGB10A2. YUV/opaque formats, protected or restricted video surfaces, and existing explicit alpha choices are left alone. The caller's descriptor is copied, not modified.
 
 If the driver rejects the adjusted alpha mode as invalid or unsupported, creation is retried with the original descriptor. Device failures are returned unchanged.
+
+The GPU hook runs independently of the browser's theme detection and native-function resolver. Eligible composition surfaces can receive the alpha override even when the browser paint path is disabled or a window uses an unmatched theme. Opaque pixels stay opaque. If you see unintended transparent areas while the paint path is inactive, include that detail in your report; the GPU override is a separate place to investigate.
 
 `dxgi.dll` is loaded from System32, and its module reference is kept until Windhawk removes the hook. Translucent Windows controls backdrop selection. Brave Acrylic does not set DWM backdrop attributes, extend frames, add resize borders, or interfere with fullscreen window styles.
 
@@ -61,13 +63,13 @@ Look for the discovered `kColorToolbar` ID and a **5/5** signature scan/cache re
 
 ## Cache and update safeguards
 
-One small binary value named `signatureCache` is stored through Windhawk's per-mod storage API. It records the build key, Brave version, and five function addresses. Windhawk owns the storage and removes it with the mod.
+One small binary value named `signatureCache` is stored through Windhawk's per-mod storage API. It records the build key, Brave version, five function addresses, and the relative address of the named toolbar-color entry. Windhawk owns the storage and removes it with the mod.
 
 The key includes the exact `chrome.dll` timestamp, image size, and signature revision. Cached addresses must remain inside executable code, start at complete x64 function entries, and match the current byte signatures. Invalid or incomplete values trigger a fresh scan before any native hook is registered.
 
 Each signature must have exactly one function match. Color lookup, class-name lookup, and background-paint signatures extend beyond their prologues into native operations. Changing relocations and selected operands are excluded from matching. A missing or ambiguous match keeps transparency disabled.
 
-The toolbar ID comes from bounded read-only tables, with adjacent-entry checks and agreement between duplicate definitions. Its lookup runs once at browser startup. No screen sampling or recurring module scan is used.
+The toolbar ID comes from bounded read-only tables. A full scan requires agreement between duplicate definitions. On subsequent launches, the cached entry must still have the exact `kColorToolbar` name, valid read-only pointers, and consecutive neighboring color IDs. An invalid entry triggers the full scan again. A valid cache avoids the full table scan; no screen sampling or recurring module scan is used.
 
 These checks reduce the chance of a bad match; they cannot make private Brave functions permanent. Compiler or rendering changes can still require a mod update.
 

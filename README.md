@@ -98,7 +98,7 @@ The [advanced reference](docs/advanced.md) explains theme detection, log collect
 4. **Remove matching paint and clear old pixels.** Exact listed opaque colors become transparent. An allowlist of browser containers is cleared on repaint so previous tab labels and backgrounds do not leave trails. Interactive child views are not blanket-cleared.
 5. **Let Translucent Windows supply the backdrop.** Brave Acrylic leaves window styles, fullscreen transitions, and backdrop selection alone. Its GPU hook only adjusts compatible RGBA composition surfaces; HWND, YUV, and protected-video surfaces keep their original settings.
 
-Function addresses are cached in Windhawk’s per-mod storage for the exact `chrome.dll` build and rechecked before use. The named-color table is checked once per browser launch. There is no screenshot polling, webpage injection, or recurring full-module scan.
+Function addresses and the toolbar table entry are cached in Windhawk’s per-mod storage for the exact `chrome.dll` build and rechecked before use. A valid cache avoids scanning the full named-color table again. There is no screenshot polling, webpage injection, or recurring full-module scan.
 
 Function discovery is local: **no Brave debug-symbol download is used**.
 

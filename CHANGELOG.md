@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8.3 — Alpha
+
+- Parse process switches as complete Windows arguments so URLs cannot disable the browser hooks.
+- Skip repeated module lookups after attempting Chrome hook installation.
+- Cache and revalidate the named toolbar-color entry to avoid rescanning the full table on every launch.
+- Keep source-installation instructions in the GitHub README and simplify the README shown in Windhawk.
+- Document the GPU alpha hook's independence from per-window theme detection.
+
 ## 2.8.2 — Alpha
 
 - Initialize hooks directly when Chrome loads; remove startup polling and synchronize shutdown.
