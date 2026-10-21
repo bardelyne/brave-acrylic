@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.8.2 — Alpha
+
+- Initialize hooks directly when Chrome loads; remove startup polling and synchronize shutdown.
+- Remove the HWND swap-chain override; limit composition alpha to compatible RGBA surfaces, with driver fallback.
+- Remove window restyling, fullscreen interference, backdrop overrides, and the heartbeat thread.
+- Move the signature cache into Windhawk storage and color diagnostics into visible mod settings.
+- Publish color settings safely, restore empty-list defaults, and skip invalid rows with strict RGB parsing.
+- Strengthen native signatures beyond their prologues and remove unused dependencies and tracing tools.
+
 ## 2.8.1 — Alpha
 
 - Remove the unused optional symbol-download path and its diagnostic-only hooks. The working local resolver remains the normal rendering path.

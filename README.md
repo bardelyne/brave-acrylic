@@ -37,11 +37,9 @@ Brave Acrylic makes selected toolbar and vertical-tab backgrounds transparent so
 
 > **Seeing two sets of minimize, maximize, and close buttons?** Enable Brave's **Use compact mode** option in Appearance. The same fix is explained in the mod's Settings tab.
 
-### Install before the Windhawk submission is merged
+### Install from source
 
 Open [brave-acrylic.wh.cpp](brave-acrylic.wh.cpp), choose **Raw**, and copy the source. In Windhawk, open **Create a new mod**, replace the editor contents with that source, then compile and install it. No additional headers or DLLs are needed.
-
-Once the mod is accepted into Windhawk's catalog, it can be installed from the catalog normally.
 
 ## Advanced setup
 
@@ -62,7 +60,7 @@ To find another theme's colors:
 2. Take a screenshot and sample a flat area of the toolbar and sidebar. Avoid text, icons, borders, shadows, and hover effects.
 3. Add the sampled RGB values to the mod's settings, enable the mod, and restart Brave normally.
 
-Sample the **original paint color**, not an area already blended with acrylic. Enter colors as `RRGGBB`; a leading `#` is also accepted. Up to **16 colors** are supported. An empty list retains the built-in defaults.
+Sample the **original paint color**, not an area already blended with acrylic. Enter colors as `RRGGBB`; a leading `#` is also accepted. Up to **16 colors** are supported. An empty list restores the built-in defaults. Invalid rows are reported in the log and skipped; later valid rows are still used.
 
 Matching is exact. There is no tolerance setting that could also remove nearby colors.
 
@@ -76,7 +74,7 @@ The color list is shared across eligible palettes. An exact listed color can als
 
 ### Restart after changing colors
 
-Brave caches brushes and opacity information when windows are created. Saving new colors does not rebuild every cached surface. Close **all** Brave windows normally and reopen Brave. If Brave is configured to keep running in the background, exit that background instance normally as well.
+Restart Brave normally after enabling, disabling, or changing the mod. Brave caches brushes and opacity information when windows are created. Saving new colors does not rebuild every cached surface. Close **all** Brave windows normally and reopen Brave. If Brave is configured to keep running in the background, exit that background instance normally as well.
 
 ### Blur, tint, and backdrop
 
@@ -84,25 +82,25 @@ Use the required **Translucent Windows** mod to choose the background effect and
 
 These are different controls: the color list selects paint to remove, while the backdrop settings control what you see behind it.
 
-### Diagnostics and optional switches
+### Diagnostics
 
-Most users only need the color list. Optional switches are read at browser startup from `C:\ProgramData\Windhawk\brave-acrylic.cfg`.
+Turn on **Log colours (diagnostics)** in the mod's Settings tab to report original color IDs and RGB values. Capture them through Windhawk’s **Advanced → Debug logging → Detailed debug logs → Show log output**, then turn diagnostics off again.
 
-For example, `logColors=1` reports native color IDs and original RGB values through **Windhawk's debug logging**. Use it temporarily when identifying a theme, then turn it off.
+Settings and the signature cache use Windhawk’s own storage. No separate configuration file or administrator access is needed to edit the mod settings.
 
-The [advanced reference](docs/advanced.md) explains every switch, log collection, and the resolver's safeguards.
+The [advanced reference](docs/advanced.md) explains theme detection, log collection, startup behavior, and cache validation.
 
 ## How it works
 
-1. **Find Brave's native drawing functions.** The default resolver scans `chrome.dll` at actual x64 function entries. Each required function must have one unique signature match.
+1. **Find Brave's native drawing functions.** A loader hook initializes the mod when `chrome.dll` is loaded, before Brave's caller starts using it. The resolver scans actual x64 function entries, with one unique match required for each function. There is no startup polling thread.
 2. **Discover the toolbar color ID.** It finds `kColorToolbar` in Brave's own named-color tables. The enum number is discovered rather than fixed in the mod, and duplicate definitions must agree.
 3. **Check the original palette for each window.** The window's native color provider supplies its original toolbar color. An unmatched or unavailable palette keeps its original background painting.
 4. **Remove matching paint and clear old pixels.** Exact listed opaque colors become transparent. An allowlist of browser containers is cleared on repaint so previous tab labels and backgrounds do not leave trails. Interactive child views are not blanket-cleared.
-5. **Let Windows composite the backdrop.** Frame adjustments apply to real browser windows. Owned menus and popups are excluded from those frame adjustments. Translucent Windows provides the configured background effect.
+5. **Let Translucent Windows supply the backdrop.** Brave Acrylic leaves window styles, fullscreen transitions, and backdrop selection alone. Its GPU hook only adjusts compatible RGBA composition surfaces; HWND, YUV, and protected-video surfaces keep their original settings.
 
-Function addresses are cached for the exact `chrome.dll` build and rechecked before use. The named-color table is checked once per browser launch. There is no screenshot polling, webpage injection, or recurring full-module scan.
+Function addresses are cached in Windhawk’s per-mod storage for the exact `chrome.dll` build and rechecked before use. The named-color table is checked once per browser launch. There is no screenshot polling, webpage injection, or recurring full-module scan.
 
-Function discovery is local: **no Brave debug-symbol download is used**. The obsolete optional symbol-server path was removed in 2.8.1.
+Function discovery is local: **no Brave debug-symbol download is used**.
 
 ## Compatibility
 
