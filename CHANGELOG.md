@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.8.4 — Alpha
+
+- Hide Windows' duplicate caption buttons while keeping Brave's controls, acrylic, and resize borders.
+- Apply the caption option to existing and new browser frames without polling, preserve Chromium's logical fullscreen style, and restore the native bit when disabled.
+- Stop process-switch parsing at `--single-argument` so file-association paths containing ` --type=` cannot disable the browser hooks.
+- Clarify custom-color setup with Snipping Tool instructions and reorganize requirements and compatibility.
+
 ## 2.8.3 — Alpha
 
 - Parse process switches as complete Windows arguments so URLs cannot disable the browser hooks.
@@ -21,7 +28,7 @@
 
 - Remove the unused optional symbol-download path and its diagnostic-only hooks. The working local resolver remains the normal rendering path.
 - Use the standard architecture declaration and explicitly refuse unsupported native processors before installing hooks.
-- Retain the updated setup README, required Translucent Windows notice, alpha status, and compact-mode advice.
+- Retain the updated setup README, required Translucent Windows notice, and alpha status.
 
 ## 2.8 — Alpha
 

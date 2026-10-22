@@ -9,6 +9,7 @@ All user settings are in Windhawk. No separate configuration file or administrat
 | Setting | Default | Purpose |
 | --- | --- | --- |
 | **Colours to make transparent** | `333C4D`, `1D2636` | Up to 16 original RGB colors. Include the theme's main toolbar color to enable its palette. |
+| **Hide duplicate Windows buttons** | On | Hide the native button layer underneath Brave's controls; applies immediately and restores it when disabled. |
 | **Log colours (diagnostics)** | Off | Report native color IDs and original RGB values through Windhawk's log. Enable temporarily when identifying a theme. |
 
 Colors must contain exactly six hexadecimal digits (`RRGGBB`), optionally preceded by `#`. Leading and trailing whitespace are accepted. Alpha channels, extra digits, and invalid characters are rejected. A bad row is logged and skipped without hiding later valid entries. If there are no usable entries, the built-in defaults are restored.
@@ -33,9 +34,9 @@ In the browser process, the mod hooks `LoadLibraryExW` from `kernelbase.dll` whe
 
 If `chrome.dll` is already present, the initial hook batch is registered in `Wh_ModInit` and activated through Windhawk's normal initialization sequence. A post-init check covers loading between the initial module check and activation of the loader hook. Repeated loads do not install duplicate hooks.
 
-Installation and `Wh_ModBeforeUninit` share a barrier. Disabling the mod stops activation and waits for any in-flight installation before the callback returns. There are no startup polling threads, worker-thread timeouts, or background window-restyling loops.
+Installation and `Wh_ModBeforeUninit` share a barrier. Disabling the mod stops activation and waits for any in-flight installation before the callback returns. There are no startup polling threads, worker-thread timeouts, or background window-restyling loops. The caption option updates existing frames once and handles later creation/style changes through Windows API hooks.
 
-Process types are read from complete Windows command-line arguments. A URL containing `--type=` cannot be mistaken for a process switch. Renderer and utility processes are skipped before reading settings. The GPU process only installs the narrowly scoped composition hook; it does not read browser color settings.
+Process types are read from complete Windows command-line arguments. A URL containing `--type=` cannot be mistaken for a process switch. Parsing stops at `--` or Chromium's `--single-argument` association switch, so spaces in an opened path cannot create false process switches. Renderer and utility processes are skipped before reading settings. The GPU process only installs the narrowly scoped composition hook; it does not read browser color settings.
 
 ## GPU behavior
 
@@ -47,7 +48,7 @@ If the driver rejects the adjusted alpha mode as invalid or unsupported, creatio
 
 The GPU hook runs independently of the browser's theme detection and native-function resolver. Eligible composition surfaces can receive the alpha override even when the browser paint path is disabled or a window uses an unmatched theme. Opaque pixels stay opaque. If you see unintended transparent areas while the paint path is inactive, include that detail in your report; the GPU override is a separate place to investigate.
 
-`dxgi.dll` is loaded from System32, and its module reference is kept until Windhawk removes the hook. Translucent Windows controls backdrop selection. Brave Acrylic does not set DWM backdrop attributes, extend frames, add resize borders, or interfere with fullscreen window styles.
+`dxgi.dll` is loaded from System32, and its module reference is kept until Windhawk removes the hook. Translucent Windows controls backdrop selection. Brave Acrylic does not set DWM backdrop attributes, extend frames, or add resize borders. The caption option removes only the native `WS_SYSMENU` bit; caption, sizing, minimize, and maximize bits stay under Brave's control.
 
 ## Collect logs
 
@@ -79,4 +80,14 @@ Only explicitly allowed browser containers are cleared. Interactive child views 
 
 No website scripts, DOM overrides, extensions, or webpage-background hooks are installed. Restart Brave normally after enabling, disabling, or changing the mod because Brave caches native brushes and opacity information.
 
-If minimize/maximize/close buttons appear twice, enable **Use compact mode** in Brave's Appearance settings. This advice also appears in the mod's Settings tab.
+## Native caption buttons
+
+**Hide duplicate Windows buttons** is enabled by default. Windows can draw its own minimize/maximize/close buttons underneath a transparent Chromium toolbar; hiding that native layer leaves Brave's buttons visible.
+
+The browser process hooks `CreateWindowExW`, both wide window-style getters, and both wide window-style setters. Only unowned, resizable `Chrome_WidgetWin_1` frames in that process are eligible. Child windows, tool windows, owned dialogs, and frames without minimize/maximize support are excluded. There is no window polling.
+
+A small window property records each native system-menu bit removed by the mod. Style reads and the old-style value returned by writes preserve that logical bit for Chromium, including its saved fullscreen state. The real style seen by Windows omits the native buttons. API errors are preserved, and a window whose application explicitly removes that bit is no longer owned by the fix.
+
+Changing the option updates existing frames immediately. Disabling the option or unloading the mod restores only the recorded system-menu bit and removes the property. Other style changes are retained. No window subclass or callback is left behind.
+
+If a special browser frame needs Windows' original controls, disable the option.
