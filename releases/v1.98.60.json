@@ -1,0 +1,38 @@
+{
+  "format": 1,
+  "key": "75D8DB6BA8EC43F64C4C44205044422E1",
+  "machine": 34404,
+  "timestamp": 1792569403,
+  "imageSize": 336756736,
+  "records": 4089691,
+  "infoAge": 2,
+  "dbiAge": 1,
+  "sha256": "187bc1ddee623de5597519c7073f575d2735d4e83b13e283070850ee97936f2c",
+  "functions": [
+    {
+      "name": "?GetColor@ColorProvider@ui@@QEBAIH@Z",
+      "rva": 100009776,
+      "length": 32
+    },
+    {
+      "name": "?OnPaintBackground@View@views@@MEAAXPEAVCanvas@gfx@@@Z",
+      "rva": 5652544,
+      "length": 32
+    },
+    {
+      "name": "?DrawColor@Canvas@gfx@@QEAAXIW4SkBlendMode@@@Z",
+      "rva": 65373520,
+      "length": 32
+    }
+  ],
+  "tag": "v1.98.60",
+  "extractor": 1,
+  "createdUtc": "2026-10-24T10:06:51.590Z",
+  "source": {
+    "release": "https://github.com/brave/brave-browser/releases/download/v1.98.60/brave-v1.98.60-win32-x64.zip",
+    "archiveSha256": "2c937c91f5061fb1034097c932112b06f429d5bdd08bc5e32921b88609d011e7",
+    "dllSha256": "c68b8057218e0c551e9916ba34872aedcc96bf2ff1bcec5f87971332d148e5f9",
+    "symbols": "https://brave-symbols.s3.brave.com/chrome.dll.pdb/75D8DB6BA8EC43F64C4C44205044422E1/chrome.dll.pdb"
+  },
+  "elapsedMs": 46442
+}
