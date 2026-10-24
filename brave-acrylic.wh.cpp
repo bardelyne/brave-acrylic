@@ -2,14 +2,14 @@
 // @id              brave-acrylic
 // @name            Brave Acrylic
 // @description     Alpha: Acrylic toolbar and vertical tabs for Brave; requires Translucent Windows
-// @version         2.8.4
+// @version         2.10
 // @author          bardelyne
 // @github          https://github.com/bardelyne
 // @homepage        https://github.com/bardelyne/brave-acrylic
 // @license         MIT
 // @architecture    x86-64
 // @include         brave.exe
-// @compilerOptions -lshell32 -luser32
+// @compilerOptions -lshell32 -luser32 -lwinhttp
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
@@ -31,12 +31,12 @@ Brave Acrylic makes selected toolbar and vertical-tab backgrounds transparent so
 
 ## Compatibility
 
-- Tested on **Windows 11 26H2**, **Brave 1.97.59** / **Chromium 155.0.8059.85**, x64.
+- Tested on **Windows 11 26H2**, **Brave 1.98.60 / Chromium 156**, x64.
 - **Windows 10 compatibility is unverified.** Brave Acrylic has no Windows 11 version gate, but the required backdrop must also work on the target system. Translucent Windows documents its SystemBackdrop modes as requiring Windows 11 22H2 or later; do not assume the full setup works on Windows 10.
 - The per-window check has been tested with regular, private, and Tor window themes.
 - Native ARM64 and 32-bit Brave are not supported. Unsupported native processes are refused before any hooks are installed.
 
-**This is an alpha release, not a guarantee of future Brave compatibility.** The resolver tolerates changing relocation addresses and validates cached function boundaries, but it still works with private Brave functions. If a required function or the named-color table cannot be identified, the transparency path stays disabled.
+**This is an alpha release, not a guarantee of future Brave compatibility.** The resolver tolerates changing relocation addresses and validates cached function boundaries, but it still works with private Brave functions. If local function discovery fails, exact-build compatibility data may restore it after a normal restart. If the functions or named-color table cannot be validated, transparency stays disabled.
 
 ## Fast setup
 
@@ -84,6 +84,14 @@ An unlisted toolbar color keeps that palette's normal background painting. There
 
 Restart Brave normally after enabling, disabling, or changing the mod. Brave caches brushes and opacity information when windows are created. Saving new colors does not rebuild every cached surface. Close **all** Brave windows normally and reopen Brave. If Brave is configured to keep running in the background, exit that background instance normally as well.
 
+### Recovery after Brave updates
+
+**Download compatibility data after Brave updates** is enabled by default. Working builds use local detection or their existing cache without a network request. If function detection fails, a single background check looks for a **256-byte file for the exact installed Brave build** on this repository's `compatibility-v1` branch.
+
+The mod checks the build identity, executable function boundaries, code fingerprints, and toolbar-color table before saving the file in Windhawk storage. **Restart all Brave windows normally after a successful download** to apply it. The cached data then works offline. Missing or invalid data leaves transparency disabled; it never falls back to another build's addresses.
+
+GitHub Actions handles the large official symbol downloads. Your PC does not download PDBs or updated executable code. Disable the setting to prevent compatibility network checks; valid cached data remains usable. A changed calling convention, removed function, or different painting behavior can still require a mod update.
+
 ### Blur, tint, and backdrop
 
 Use the required **Translucent Windows** mod to choose the background effect and tint for `brave.exe`. Brave Acrylic selects which original browser colors become transparent; Translucent Windows supplies the backdrop visible through them.
@@ -100,14 +108,14 @@ The [advanced reference](https://github.com/bardelyne/brave-acrylic/blob/main/do
 
 ## How it works
 
-1. **Find Brave's native drawing functions.** A loader hook initializes the mod when `chrome.dll` is loaded, before Brave's caller starts using it. The resolver scans actual x64 function entries, with one unique match required for each function. There is no startup polling thread.
+1. **Find three native drawing functions.** A loader hook initializes the mod when `chrome.dll` is loaded, before Brave's caller starts using it. The resolver scans actual x64 function entries, with one unique match required for each function. Two private functions are hooked: color lookup and background painting. A third, canvas clearing, is called directly. There is no startup polling thread. A validated exact-build compatibility cache can supply the same three addresses when compiled patterns change.
 2. **Discover the toolbar color ID.** It finds `kColorToolbar` in Brave's own named-color tables. The enum number is discovered rather than fixed in the mod, and duplicate definitions must agree.
 3. **Check the original palette for each window.** The window's native color provider supplies its original toolbar color. An unmatched or unavailable palette keeps its original background painting.
-4. **Remove matching paint and clear old pixels.** Exact listed opaque colors become transparent. An allowlist of browser containers is cleared on repaint so previous tab labels and backgrounds do not leave trails. Interactive child views are not blanket-cleared.
+4. **Remove matching paint and clear old pixels.** Exact listed opaque colors become transparent. During each native background paint, the mod tracks whether an eligible color was replaced. If so, it clears that background after the original painter returns, removing cached pixels before Brave draws the foreground. Nested paints keep separate state.
 5. **Keep one set of window buttons.** For unowned, resizable Chromium browser frames, the optional caption fix hides Windows' underlying buttons. Brave retains its logical window style so its controls and fullscreen restoration continue to work. Turning the option or mod off restores the native buttons. Popups, owned dialogs, and tool windows are excluded.
 6. **Let Translucent Windows supply the backdrop.** The caption fix leaves sizing and fullscreen frame bits alone. Translucent Windows controls the backdrop. The GPU hook only adjusts compatible RGBA composition surfaces; HWND, YUV, and protected-video surfaces keep their original settings.
 
-Function addresses and the toolbar table entry are cached in Windhawk’s per-mod storage for the exact `chrome.dll` build and rechecked before use. A valid cache avoids scanning the full named-color table again. There is no screenshot polling, webpage injection, or recurring full-module scan.
+Function addresses and the toolbar table entry are cached in Windhawk’s per-mod storage for the matching `chrome.dll` build and rechecked before use. Optional compatibility checks run on a separate worker only after local detection fails; the worker saves data for the next restart and does not alter a live paint path. A valid cache avoids scanning the full named-color table again. There is no screenshot polling, webpage injection, or recurring full-module scan.
 
 ## Troubleshooting
 
@@ -152,6 +160,13 @@ Created by [bardelyne](https://github.com/bardelyne) with AI assistance. Built f
     Log original native colour IDs and RGB values in Windhawk to identify
     theme colours. Enable Windhawk debug logging to collect them, then turn
     this off. No page contents or URLs are logged.
+- downloadCompatibilityData: true
+  $name: Download compatibility data after Brave updates
+  $description: >-
+    If local function detection fails, check GitHub in the background for a
+    small file matching this exact Brave build. Validated data is cached for
+    offline use on the next normal Brave restart. No debug symbols are
+    downloaded to your PC. Disable this to prevent network checks.
 */
 // ==/WindhawkModSettings==
 
@@ -168,13 +183,15 @@ BOOL Wh_ModInit() {
 
 #include <dxgi1_2.h>
 #include <shellapi.h>
+#include <winhttp.h>
 #include <atomic>
 #include <cstdio>
+#include <cwchar>
 #include <cstring>
 #include <windhawk_utils.h>
 
 static constexpr int kMaxTargetColors = 16;
-static constexpr int kRequiredFunctions = 5;
+static constexpr int kRequiredFunctions = 3;
 static constexpr unsigned int kDefaultColors[] = {0x333C4D, 0x1D2636};
 
 struct ColorSettings {
@@ -193,12 +210,17 @@ static bool s_activateAfterInit = false;
 static bool s_isBrowserProcess = false;
 static HMODULE s_dxgiModule = nullptr;
 static int s_toolbarColorId = -1;
+static std::atomic<bool> s_downloadCompatibility{true};
+// Worker lifecycle and the pending module/table entry are protected by s_initLock.
+static bool s_afterInit = false;
+static bool s_downloadAttempted = false;
+static HANDLE s_downloadThread = nullptr;
+static HANDLE s_downloadStop = nullptr;
+static HMODULE s_recoveryModule = nullptr;
+static size_t s_recoveryToolbarRow = 0;
 
-struct StringView { const char* data; size_t length; };
 using GetColor_t = unsigned int (*)(const void*, int);
 using DrawColor_t = void (*)(void*, unsigned int, int);
-using ViewGetClassNameW_t = StringView* (*)(const void*, StringView*);
-using ViewGetColorProvider_t = const void* (*)(const void*);
 using ViewOnPaintBackground_t = void (*)(void*, void*);
 using LoadLibraryExW_t = decltype(&LoadLibraryExW);
 using CreateSwapChainForComposition_t = HRESULT (WINAPI*)(
@@ -206,8 +228,6 @@ using CreateSwapChainForComposition_t = HRESULT (WINAPI*)(
 
 static GetColor_t pOrigGetColor = nullptr;
 static DrawColor_t pCanvasDrawColor = nullptr;
-static ViewGetClassNameW_t pViewGetClassNameW = nullptr;
-static ViewGetColorProvider_t pViewGetColorProvider = nullptr;
 static ViewOnPaintBackground_t pOrigViewOnPaintBackground = nullptr;
 static LoadLibraryExW_t pOrigLoadLibraryExW = nullptr;
 static CreateSwapChainForComposition_t pOrigCreateSwapChainForComposition = nullptr;
@@ -415,6 +435,8 @@ static void LoadModSettings() {
     s_logColors.store(Wh_GetIntSetting(L"logColors") != 0, std::memory_order_relaxed);
     s_hideNativeCaptionButtons.store(Wh_GetIntSetting(L"hideNativeCaptionButtons") != 0,
                                     std::memory_order_relaxed);
+    s_downloadCompatibility.store(Wh_GetIntSetting(L"downloadCompatibilityData") != 0,
+                                  std::memory_order_release);
 
     char list[kMaxTargetColors * 7 + 1]{};
     size_t written = 0;
@@ -440,8 +462,7 @@ static bool IsThemeBackground(unsigned int color) {
 }
 
 static bool HasCompleteTransparencyPath() {
-    return pOrigGetColor && pCanvasDrawColor && pViewGetClassNameW &&
-           pViewGetColorProvider && pOrigViewOnPaintBackground && s_toolbarColorId >= 0;
+    return pOrigGetColor && pCanvasDrawColor && pOrigViewOnPaintBackground && s_toolbarColorId >= 0;
 }
 
 static bool ReadToolbarColor(const void* provider, unsigned int* color) {
@@ -450,11 +471,6 @@ static bool ReadToolbarColor(const void* provider, unsigned int* color) {
     *color = pOrigGetColor(provider, s_toolbarColorId);
     // gfx::kPlaceholderColor denotes a missing native colour ID.
     return *color != 0xFFFF0000 && (*color >> 24) == 0xFF;
-}
-
-static bool ThemeMatches(const void* provider) {
-    unsigned int toolbar;
-    return ReadToolbarColor(provider, &toolbar) && IsThemeBackground(toolbar & 0xFFFFFF);
 }
 
 static bool ShouldReplaceColor(const void* provider, unsigned int color) {
@@ -467,32 +483,6 @@ static bool ShouldReplaceColor(const void* provider, unsigned int color) {
                          ContainsColor(s_colors, toolbar & 0xFFFFFF);
     ReleaseSRWLockShared(&s_colorsLock);
     return replace;
-}
-
-static bool CanClearForTheme(const void* view) {
-    return view && s_transparencyReady.load(std::memory_order_acquire) &&
-           pViewGetColorProvider && ThemeMatches(pViewGetColorProvider(view));
-}
-
-static bool ShouldClearView(const void* view) {
-    if (!view || !pViewGetClassNameW) return false;
-    StringView name{};
-    pViewGetClassNameW(view, &name);
-    if (!name.data || !name.length || name.length >= 128) return false;
-    static constexpr const char* containers[] = {
-        "BrowserView", "BraveBrowserView",
-        "VerticalTabStripRegionView", "BraveVerticalTabStripRegionView",
-        "VerticalTabStripContainerView", "BraveVerticalTabStripContainerView",
-        "TopContainerView", "ToolbarView", "BraveToolbarView",
-        "BookmarkBarView", "BraveBookmarkBarView", "BrowserFrame",
-        "ContentsSeparator", "RoundedSeparator", "ContentsBackground",
-        "VerticalTabStripBackgroundBlurBackdrop",
-    };
-    for (const char* container : containers) {
-        if (strlen(container) == name.length &&
-            memcmp(name.data, container, name.length) == 0) return CanClearForTheme(view);
-    }
-    return false;
 }
 
 static void LogDiscoveredColor(int id, unsigned int color) {
@@ -516,19 +506,41 @@ static void LogDiscoveredColor(int id, unsigned int color) {
                       static_cast<int>(IsThemeBackground(color & 0xFFFFFF)));
 }
 
+// Track native color requests only while one background is being painted.
+// Nested paints have independent state; no View layout, getter or class-name
+// dependency is needed. The scope never retains a Brave object after the call.
+struct BackgroundPaintScope;
+static thread_local BackgroundPaintScope* s_backgroundPaintScope = nullptr;
+struct BackgroundPaintScope {
+    BackgroundPaintScope* previous = s_backgroundPaintScope;
+    bool matched = false;
+    BackgroundPaintScope() { s_backgroundPaintScope = this; }
+    ~BackgroundPaintScope() { s_backgroundPaintScope = previous; }
+    BackgroundPaintScope(const BackgroundPaintScope&) = delete;
+    BackgroundPaintScope& operator=(const BackgroundPaintScope&) = delete;
+};
+
 static unsigned int GetColor_Hook(const void* provider, int id) {
     const unsigned int color = pOrigGetColor ? pOrigGetColor(provider, id) : 0;
     LogDiscoveredColor(id, color);
-    return s_transparencyReady.load(std::memory_order_acquire) &&
-           ShouldReplaceColor(provider, color) ? 0 : color;
+    if (s_transparencyReady.load(std::memory_order_acquire) && ShouldReplaceColor(provider, color)) {
+        if (s_backgroundPaintScope) s_backgroundPaintScope->matched = true;
+        return 0;
+    }
+    return color;
 }
 
 static void ViewOnPaintBackground_Hook(void* view, void* canvas) {
-    if (s_transparencyReady.load(std::memory_order_acquire) && canvas && ShouldClearView(view)) {
-        pCanvasDrawColor(canvas, 0, 0 /* SkBlendMode::kClear */);
+    if (!s_transparencyReady.load(std::memory_order_acquire) || !view || !canvas) {
+        if (pOrigViewOnPaintBackground) pOrigViewOnPaintBackground(view, canvas);
         return;
     }
+    BackgroundPaintScope scope;
     if (pOrigViewOnPaintBackground) pOrigViewOnPaintBackground(view, canvas);
+    // Finish with a real clear rather than a transparent SrcOver fill. This
+    // removes cached pixels even when the native paint path assumes opacity.
+    if (scope.matched && s_transparencyReady.load(std::memory_order_acquire))
+        pCanvasDrawColor(canvas, 0, 0 /* SkBlendMode::kClear */);
 }
 
 static bool SupportsCompositionAlpha(DXGI_FORMAT format) {
@@ -654,33 +666,9 @@ static const char kMaskDrawColor[] =
     "xxxxxxx????xxxxxxxxxxx????xxxxxxxxxxxxxxxxxxxxxx????"
     "xxxxxxxxxxxxxxxxxxxxxxxxx????xx????";
 
-static constexpr unsigned char kSigGetClassNameW[] = {
-    0x56, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x89, 0xD6, 0x48, 0x8B, 0x81, 0x00,
-    0x01, 0x00, 0x00, 0x48, 0x81, 0xC1, 0x00, 0x01, 0x00, 0x00, 0x48, 0x8B,
-    0x40, 0x08, 0xFF, 0x15, 0x88, 0x9B, 0x33, 0x0F, 0x0F, 0x10, 0x40, 0x08,
-    0x0F, 0x11, 0x06, 0x48, 0x89, 0xF0, 0x48, 0x83, 0xC4, 0x20, 0x5E, 0xC3};
-static constexpr char kMaskGetClassNameW[] =
-    "xxxxxxxxxxx????xxx????xxx?xx????xxx?xxxxxxxxxxxx";
-
-static constexpr unsigned char kSigViewColorProvider[] = {
-    0x48, 0x83, 0xEC, 0x28, 0x48, 0x8B, 0x01, 0x48, 0x8B, 0x40, 0x58, 0x48,
-    0x8D, 0x15, 0x3E, 0xAE, 0x61, 0x00, 0x48, 0x39, 0xD0, 0x75, 0x2D, 0x48,
-    0x8B, 0x89, 0x90, 0x01, 0x00, 0x00, 0x48, 0x85, 0xC9, 0x74, 0x37, 0x48,
-    0x8B, 0x41, 0x48, 0x48, 0x83, 0xC1, 0x48, 0x48, 0x8B, 0x40, 0x08, 0x48,
-    0x8D, 0x15, 0x3A, 0x00, 0x00, 0x00, 0x48, 0x39, 0xD0, 0x75, 0x14, 0x48,
-    0x83, 0xC4, 0x28, 0xE9, 0x2C, 0x00, 0x00, 0x00, 0xFF, 0x15, 0x3E, 0x7F,
-    0x12, 0x0D, 0x48, 0x89, 0xC1, 0xEB, 0xCF, 0x48, 0x83, 0xC4, 0x28, 0x48,
-    0xFF, 0x25, 0x2E, 0x7F, 0x12, 0x0D, 0x31, 0xC0, 0x48, 0x83, 0xC4, 0x28,
-    0xC3};
-static constexpr char kMaskViewColorProvider[] =
-    "xxxxxxxxxx?xxx????xxxx?xxx????xxxx?xxx?xxxxxxx?xxx????xxxx?xxxxx????xx??"
-    "??xxxx?xxxxxxx????xxxxxxx";
-static_assert(sizeof(kMaskViewColorProvider) == sizeof(kSigViewColorProvider) + 1);
 static_assert(sizeof(kMaskGetColor) == sizeof(kSigGetColor) + 1);
 static_assert(sizeof(kMaskOnPaintBackground) == sizeof(kSigOnPaintBackground) + 1);
 static_assert(sizeof(kMaskDrawColor) == sizeof(kSigDrawColor) + 1);
-static_assert(sizeof(kMaskGetClassNameW) == sizeof(kSigGetClassNameW) + 1);
-
 
 // Discover the toolbar ID from Chromium's own read-only {id, name} tables.
 // IDs can move between releases; do not hardcode them or read View member offsets.
@@ -859,7 +847,7 @@ static bool FunctionContains(HMODULE mod, size_t rva, size_t length) {
 
 static bool ScanAll(HMODULE mod, const unsigned char* text, size_t size,
                     const Signature* sigs, int count, ScanHit* out) {
-    unsigned int first4[5]{};
+    unsigned int first4[kRequiredFunctions]{};
     if (count <= 0 || count > static_cast<int>(ARRAYSIZE(first4))) return false;
     for (int i = 0; i < count; ++i) {
         out[i] = {};
@@ -900,13 +888,13 @@ struct SignatureCache {
     unsigned long long toolbarRowRva;
     char version[64];
 };
-static_assert(sizeof(SignatureCache) == 128);
+static_assert(sizeof(SignatureCache) == 112);
 
 static unsigned long long BuildKey(HMODULE module) {
     const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
     const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS64*>(
         reinterpret_cast<const unsigned char*>(module) + dos->e_lfanew);
-    constexpr unsigned long long signatureRevision = 14;
+    constexpr unsigned long long signatureRevision = 16;
     return ((static_cast<unsigned long long>(nt->FileHeader.TimeDateStamp) << 32) ^
             nt->OptionalHeader.SizeOfImage) + signatureRevision;
 }
@@ -956,6 +944,258 @@ static void SaveCache(unsigned long long key, const char* version, const size_t*
     }
 }
 
+// Data format shared with tools/symbol-map.cjs. The ABI order is fixed:
+// ColorProvider::GetColor, View::OnPaintBackground, Canvas::DrawColor(SkBlendMode).
+// New calling conventions require a new format, not different downloaded RVAs.
+struct FunctionFingerprint {
+    DWORD rva;
+    DWORD length;
+    unsigned char code[32];
+    unsigned char mask[32];
+};
+struct CompatibilityMap {
+    DWORD magic;
+    DWORD format;
+    GUID guid;
+    DWORD age;
+    DWORD machine;
+    DWORD timestamp;
+    DWORD imageSize;
+    FunctionFingerprint functions[kRequiredFunctions];
+};
+struct CompatibilityCache {
+    CompatibilityMap map;
+    unsigned long long toolbarRowRva;
+    char version[64];
+};
+static_assert(sizeof(CompatibilityMap) == 256);
+static_assert(sizeof(CompatibilityCache) == 328);
+struct BuildIdentity { GUID guid; DWORD age, machine, timestamp, imageSize; };
+
+static bool GetBuildIdentity(HMODULE module, BuildIdentity* identity) {
+    ReadOnlyImage image{};
+    if (!GetReadOnlyImage(module, &image)) return false;
+    const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(image.base);
+    const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS64*>(image.base + dos->e_lfanew);
+    if (nt->FileHeader.Machine != IMAGE_FILE_MACHINE_AMD64 ||
+        nt->OptionalHeader.NumberOfRvaAndSizes <= IMAGE_DIRECTORY_ENTRY_DEBUG) return false;
+    const auto& dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DEBUG];
+    if (!dir.Size || dir.Size % sizeof(IMAGE_DEBUG_DIRECTORY) ||
+        !image.Contains(dir.VirtualAddress, dir.Size)) return false;
+    bool found = false;
+    BuildIdentity result{};
+    for (size_t p = 0; p < dir.Size; p += sizeof(IMAGE_DEBUG_DIRECTORY)) {
+        IMAGE_DEBUG_DIRECTORY debug{};
+        memcpy(&debug, image.base + dir.VirtualAddress + p, sizeof(debug));
+        if (debug.Type != IMAGE_DEBUG_TYPE_CODEVIEW) continue;
+        if (debug.SizeOfData < 24 || debug.SizeOfData > 4096 ||
+            !image.Contains(debug.AddressOfRawData, debug.SizeOfData)) return false;
+        const auto* cv = image.base + debug.AddressOfRawData;
+        if (memcmp(cv, "RSDS", 4)) continue;
+        const char* name = reinterpret_cast<const char*>(cv + 24);
+        const char* end = static_cast<const char*>(memchr(name, 0, debug.SizeOfData - 24));
+        if (!end) return false;
+        const char* leaf = name;
+        for (const char* at = name; at < end; ++at) if (*at == '\\' || *at == '/') leaf = at + 1;
+        if (strcmp(leaf, "chrome.dll.pdb")) return false;
+        BuildIdentity candidate{};
+        memcpy(&candidate.guid, cv + 4, sizeof(GUID));
+        memcpy(&candidate.age, cv + 20, sizeof(DWORD));
+        const GUID empty{};
+        if (!candidate.age || !memcmp(&candidate.guid, &empty, sizeof(GUID))) return false;
+        if (found && (memcmp(&candidate.guid, &result.guid, sizeof(GUID)) ||
+                      candidate.age != result.age)) return false;
+        result = candidate;
+        found = true;
+    }
+    if (!found) return false;
+    result.machine = nt->FileHeader.Machine;
+    result.timestamp = nt->FileHeader.TimeDateStamp;
+    result.imageSize = nt->OptionalHeader.SizeOfImage;
+    *identity = result;
+    return true;
+}
+
+static bool ValidateCompatibilityMap(HMODULE module, const CompatibilityMap& map,
+                                      size_t* rva) {
+    BuildIdentity id{};
+    if (map.magic != 0x504D4142 || map.format != 1 || !GetBuildIdentity(module, &id) ||
+        memcmp(&map.guid, &id.guid, sizeof(GUID)) || map.age != id.age ||
+        map.machine != id.machine || map.timestamp != id.timestamp || map.imageSize != id.imageSize)
+        return false;
+    const unsigned char* text = nullptr;
+    size_t textSize = 0;
+    if (!GetTextSection(module, &text, &textSize)) return false;
+    const auto* base = reinterpret_cast<const unsigned char*>(module);
+    const size_t start = text - base;
+    for (int i = 0; i < kRequiredFunctions; ++i) {
+        const auto& f = map.functions[i];
+        if (!f.rva || f.length < 16 || f.length > 32 || f.rva < start ||
+            f.rva - start > textSize || f.length > textSize - (f.rva - start) ||
+            !FunctionContains(module, f.rva, f.length)) return false;
+        unsigned fixed = 0;
+        for (unsigned j = 0; j < 32; ++j) {
+            if (f.mask[j] != 0 && f.mask[j] != 0xFF) return false;
+            if (j >= f.length) {
+                if (f.mask[j] || f.code[j]) return false;
+                continue;
+            }
+            if (f.mask[j]) {
+                if (base[f.rva + j] != f.code[j]) return false;
+                ++fixed;
+            }
+        }
+        if (fixed < 16) return false;
+        for (int j = 0; j < i; ++j) if (map.functions[j].rva == f.rva) return false;
+    }
+    // Publish addresses only after every entry passed. No downloaded code is run.
+    for (int i = 0; i < kRequiredFunctions; ++i) rva[i] = map.functions[i].rva;
+    return true;
+}
+
+static bool LoadCompatibilityCache(HMODULE module, size_t* rva, size_t* row, int* toolbarId) {
+    CompatibilityCache cache{};
+    if (Wh_GetBinaryValue(L"compatibilityMapV1", &cache, sizeof(cache)) != sizeof(cache) ||
+        !memchr(cache.version, 0, sizeof(cache.version)) ||
+        !ValidateCompatibilityMap(module, cache.map, rva)) return false;
+    ReadOnlyImage image{};
+    if (!GetReadOnlyImage(module, &image)) return false;
+    const int id = ReadToolbarColorId(image, static_cast<size_t>(cache.toolbarRowRva));
+    if (id < 0) return false;
+    *row = static_cast<size_t>(cache.toolbarRowRva);
+    *toolbarId = id;
+    return true;
+}
+
+static bool FormatBuildKey(const BuildIdentity& id, wchar_t* key, size_t count) {
+    const auto& g = id.guid;
+    const int n = std::swprintf(key, count,
+        L"%08X%04X%04X%02X%02X%02X%02X%02X%02X%02X%02X%X",
+        static_cast<unsigned>(g.Data1), static_cast<unsigned>(g.Data2), static_cast<unsigned>(g.Data3),
+        g.Data4[0], g.Data4[1], g.Data4[2], g.Data4[3], g.Data4[4], g.Data4[5], g.Data4[6], g.Data4[7],
+        static_cast<unsigned>(id.age));
+    return n > 32 && static_cast<size_t>(n) < count;
+}
+
+struct InternetHandle {
+    HINTERNET value = nullptr;
+    ~InternetHandle() { if (value) WinHttpCloseHandle(value); }
+};
+static bool DownloadAllowed(HANDLE stop, ULONGLONG deadline) {
+    return s_downloadCompatibility.load(std::memory_order_acquire) &&
+           WaitForSingleObject(stop, 0) == WAIT_TIMEOUT && GetTickCount64() < deadline;
+}
+static bool SetDownloadTimeouts(HINTERNET handle, HANDLE stop, ULONGLONG deadline) {
+    if (!DownloadAllowed(stop, deadline)) return false;
+    const ULONGLONG now = GetTickCount64();
+    if (now >= deadline) return false;
+    const int remaining = static_cast<int>(deadline - now);
+    const int timeout = remaining < 2000 ? remaining : 2000;
+    return WinHttpSetTimeouts(handle, timeout, timeout, timeout, timeout) != FALSE;
+}
+static bool FetchCompatibilityMap(const BuildIdentity& id, HANDLE stop, CompatibilityMap* output) {
+    wchar_t key[48]{}, path[192]{};
+    if (!FormatBuildKey(id, key, ARRAYSIZE(key))) return false;
+    std::swprintf(path, ARRAYSIZE(path),
+        L"/bardelyne/brave-acrylic/compatibility-v1/maps/%ls.bin", key);
+    const ULONGLONG deadline = GetTickCount64() + 8000;
+    InternetHandle session{WinHttpOpen(L"BraveAcrylic/2.10", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
+        WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0)};
+    if (!session.value || !SetDownloadTimeouts(session.value, stop, deadline)) return false;
+    DWORD attempts = 2; // Permit one alternate address without an unbounded IP retry loop.
+    if (!WinHttpSetOption(session.value, WINHTTP_OPTION_CONNECT_RETRIES, &attempts, sizeof(attempts))) return false;
+    InternetHandle connection{WinHttpConnect(session.value, L"raw.githubusercontent.com", INTERNET_DEFAULT_HTTPS_PORT, 0)};
+    if (!connection.value) return false;
+    InternetHandle request{WinHttpOpenRequest(connection.value, L"GET", path, nullptr,
+        WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE)};
+    if (!request.value) return false;
+    DWORD redirect = WINHTTP_OPTION_REDIRECT_POLICY_NEVER;
+    DWORD disabled = WINHTTP_DISABLE_COOKIES | WINHTTP_DISABLE_AUTHENTICATION;
+    if (!WinHttpSetOption(request.value, WINHTTP_OPTION_REDIRECT_POLICY, &redirect, sizeof(redirect)) ||
+        !WinHttpSetOption(request.value, WINHTTP_OPTION_DISABLE_FEATURE, &disabled, sizeof(disabled)) ||
+        !SetDownloadTimeouts(request.value, stop, deadline) ||
+        !WinHttpSendRequest(request.value, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+            WINHTTP_NO_REQUEST_DATA, 0, 0, 0) ||
+        !SetDownloadTimeouts(request.value, stop, deadline) || !WinHttpReceiveResponse(request.value, nullptr)) return false;
+    DWORD status = 0, size = sizeof(status);
+    if (!WinHttpQueryHeaders(request.value, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+        WINHTTP_HEADER_NAME_BY_INDEX, &status, &size, WINHTTP_NO_HEADER_INDEX)) return false;
+    if (status != 200) {
+        Wh_Log(L"Compatibility download returned HTTP %u for this exact build", status);
+        return false;
+    }
+    DWORD advertised = 0;
+    size = sizeof(advertised);
+    if (WinHttpQueryHeaders(request.value, WINHTTP_QUERY_CONTENT_LENGTH | WINHTTP_QUERY_FLAG_NUMBER,
+        WINHTTP_HEADER_NAME_BY_INDEX, &advertised, &size, WINHTTP_NO_HEADER_INDEX)) {
+        if (advertised != sizeof(CompatibilityMap)) return false;
+    } else if (GetLastError() != ERROR_WINHTTP_HEADER_NOT_FOUND) return false;
+    unsigned char bytes[sizeof(CompatibilityMap) + 1]{};
+    DWORD total = 0;
+    while (total < sizeof(bytes)) {
+        DWORD received = 0;
+        if (!SetDownloadTimeouts(request.value, stop, deadline) ||
+            !WinHttpReadData(request.value, bytes + total, sizeof(bytes) - total, &received) ||
+            received > sizeof(bytes) - total) return false;
+        if (!received) {
+            if (total != sizeof(CompatibilityMap) || !DownloadAllowed(stop, deadline)) return false;
+            memcpy(output, bytes, sizeof(*output));
+            return true;
+        }
+        total += received;
+    }
+    return false;
+}
+
+static DWORD WINAPI CompatibilityWorker(void* argument) {
+    HMODULE module = nullptr;
+    // Acquire the loader reference outside s_initLock to avoid lock inversion
+    // with a simultaneous library load. Never read a borrowed module in a worker.
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+        reinterpret_cast<LPCWSTR>(argument), &module)) return 0;
+    if (module != static_cast<HMODULE>(argument)) { FreeLibrary(module); return 0; }
+    BuildIdentity id{};
+    CompatibilityMap map{};
+    size_t rva[kRequiredFunctions]{};
+    if (GetBuildIdentity(module, &id) && FetchCompatibilityMap(id, s_downloadStop, &map) &&
+        ValidateCompatibilityMap(module, map, rva)) {
+        AcquireSRWLockExclusive(&s_initLock);
+        ReadOnlyImage image{};
+        if (!s_stopping && s_downloadCompatibility.load(std::memory_order_acquire) &&
+            WaitForSingleObject(s_downloadStop, 0) == WAIT_TIMEOUT &&
+            GetReadOnlyImage(module, &image) && ReadToolbarColorId(image, s_recoveryToolbarRow) >= 0) {
+            CompatibilityCache cache{};
+            cache.map = map;
+            cache.toolbarRowRva = s_recoveryToolbarRow;
+            GetBraveVersion(module, cache.version, sizeof(cache.version));
+            if (Wh_SetBinaryValue(L"compatibilityMapV1", &cache, sizeof(cache)))
+                Wh_Log(L"Compatibility data validated and cached; restart all Brave windows normally to apply it");
+            else Wh_Log(L"Could not save compatibility data; transparency stays off");
+        }
+        ReleaseSRWLockExclusive(&s_initLock);
+    } else if (WaitForSingleObject(s_downloadStop, 0) == WAIT_TIMEOUT) {
+        Wh_Log(L"No valid compatibility data available for this exact Brave build; transparency stays off");
+    }
+    FreeLibrary(module);
+    return 0;
+}
+
+// Call under s_initLock, only after Windhawk has activated the initial hooks.
+// This worker only downloads and caches data; it never changes a live paint path.
+static void StartCompatibilityDownloadLocked() {
+    if (s_stopping || !s_afterInit || s_downloadAttempted || !s_recoveryModule ||
+        !s_downloadCompatibility.load(std::memory_order_acquire)) return;
+    s_downloadStop = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (s_downloadStop) s_downloadThread = CreateThread(nullptr, 0, CompatibilityWorker, s_recoveryModule, 0, nullptr);
+    if (!s_downloadThread) {
+        if (s_downloadStop) CloseHandle(s_downloadStop);
+        s_downloadStop = nullptr;
+        return;
+    }
+    s_downloadAttempted = true;
+    Wh_Log(L"Checking small exact-build compatibility data in the background");
+}
+
 static bool ResolveBySignature(HMODULE module) {
     const unsigned char* text = nullptr;
     size_t textSize = 0;
@@ -965,9 +1205,6 @@ static bool ResolveBySignature(HMODULE module) {
         {"views::View::OnPaintBackground", kSigOnPaintBackground, kMaskOnPaintBackground,
          sizeof(kSigOnPaintBackground)},
         {"gfx::Canvas::DrawColor", kSigDrawColor, kMaskDrawColor, sizeof(kSigDrawColor)},
-        {"views::View::GetClassNameW", kSigGetClassNameW, kMaskGetClassNameW, sizeof(kSigGetClassNameW)},
-        {"views::View::GetColorProvider", kSigViewColorProvider, kMaskViewColorProvider,
-         sizeof(kSigViewColorProvider)},
     };
     auto* base = reinterpret_cast<unsigned char*>(module);
     const size_t textRva = text - base;
@@ -996,7 +1233,9 @@ static bool ResolveBySignature(HMODULE module) {
             }
         }
     }
-    if (!cached) {
+    const bool compatibilityCached = !cached &&
+        LoadCompatibilityCache(module, rva, &toolbarRowRva, &toolbarId);
+    if (!cached && !compatibilityCached) {
         if (previousVersion[0]) Wh_Log(L"Cached Brave %S needs revalidation for %S", previousVersion, version);
         toolbarId = FindToolbarColorId(module, &toolbarRowRva);
         if (toolbarId < 0) {
@@ -1008,6 +1247,11 @@ static bool ResolveBySignature(HMODULE module) {
         for (int i = 0; i < kRequiredFunctions; ++i) {
             if (hits[i].count != 1) {
                 Wh_Log(L"%S: %d function matches; transparency stays off", signatures[i].name, hits[i].count);
+                BuildIdentity identity{};
+                if (GetBuildIdentity(module, &identity)) {
+                    s_recoveryModule = module;
+                    s_recoveryToolbarRow = toolbarRowRva;
+                }
                 return false;
             }
             rva[i] = hits[i].first - base;
@@ -1017,8 +1261,6 @@ static bool ResolveBySignature(HMODULE module) {
     s_toolbarColorId = toolbarId;
     Wh_Log(L"per-window theme guard: kColorToolbar ID=%d", s_toolbarColorId);
     pCanvasDrawColor = reinterpret_cast<DrawColor_t>(base + rva[2]);
-    pViewGetClassNameW = reinterpret_cast<ViewGetClassNameW_t>(base + rva[3]);
-    pViewGetColorProvider = reinterpret_cast<ViewGetColorProvider_t>(base + rva[4]);
     if (!WindhawkUtils::SetFunctionHook(reinterpret_cast<GetColor_t>(base + rva[0]),
                                        GetColor_Hook, &pOrigGetColor) ||
         !WindhawkUtils::SetFunctionHook(reinterpret_cast<ViewOnPaintBackground_t>(
@@ -1028,9 +1270,10 @@ static bool ResolveBySignature(HMODULE module) {
         Wh_Log(L"Required paint hooks could not be registered; transparency stays off");
         return false;
     }
-    if (!cached) SaveCache(key, version, rva, kRequiredFunctions, toolbarRowRva);
+    if (!cached && !compatibilityCached) SaveCache(key, version, rva, kRequiredFunctions, toolbarRowRva);
     Wh_Log(L"%s: %d/%d resolved in %u ms (Brave %S)",
-           cached ? L"signature cache" : L"signature scan", kRequiredFunctions, kRequiredFunctions,
+           compatibilityCached ? L"compatibility cache" : cached ? L"signature cache" : L"signature scan",
+           kRequiredFunctions, kRequiredFunctions,
            GetTickCount() - started, version);
     return true;
 }
@@ -1052,6 +1295,7 @@ static bool TryInstallChromeHooks(HMODULE module, bool applyNow) {
             installed = true;
         }
     }
+    if (!installed) StartCompatibilityDownloadLocked();
     ReleaseSRWLockExclusive(&s_initLock);
     if (applyNow && installed) SyncNativeCaptions();
     return installed;
@@ -1101,7 +1345,12 @@ BOOL Wh_ModInit() {
     InstallNativeCaptionHooks();
 
     HMODULE chrome = GetModuleHandleW(L"chrome.dll");
-    if (chrome) return TryInstallChromeHooks(chrome, false);
+    if (chrome) {
+        const bool installed = TryInstallChromeHooks(chrome, false);
+        // Keep the mod resident so AfterInit can check compatibility data if
+        // address discovery failed. No network work runs inside ModInit.
+        return installed || s_recoveryModule != nullptr;
+    }
 
     const HMODULE kernelBase = GetModuleHandleW(L"kernelbase.dll");
     const auto loader = kernelBase ? reinterpret_cast<LoadLibraryExW_t>(
@@ -1115,10 +1364,12 @@ BOOL Wh_ModInit() {
 void Wh_ModAfterInit() {
     if (!s_isBrowserProcess) return;
     AcquireSRWLockExclusive(&s_initLock);
+    s_afterInit = true;
     if (!s_stopping && s_activateAfterInit) {
         s_activateAfterInit = false;
         s_transparencyReady.store(HasCompleteTransparencyPath(), std::memory_order_release);
     }
+    StartCompatibilityDownloadLocked();
     ReleaseSRWLockExclusive(&s_initLock);
     // Cover a load between ModInit's check and activation of the loader hook.
     if (const auto chrome = GetModuleHandleW(L"chrome.dll")) TryInstallChromeHooks(chrome, true);
@@ -1128,6 +1379,10 @@ void Wh_ModAfterInit() {
 void Wh_ModSettingsChanged() {
     if (!s_isBrowserProcess) return;
     LoadModSettings();
+    AcquireSRWLockExclusive(&s_initLock);
+    if (!s_downloadCompatibility.load(std::memory_order_acquire) && s_downloadStop) SetEvent(s_downloadStop);
+    StartCompatibilityDownloadLocked();
+    ReleaseSRWLockExclusive(&s_initLock);
     SyncNativeCaptions();
     Wh_Log(L"Settings updated; restart Brave normally to rebuild its cached UI brushes");
 }
@@ -1137,12 +1392,18 @@ void Wh_ModBeforeUninit() {
     s_captionFixActive.store(false, std::memory_order_release);
     AcquireSRWLockExclusive(&s_initLock);
     s_stopping = true;
+    if (s_downloadStop) SetEvent(s_downloadStop);
     s_activateAfterInit = false;
     s_transparencyReady.store(false, std::memory_order_release);
     ReleaseSRWLockExclusive(&s_initLock);
+    // All HTTP handles belong to this synchronous worker. Join it outside the
+    // install lock; never close a WinHTTP handle during another thread's call.
+    if (s_downloadThread) WaitForSingleObject(s_downloadThread, INFINITE);
 }
 
 void Wh_ModUninit() {
+    if (s_downloadThread) { CloseHandle(s_downloadThread); s_downloadThread = nullptr; }
+    if (s_downloadStop) { CloseHandle(s_downloadStop); s_downloadStop = nullptr; }
     if (s_isBrowserProcess) EnumWindows(SyncNativeCaptionWindow, 0);
     if (s_dxgiModule) {
         FreeLibrary(s_dxgiModule);

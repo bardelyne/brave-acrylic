@@ -28,12 +28,12 @@ Brave Acrylic makes selected toolbar and vertical-tab backgrounds transparent so
 
 ## Compatibility
 
-- Tested on **Windows 11 26H2**, **Brave 1.97.59** / **Chromium 155.0.8059.85**, x64.
+- Tested on **Windows 11 26H2**, **Brave 1.98.60 / Chromium 156**, x64.
 - **Windows 10 compatibility is unverified.** Brave Acrylic has no Windows 11 version gate, but the required backdrop must also work on the target system. Translucent Windows documents its SystemBackdrop modes as requiring Windows 11 22H2 or later; do not assume the full setup works on Windows 10.
 - The per-window check has been tested with regular, private, and Tor window themes.
 - Native ARM64 and 32-bit Brave are not supported. Unsupported native processes are refused before any hooks are installed.
 
-**This is an alpha release, not a guarantee of future Brave compatibility.** The resolver tolerates changing relocation addresses and validates cached function boundaries, but it still works with private Brave functions. If a required function or the named-color table cannot be identified, the transparency path stays disabled.
+**This is an alpha release, not a guarantee of future Brave compatibility.** The resolver tolerates changing relocation addresses and validates cached function boundaries, but it still works with private Brave functions. If local function discovery fails, exact-build compatibility data may restore it after a normal restart. If the functions or named-color table cannot be validated, transparency stays disabled.
 
 ## Fast setup
 
@@ -85,6 +85,14 @@ An unlisted toolbar color keeps that palette's normal background painting. There
 
 Restart Brave normally after enabling, disabling, or changing the mod. Brave caches brushes and opacity information when windows are created. Saving new colors does not rebuild every cached surface. Close **all** Brave windows normally and reopen Brave. If Brave is configured to keep running in the background, exit that background instance normally as well.
 
+### Recovery after Brave updates
+
+**Download compatibility data after Brave updates** is enabled by default. Working builds use local detection or their existing cache without a network request. If function detection fails, a single background check looks for a **256-byte file for the exact installed Brave build** on this repository's `compatibility-v1` branch.
+
+The mod checks the build identity, executable function boundaries, code fingerprints, and toolbar-color table before saving the file in Windhawk storage. **Restart all Brave windows normally after a successful download** to apply it. The cached data then works offline. Missing or invalid data leaves transparency disabled; it never falls back to another build's addresses.
+
+GitHub Actions handles the large official symbol downloads. Your PC does not download PDBs or updated executable code. Disable the setting to prevent compatibility network checks; valid cached data remains usable. A changed calling convention, removed function, or different painting behavior can still require a mod update.
+
 ### Blur, tint, and backdrop
 
 Use the required **Translucent Windows** mod to choose the background effect and tint for `brave.exe`. Brave Acrylic selects which original browser colors become transparent; Translucent Windows supplies the backdrop visible through them.
@@ -101,14 +109,14 @@ The [advanced reference](docs/advanced.md) explains theme detection, log collect
 
 ## How it works
 
-1. **Find Brave's native drawing functions.** A loader hook initializes the mod when `chrome.dll` is loaded, before Brave's caller starts using it. The resolver scans actual x64 function entries, with one unique match required for each function. There is no startup polling thread.
+1. **Find three native drawing functions.** A loader hook initializes the mod when `chrome.dll` is loaded, before Brave's caller starts using it. The resolver scans actual x64 function entries, with one unique match required for each function. Two private functions are hooked: color lookup and background painting. A third, canvas clearing, is called directly. There is no startup polling thread. A validated exact-build compatibility cache can supply the same three addresses when compiled patterns change.
 2. **Discover the toolbar color ID.** It finds `kColorToolbar` in Brave's own named-color tables. The enum number is discovered rather than fixed in the mod, and duplicate definitions must agree.
 3. **Check the original palette for each window.** The window's native color provider supplies its original toolbar color. An unmatched or unavailable palette keeps its original background painting.
-4. **Remove matching paint and clear old pixels.** Exact listed opaque colors become transparent. An allowlist of browser containers is cleared on repaint so previous tab labels and backgrounds do not leave trails. Interactive child views are not blanket-cleared.
+4. **Remove matching paint and clear old pixels.** Exact listed opaque colors become transparent. During each native background paint, the mod tracks whether an eligible color was replaced. If so, it clears that background after the original painter returns, removing cached pixels before Brave draws the foreground. Nested paints keep separate state.
 5. **Keep one set of window buttons.** For unowned, resizable Chromium browser frames, the optional caption fix hides Windows' underlying buttons. Brave retains its logical window style so its controls and fullscreen restoration continue to work. Turning the option or mod off restores the native buttons. Popups, owned dialogs, and tool windows are excluded.
 6. **Let Translucent Windows supply the backdrop.** The caption fix leaves sizing and fullscreen frame bits alone. Translucent Windows controls the backdrop. The GPU hook only adjusts compatible RGBA composition surfaces; HWND, YUV, and protected-video surfaces keep their original settings.
 
-Function addresses and the toolbar table entry are cached in Windhawk’s per-mod storage for the exact `chrome.dll` build and rechecked before use. A valid cache avoids scanning the full named-color table again. There is no screenshot polling, webpage injection, or recurring full-module scan.
+Function addresses and the toolbar table entry are cached in Windhawk’s per-mod storage for the matching `chrome.dll` build and rechecked before use. Optional compatibility checks run on a separate worker only after local detection fails; the worker saves data for the next restart and does not alter a live paint path. A valid cache avoids scanning the full named-color table again. There is no screenshot polling, webpage injection, or recurring full-module scan.
 
 ## Troubleshooting
 

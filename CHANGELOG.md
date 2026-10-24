@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.10 — Alpha
+
+- Add optional background recovery using a 256-byte compatibility file for the exact Brave build.
+- Validate the PDB identity, function boundaries, fingerprints, and cached toolbar entry before using downloaded addresses. Keep valid data available offline.
+- Generate compatibility data from official Brave releases and symbols with an hourly GitHub Actions workflow; publish generated files separately from source history.
+- Keep large symbol downloads on GitHub runners. Recovery data applies after a normal Brave restart; working builds make no compatibility request.
+- Add extractor, transport, cache, cancellation, and shutdown tests.
+
+## 2.9 — Alpha
+
+- Restore transparency on Brave 1.98.60 / Chromium 156 with three private drawing functions instead of five.
+- Remove the private View color-provider and class-name dependencies, including the getter changed by this Brave update.
+- Track matched color requests during native background paints and clear after painting to remove stale opaque pixels. Nested paints keep independent state.
+- Preserve per-window palette checks, custom color settings, the composition-alpha hook, and the native caption option.
+
 ## 2.8.4 — Alpha
 
 - Hide Windows' duplicate caption buttons while keeping Brave's controls, acrylic, and resize borders.

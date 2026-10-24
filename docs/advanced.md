@@ -22,7 +22,7 @@ Earlier experimental configuration and external-cache files are no longer read. 
 
 The mod queries the original `kColorToolbar` value through Brave's unmodified color provider. Its numeric ID is discovered from Brave's named-color tables; no fixed enum number or private View-member offset is used.
 
-Clearing uses the native `View::GetColorProvider()` accessor. The current provider is queried on relevant paints, so a theme change or newly opened private/Tor window gets its own check. Provider pointers are not kept in a lifetime cache.
+Brave passes the current native provider to its color lookup function. The mod checks that provider directly and records eligible matches during each background paint. Theme changes and newly opened private/Tor windows use their own palettes. No private View getter, class-name lookup, or provider lifetime cache is needed.
 
 If the provider is missing, the toolbar color is not listed, or Chromium returns its missing-color placeholder, the original painting is retained. A shared secondary color cannot enable an otherwise unmatched palette. Color replacement rechecks the requested color and toolbar color against one settings snapshot.
 
@@ -60,15 +60,17 @@ The GPU hook runs independently of the browser's theme detection and native-func
 
 These steps follow [Windhawk's troubleshooting guide](https://github.com/ramensoftware/windhawk/wiki/Troubleshooting#some-or-all-windhawk-mods-dont-work).
 
-Look for the discovered `kColorToolbar` ID and a **5/5** signature scan/cache report. The enum ID can change between Brave builds. When collecting colors, activate the relevant regular/private/Tor window and find the original RGB value for that reported ID. Color diagnostics are capped at 256 distinct ID/RGB pairs per process and do not record webpage contents or URLs.
+Look for the discovered `kColorToolbar` ID and a **3/3** signature scan/cache report. The enum ID can change between Brave builds. When collecting colors, activate the relevant regular/private/Tor window and find the original RGB value for that reported ID. Color diagnostics are capped at 256 distinct ID/RGB pairs per process and do not record webpage contents or URLs.
 
 ## Cache and update safeguards
 
-One small binary value named `signatureCache` is stored through Windhawk's per-mod storage API. It records the build key, Brave version, five function addresses, and the relative address of the named toolbar-color entry. Windhawk owns the storage and removes it with the mod.
+The optional background recovery path and its data-generation workflow are documented in [Exact-build compatibility data](compatibility.md). Working builds remain offline. An accepted recovery file is cached for the next normal Brave restart; it does not change the live paint path.
+
+The normal `signatureCache` and optional `compatibilityMapV1` values are stored through Windhawk's per-mod storage API. The latter is a validated 256-byte map plus the toolbar entry and version. The signature cache records the build key, Brave version, three function addresses, and the relative address of the named toolbar-color entry. Windhawk owns the storage and removes it with the mod.
 
 The key includes the exact `chrome.dll` timestamp, image size, and signature revision. Cached addresses must remain inside executable code, start at complete x64 function entries, and match the current byte signatures. Invalid or incomplete values trigger a fresh scan before any native hook is registered.
 
-Each signature must have exactly one function match. Color lookup, class-name lookup, and background-paint signatures extend beyond their prologues into native operations. Changing relocations and selected operands are excluded from matching. A missing or ambiguous match keeps transparency disabled.
+Each signature must have exactly one function match. Color lookup, background-paint, and canvas-clear signatures extend beyond their prologues into native operations. Changing relocations and selected operands are excluded from matching. A missing or ambiguous signature does not install paint hooks. Recovery can proceed only with an independently validated compatibility cache.
 
 The toolbar ID comes from bounded read-only tables. A full scan requires agreement between duplicate definitions. On subsequent launches, the cached entry must still have the exact `kColorToolbar` name, valid read-only pointers, and consecutive neighboring color IDs. An invalid entry triggers the full scan again. A valid cache avoids the full table scan; no screen sampling or recurring module scan is used.
 
@@ -76,7 +78,9 @@ These checks reduce the chance of a bad match; they cannot make private Brave fu
 
 ## Rendering scope
 
-Only explicitly allowed browser containers are cleared. Interactive child views are not blanket-cleared. Exact color replacement can still affect other elements that share an eligible palette and a configured color.
+Each native background paint gets a temporary scope on its current thread. If color lookup replaces a configured color from an eligible palette during that paint, the canvas is cleared after the original background painter returns. This removes cached opaque pixels before subsequent foreground painting. Unmatched paints retain their original behavior. Nested scopes are independent, and no Brave object is retained after the call.
+
+The private dependencies are `ui::ColorProvider::GetColor`, `views::View::OnPaintBackground`, and `gfx::Canvas::DrawColor`. The first two are hooked; the third is called for a transparent clear. Exact color replacement can still affect other elements that share an eligible palette and a configured color.
 
 No website scripts, DOM overrides, extensions, or webpage-background hooks are installed. Restart Brave normally after enabling, disabling, or changing the mod because Brave caches native brushes and opacity information.
 

@@ -1,4 +1,4 @@
-# Publish only the mod, documentation, and supplied screenshot.
+# Publish the mod, documentation, compatibility tooling, and tests.
 # Keep local build/install helpers, binaries, and experiments out of Git.
 *
 !.gitignore
@@ -10,3 +10,10 @@
 !assets/**
 !docs/
 !docs/**
+!.github/
+!.github/workflows/
+!.github/workflows/**
+!tools/
+!tools/**
+!tests/
+!tests/**
