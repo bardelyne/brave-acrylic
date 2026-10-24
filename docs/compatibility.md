@@ -20,7 +20,9 @@ If a map is unavailable, the mod stays opaque. The next browser process may chec
 
 ## What GitHub Actions does
 
-The workflow checks the latest stable x64 Brave release hourly at minute 17. GitHub schedules can be delayed, so this is not an exact publication deadline. Already processed releases skip the large downloads.
+The workflow checks the latest stable x64 Brave release every six hours, at 00:17, 06:17, 12:17, and 18:17 UTC. This gives four checks per day while avoiding the busy start of each hour. GitHub schedules can be delayed, so a new release can wait roughly six hours plus queue and processing time. Already processed releases skip the large downloads, and a manual run can check immediately.
+
+This public repository uses standard Ubuntu runners, which [GitHub provides without charging Actions minutes](https://docs.github.com/en/actions/concepts/billing-and-usage). The generation and publishing jobs retain their 35-minute and five-minute timeouts, well below the [six-hour hosted-job limit](https://docs.github.com/en/actions/reference/limits). The six-hour check interval is a resource and update-delay tradeoff, not a requirement of that job limit.
 
 The generation job has read-only repository access. It downloads the official x64 ZIP and its SHA256 file, verifies the archive, and extracts only `chrome.dll` to a fixed path. It does not execute Brave. The DLL's CodeView identity determines the exact symbol-server URL on [Brave's official symbol server](https://github.com/brave/brave-browser/wiki/Brave-symbol-server).
 

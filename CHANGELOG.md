@@ -4,7 +4,7 @@
 
 - Add optional background recovery using a 256-byte compatibility file for the exact Brave build.
 - Validate the PDB identity, function boundaries, fingerprints, and cached toolbar entry before using downloaded addresses. Keep valid data available offline.
-- Generate compatibility data from official Brave releases and symbols with an hourly GitHub Actions workflow; publish generated files separately from source history.
+- Generate compatibility data from official Brave releases and symbols with a GitHub Actions workflow every six hours; publish generated files separately from source history.
 - Keep large symbol downloads on GitHub runners. Recovery data applies after a normal Brave restart; working builds make no compatibility request.
 - Add extractor, transport, cache, cancellation, and shutdown tests.
 

@@ -2,7 +2,8 @@ name: Brave compatibility data
 
 on:
   schedule:
-    - cron: '17 * * * *'
+    # Four checks per day, away from the busy start of the hour.
+    - cron: '17 */6 * * *'
   workflow_dispatch:
     inputs:
       tag:
