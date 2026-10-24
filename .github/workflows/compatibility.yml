@@ -34,8 +34,6 @@ jobs:
     timeout-minutes: 35
     outputs:
       needed: ${{ steps.plan.outputs.needed }}
-    env:
-      COMPATIBILITY_WORK_DIR: ${{ runner.temp }}/brave-compatibility
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -68,8 +66,6 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
-    env:
-      COMPATIBILITY_WORK_DIR: ${{ runner.temp }}/brave-compatibility
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:

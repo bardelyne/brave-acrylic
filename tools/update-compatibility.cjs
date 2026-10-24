@@ -11,7 +11,8 @@ const {FORMAT, MAP_SIZE, SYMBOLS, generate, validateMap} = require('./symbol-map
 const REPOSITORY = 'bardelyne/brave-acrylic';
 const BRANCH = 'compatibility-v1';
 const EXTRACTOR = 1;
-const WORK = path.resolve(process.env.COMPATIBILITY_WORK_DIR || 'compatibility-work');
+const WORK = path.resolve(process.env.COMPATIBILITY_WORK_DIR ||
+  (process.env.RUNNER_TEMP ? path.join(process.env.RUNNER_TEMP, 'brave-compatibility') : 'compatibility-work'));
 const API = 'https://api.github.com';
 function check(ok, message) { if (!ok) throw Error(message); }
 function tagName(value) {
