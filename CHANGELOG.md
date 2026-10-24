@@ -8,6 +8,7 @@
 - Use a smaller 1,080-byte format-6 map with thirteen required functions and seven private hooks. Preserve direct-jump validation and separate legacy client data.
 - Explain compatibility downloads and the network opt-out; keep known builds offline.
 - Update pinned artifact-transfer actions to Node.js 24 and enforce download digest checks.
+- Replace the repository and embedded README screenshot with the new transparency example under a fresh image filename.
 
 ## 3.2 — Alpha
 
