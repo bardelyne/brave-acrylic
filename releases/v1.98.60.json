@@ -125,12 +125,12 @@
     }
   },
   "modSourceSha256": "d70bbc84252f02752e93485315cf34ae3b0ee930ec79ba5be7dbb1e6e2c53fb8",
-  "createdUtc": "2026-10-24T22:22:46.853Z",
+  "createdUtc": "2026-10-24T22:26:43.753Z",
   "source": {
     "release": "https://github.com/brave/brave-browser/releases/download/v1.98.60/brave-v1.98.60-win32-x64.zip",
     "archiveSha256": "2c937c91f5061fb1034097c932112b06f429d5bdd08bc5e32921b88609d011e7",
     "dllSha256": "c68b8057218e0c551e9916ba34872aedcc96bf2ff1bcec5f87971332d148e5f9",
     "symbols": "https://brave-symbols.s3.brave.com/chrome.dll.pdb/75D8DB6BA8EC43F64C4C44205044422E1/chrome.dll.pdb"
   },
-  "elapsedMs": 41501
+  "elapsedMs": 43304
 }
