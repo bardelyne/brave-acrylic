@@ -2,8 +2,8 @@ name: Brave compatibility data
 
 on:
   schedule:
-    # Four checks per day, away from the busy start of the hour.
-    - cron: '17 */6 * * *'
+    # Twelve metadata checks per day. Unchanged releases skip all binary downloads.
+    - cron: '17 */2 * * *'
   workflow_dispatch:
     inputs:
       tag:
@@ -20,12 +20,13 @@ on:
       - '.github/workflows/compatibility.yml'
       - 'tools/**'
       - 'tests/**'
+      - 'brave-acrylic.wh.cpp'
 
 permissions:
   contents: read
 
 concurrency:
-  group: brave-compatibility-v1
+  group: brave-compatibility-v6
   cancel-in-progress: false
 
 jobs:
@@ -33,30 +34,40 @@ jobs:
     if: github.repository == 'bardelyne/brave-acrylic' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    permissions:
+      contents: read
     outputs:
       needed: ${{ steps.plan.outputs.needed }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Test the data extractor
-        run: node --test tests/symbol-map.test.cjs
+        run: node --test tests/*.test.cjs
       - name: Check the official stable release
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
           BRAVE_TAG: ${{ inputs.tag }}
-          FORCE_REBUILD: ${{ inputs.force }}
+          FORCE_REBUILD: ${{ github.event_name == 'workflow_dispatch' && inputs.force }}
         run: node tools/update-compatibility.cjs prepare
       - name: Extract and validate exact-build data
         if: steps.plan.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: node tools/update-compatibility.cjs build
+      - name: Independently validate the small artifact
+        if: steps.plan.outputs.needed == 'true'
+        run: node tools/update-compatibility.cjs verify
       - name: Transfer the small generated files
         if: steps.plan.outputs.needed == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: compatibility-data
-          path: ${{ runner.temp }}/brave-compatibility/out/
+          name: compatibility-data-v6
+          path: |
+            ${{ runner.temp }}/brave-compatibility/out/map.bin
+            ${{ runner.temp }}/brave-compatibility/out/record.json
           if-no-files-found: error
           retention-days: 3
 
@@ -70,10 +81,11 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
-          name: compatibility-data
+          name: compatibility-data-v6
           path: ${{ runner.temp }}/brave-compatibility/out/
       - name: Validate and publish data only
         env:

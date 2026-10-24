@@ -59,9 +59,12 @@ class PeImage {
     const exception = this.directory(3);
     requireThat(exception.length && exception.length % 12 === 0, 'Invalid x64 function table');
     this.functions = new Map();
+    // Keep every range, including optimized duplicate starts, for v2 leaf checks.
+    this.functionRanges = [];
     let previous = -1;
     for (let p = 0; p < exception.length; p += 12) {
       const begin = exception.readUInt32LE(p), end = exception.readUInt32LE(p + 4);
+      this.functionRanges.push({begin, end});
       requireThat(begin >= previous && begin < this.imageSize, 'Unsorted x64 function table');
       // Only complete entries are usable as hook targets. Rejecting unrelated
       // entries here would also reject official optimized Brave images.
@@ -200,7 +203,7 @@ class Pdb {
     }
     return b;
   }
-  async symbols(pe) {
+  async symbols(pe, {names = SYMBOLS, fingerprint = rva => pe.fingerprint(rva), rejectAliases = false} = {}) {
     const info = await this.stream(1, 0, 28), dbi = await this.stream(3, 0, 64);
     // Public/stripped PDB processing can increment the Info age without changing
     // the image's DBI age. Validate the GUID plus DBI age against CodeView.
@@ -216,35 +219,64 @@ class Pdb {
     }
     const index = dbi.readUInt16LE(20), s = this.streams[index];
     requireThat(s?.size && s.size <= 2 * 1024 ** 3, 'Invalid symbol-record stream');
-    const found = new Map(SYMBOLS.map(name => [name, new Set()]));
-    let offset = 0, records = 0;
-    while (offset < s.size) {
-      const chunk = await this.stream(index, offset, Math.min(8 * 1024 ** 2, s.size - offset));
-      let p = 0;
-      while (p + 4 <= chunk.length) {
-        const length = chunk.readUInt16LE(p) + 2, kind = chunk.readUInt16LE(p + 2);
-        requireThat(length >= 4, 'Invalid symbol record');
-        if (p + length > chunk.length) break;
-        if (kind === 0x110e && length >= 15) {
-          const end = chunk.indexOf(0, p + 14);
-          requireThat(end >= 0 && end < p + length, 'Unterminated public symbol');
-          const name = chunk.toString('utf8', p + 14, end), addresses = found.get(name);
-          if (addresses) {
-            const segment = chunk.readUInt16LE(p + 12), section = pe.sections[segment - 1];
-            const within = chunk.readUInt32LE(p + 8);
-            requireThat(section && within < section.size, 'Symbol outside section');
-            addresses.add(section.rva + within);
+    const found = new Map(names.map(name => [name, new Set()]));
+    // Both passes visit the entire public-symbol stream. Aliases can appear
+    // before the required names; stopping after finding the targets is unsafe.
+    const scan = async visit => {
+      let offset = 0, records = 0;
+      while (offset < s.size) {
+        const chunk = await this.stream(index, offset, Math.min(8 * 1024 ** 2, s.size - offset));
+        let p = 0;
+        while (p + 4 <= chunk.length) {
+          const length = chunk.readUInt16LE(p) + 2, kind = chunk.readUInt16LE(p + 2);
+          requireThat(length >= 4, 'Invalid symbol record');
+          if (p + length > chunk.length) break;
+          if (kind === 0x110e && length >= 15) {
+            const end = chunk.indexOf(0, p + 14);
+            requireThat(end >= 0 && end < p + length, 'Unterminated public symbol');
+            visit(chunk.toString('utf8', p + 14, end), chunk.readUInt16LE(p + 12), chunk.readUInt32LE(p + 8));
           }
+          p += length; ++records;
         }
-        p += length; ++records;
+        requireThat(p > 0, 'Truncated symbol stream'); offset += p;
       }
-      requireThat(p > 0, 'Truncated symbol stream'); offset += p;
-    }
-    const entries = SYMBOLS.map(name => {
-      requireThat(found.get(name).size === 1, 'Missing or ambiguous ABI: ' + name);
-      return pe.fingerprint([...found.get(name)][0]);
+      return records;
+    };
+    const records = await scan((name, segment, within) => {
+      const addresses = found.get(name);
+      if (addresses) {
+        const section = pe.sections[segment - 1];
+        requireThat(section && within < section.size, 'Symbol outside section');
+        addresses.add(section.rva + within);
+      }
     });
-    requireThat(new Set(entries.map(e => e.rva)).size === SYMBOLS.length, 'Aliased required functions');
+    const rvas = names.map(name => {
+      requireThat(found.get(name).size === 1, 'Missing or ambiguous ABI: ' + name);
+      return [...found.get(name)][0];
+    });
+    requireThat(new Set(rvas).size === names.length, 'Aliased required functions');
+    const entries = rvas.map((rva, slot) => fingerprint(rva, slot));
+    if (rejectAliases) {
+      const targets = new Map(rvas.map((rva, i) => [rva, names[i]]));
+      const thunkBodies = new Map();
+      entries.forEach((entry,i) => {
+        for (const rva of entry.aliasRvas || []) {
+          requireThat(!targets.has(rva) || targets.get(rva) === names[i], 'Aliased thunk body');
+          targets.set(rva,names[i]);thunkBodies.set(rva,names[i]);
+        }
+      });
+      await scan((name, segment, within) => {
+        const section = pe.sections[segment - 1];
+        if (!section || within >= section.size) return;
+        const rva=section.rva+within;
+        let target = targets.get(rva);
+        if(!target && thunkBodies.size && section === pe.text && within+5<=section.rawSize) {
+          const p=section.raw+within;
+          if(pe.bytes[p]===0xE9)target=thunkBodies.get(rva+5+pe.bytes.readInt32LE(p+1));
+        }
+        requireThat(!target || name === target, 'Public symbol alias at target: ' + name);
+      });
+    }
     return {entries, records, infoAge: info.readUInt32LE(8), dbiAge: dbi.readUInt32LE(8)};
   }
 }
@@ -300,7 +332,7 @@ async function generate(dll, pdbPath, output) {
       functions: result.entries.map((e, i) => ({name: SYMBOLS[i], rva: e.rva, length: e.length}))};
   } finally { await pdb.close(); }
 }
-module.exports = {FORMAT, MAGIC, MAP_SIZE, SYMBOLS, PeImage, Pdb, encodeMap, validateMap, generate};
+module.exports = {FORMAT, MAGIC, MAP_SIZE, SYMBOLS, PeImage, Pdb, guidKey, encodeMap, validateMap, generate};
 if (require.main === module) {
   const [dll, pdb, output] = process.argv.slice(2);
   if (!output) { console.error('Usage: node tools/symbol-map.cjs chrome.dll chrome.dll.pdb output.bin'); process.exitCode = 1; }

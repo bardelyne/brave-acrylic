@@ -1,5 +1,45 @@
 # Changelog
 
+## 3.3 — Alpha
+
+- Rename Window background to Vertical tabs background and Webpage canvas to Webpage background; simplify the settings descriptions and clarify the default white fallback.
+- Remove website-code injection, its two settings, load hook and three native scripting dependencies. Retain native background transparency and the persistent tab-switch fix.
+- Clarify that Webpage background changes only Chromium's backing layer, leaving website HTML, CSS and content unchanged. Add Zen Internet website-styling instructions, including Advanced Settings → Disable Transparency off, and Stylus guidance requiring custom CSS or a suitable userstyle.
+- Use a smaller 1,080-byte format-6 map with thirteen required functions and seven private hooks. Preserve direct-jump validation and separate legacy client data.
+- Explain compatibility downloads and the network opt-out; keep known builds offline.
+
+## 3.2 — Alpha
+
+- Resolve direct named compiler jump stubs across all native slots, checking both the stub and exact target. Preserve full validation for the approved short host/focus leaves.
+- Separate the thirteen required transparency functions from the optional three-function website-code path. Missing or unsupported scripting can no longer disable otherwise valid native transparency.
+- Keep required-function, alias, fingerprint, ABI and whole-group validation strict through separate format-5 data. No additional native functions or timers.
+- Add compiler-wrapper, partial-map, optional hook failure and fallback regression tests.
+
+## 3.1.1 — Alpha
+
+- Fix the default white canvas returning during tab switching by storing Chromium's persistent page-base color before tab attachment. Existing tabs are corrected on selection without refreshing.
+- Replace the temporary renderer-background override with the native page-base API; preserve explicit website colors and optional website code.
+- Validate the 16-function contract through separate format-4 compatibility data, retaining older client formats.
+- Add tab-attachment ordering, null/disabled paths, repeated-switch and author-color regression checks.
+
+## 3.1 — Alpha
+
+- Clear the unfocused address field while preserving its focused theme background.
+- Add Webpage canvas control for both the native theme backing and default renderer canvas, preserving author CSS backgrounds.
+- Add optional editable website JavaScript, with a background-removal example and multiline code through Advanced settings.
+- Use exact-build format-3 maps for 15 native dependencies, validating focus leaves, named thunks, fingerprints and aliases.
+- Retry unavailable compatibility data every 30 minutes until cached; cancel cleanly and keep known builds offline.
+- Extend native-scope, address-focus, user-code, settings-boundary and compatibility tests.
+
+## 3.0 — Alpha
+
+- Replace global color matching with native background-container targeting. Add independent Window background and Toolbar options.
+- Use the browser host's existing transparent compositor path and the exact sidebar backing view; remove the old color-provider, color-table, and GPU composition hooks.
+- Validate six native functions against built-in or cached exact-build format-2 data. Download only 520 bytes for an unknown build; retain offline use and leave legacy data separate.
+- Check official Brave releases every two hours; skip binary/symbol downloads when release assets and the extractor/ABI contract are unchanged.
+- Trace Chromium's default white webpage canvas separately from native browser backgrounds.
+- Expand area-selection, symbol-alias, short-leaf, version, transport, cancellation, and shutdown tests.
+
 ## 2.10 — Alpha
 
 - Add optional background recovery using a 256-byte compatibility file for the exact Brave build.

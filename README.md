@@ -1,139 +1,83 @@
-<div align="center">
-
 # Brave Acrylic
 
-**Your browser, with a little more desktop.**
+![Brave Acrylic](https://raw.githubusercontent.com/bardelyne/brave-acrylic/main/assets/brave-acrylic-v2.8.png)
 
-![Status: alpha](https://img.shields.io/badge/status-alpha-orange)
-![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
-![Brave x64](https://img.shields.io/badge/Brave-x64-FB542B)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+Reveal the Windows backdrop through Brave's vertical tab area, frame, toolbar, address field, and webpage area. Native background targeting replaces the old color list. Use a website-styling extension for backgrounds painted by websites.
 
-[Fast setup](#fast-setup) · [Custom themes](#advanced-setup) · [How it works](#how-it-works) · [Troubleshooting](#troubleshooting)
-
-</div>
-
-![Brave Acrylic with the built-in blue theme](assets/brave-acrylic-v2.8.png)
-
-Brave Acrylic makes selected toolbar and vertical-tab backgrounds transparent so the desktop backdrop shows through. Regular, private, and Tor windows are checked against their own themes, so blue, purple, and pink windows can work together.
-
-> **Alpha software.** This mod is still being tested and may need fixes after Brave updates. **[Translucent Windows](https://windhawk.net/mods/translucent-windows) is required** and must be enabled for `brave.exe` to provide the background effect.
+> **Alpha software.** **[Translucent Windows](https://windhawk.net/mods/translucent-windows) is required**, configured for `brave.exe`. Brave Acrylic exposes the background; Translucent Windows supplies the effect.
 
 ## Requirements
 
-- **x64 version of Brave**.
-- [Windhawk](https://windhawk.net/) with **Brave Acrylic** enabled.
-- The **[Translucent Windows](https://windhawk.net/mods/translucent-windows)** mod, configured to apply a translucent background effect to `brave.exe`.
-- Windows **Transparency effects** enabled.
+- x64 version of Brave.
+- Windhawk with Brave Acrylic enabled.
+- Translucent Windows configured to apply a translucent effect to `brave.exe`.
+- Windows Transparency effects enabled.
 
 ## Compatibility
 
-- Tested on **Windows 11 26H2**, **Brave 1.98.60 / Chromium 156**, x64.
-- **Windows 10 compatibility is unverified.** Brave Acrylic has no Windows 11 version gate, but the required backdrop must also work on the target system. Translucent Windows documents its SystemBackdrop modes as requiring Windows 11 22H2 or later; do not assume the full setup works on Windows 10.
-- The per-window check has been tested with regular, private, and Tor window themes.
-- Native ARM64 and 32-bit Brave are not supported. Unsupported native processes are refused before any hooks are installed.
+Windows 11 is the tested environment. Windows 10 is unverified; the backdrop provider and selected effect must support that Windows version. Native ARM64 Brave is unsupported.
 
-**This is an alpha release, not a guarantee of future Brave compatibility.** The resolver tolerates changing relocation addresses and validates cached function boundaries, but it still works with private Brave functions. If local function discovery fails, exact-build compatibility data may restore it after a normal restart. If the functions or named-color table cannot be validated, transparency stays disabled.
+Tested with Brave 1.98.60 / Chromium 156. Other builds need valid compatibility data for their exact `chrome.dll`. Native interfaces and rendering behavior can change and may require a mod update.
 
 ## Fast setup
 
-1. Enable **Brave Acrylic** and the required **Translucent Windows** mod. In Translucent Windows, apply the background effect you want to `brave.exe`.
-2. Open `brave://settings/appearance`, select **Dark** appearance, and choose the built-in **Blue** theme.
-3. Enable **vertical tabs** for the layout in the screenshot.
-4. Close all Brave windows normally and reopen Brave.
+1. Enable Translucent Windows for `brave.exe` and choose the desired backdrop.
+2. Enable Brave Acrylic. Leave **Vertical tabs background**, **Toolbar**, and **Webpage background** on.
+3. Close all Brave windows normally and reopen Brave. Exit its background instance too if it stays running.
+4. Optionally use Zen Internet or Stylus to remove backgrounds inside websites, as explained below. Stylus requires custom CSS.
 
-The default **Hide duplicate Windows buttons** option removes Windows' underlying caption buttons while keeping Brave's own controls. Turn it off in the mod settings to restore the native layer.
+No theme-color setup is required. Old saved color-list and website-code settings are ignored by this version.
 
-### Install from source
+## Controls
 
-Open [brave-acrylic.wh.cpp](brave-acrylic.wh.cpp), choose **Raw**, and copy the source. In Windhawk, open **Create a new mod**, replace the editor contents with that source, then compile and install it. No additional headers or DLLs are needed.
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| **Vertical tabs background** | On | Reveal the backdrop behind the vertical tab area and browser frame. |
+| **Toolbar** | On | Clear the toolbar, bookmarks bar, and unfocused address-field backgrounds. Focused address fields keep their native theme. |
+| **Webpage background** | On | Clear only Chromium's background behind the webpage area, including its default white fallback. Website HTML, CSS, and content are unchanged. Use Zen Internet or Stylus for website backgrounds; Stylus requires custom CSS. |
+| **Hide duplicate Windows buttons** | On | Hide the Windows caption-button layer underneath Brave's own controls. |
+| **Download compatibility data after Brave updates** | On | Download a small compatibility file only when the exact Brave build has no valid local data. Turn off to prevent these downloads. |
 
-## Advanced setup
+Some backing views and compositor properties are created with the window, so changing Vertical tabs background or Toolbar may require reopening Brave. Enabling Webpage background applies when a tab is selected, without refreshing the page. Reopening Brave after disabling it restores existing renderer defaults. The caption-button option applies immediately.
 
-### Choose your own colors
+## Website backgrounds with extensions
 
-To make an area of Brave's interface transparent, pick that area color and add that HEX value to **Colours to make transparent** in the mod's Settings tab.
+**Webpage background** clears only Chromium's backing layer underneath websites, including the default white fallback. It does not modify website HTML, CSS, or content. To remove backgrounds painted by a website, use a styling extension such as Zen Internet or Stylus.
 
-The list matches **colors across Brave's native interface**. When a listed color appears elsewhere in an enabled window theme, that matching color also becomes transparent. For example, adding a sidebar's color can also affect a toolbar, button, or icon that uses exactly the same color. Add colors carefully: a common color such as pure white can also remove text.
+### Zen Internet
 
-1. Temporarily disable **Brave Acrylic** and close all Brave windows normally. Reopen Brave so you can sample its original, opaque colors.
-2. On Windows 11, press **Win+Shift+S** (or **Print Screen / PrtSc** if configured to open Snipping Tool). Select the **Color picker** eyedropper and choose **HEX**.
-3. For a new theme, sample the **main toolbar** first, then sample each additional area you want to make transparent. Pick a flat background area, away from text, icons, borders, shadows, and hover effects.
-4. Open **Windhawk → Brave Acrylic → Settings → Colours to make transparent**. Add each sampled color on its own row, such as `333C4D` or `#333C4D`.
-5. Save the settings, enable the mod, and close all Brave windows normally before reopening Brave to apply the colors.
+For backgrounds inside websites, install [Zen Internet from the Chrome Web Store](https://chromewebstore.google.com/detail/zen-internet/dpkamhkboipomecencjpammmjdfkgjha). Open the extension, go to **Advanced Settings**, and turn **Disable Transparency** **off** under **Global Feature Controls**. Keep **Webpage background** enabled in Brave Acrylic. Open a new tab or reload an existing page to apply extension setting changes.
 
-See [Microsoft's Snipping Tool color picker instructions](https://blogs.windows.com/windowsexperience/2025/07/22/windows-11-is-the-home-for-ai-on-the-pc-with-even-more-experiences-available-today/#:~:text=To%20try%20color%20picker). If Color picker is unavailable in your Snipping Tool version, sample a screenshot with another color picker.
+Zen Internet applies website-specific styles; coverage and results vary by site. Brave Acrylic removes the browser's backing and white fallback so CSS-transparent page areas can reveal the Windows backdrop. The extension handles website styling. Brave Acrylic does not inject JavaScript or CSS into pages.
 
-Use the **original color with the mod disabled**. A color sampled while acrylic is active is already blended with the backdrop and may not match Brave's paint color.
+The extension's store page cautions that ordinary Chromium does not support transparent pages. Brave Acrylic provides the native transparency path; an extension alone cannot provide the Windows effect. The extension's [source](https://github.com/sameerasw/zeninternet) and [website styles](https://github.com/sameerasw/my-internet) are available separately.
 
-Each value must contain six hexadecimal digits (`RRGGBB`), with an optional leading `#` and no alpha channel. Matching is exact. Up to **16 colors** are supported. An empty list restores the built-in defaults. Invalid rows are reported in the log and skipped; later valid rows are still used.
+### Stylus
 
-Fresh installations include these colors for the built-in Dark + Blue theme:
+[Stylus from the Chrome Web Store](https://chromewebstore.google.com/detail/stylus/clngdbkpkpeebahjckkjfobafhncgmne) lets you create and manage custom CSS styles for individual websites. **It does not remove website backgrounds out of the box.** You must write or paste CSS rules that make the desired backgrounds transparent, or install a suitable existing userstyle. Complex websites may need rules for several background elements. Keep **Webpage background** enabled in Brave Acrylic so those transparent areas reveal the backdrop.
 
-| Default color | Area |
-| --- | --- |
-| `333C4D` | Vertical tab strip |
-| `1D2636` | Main toolbar |
-
-### Blue, purple, and pink together
-
-Keep the blue theme's entries and add the original toolbar and sidebar colors for a purple private window or a pink Tor window. Each window uses its own native color provider, so enabling one theme does not blindly clear another window's background.
-
-An unlisted toolbar color keeps that palette's normal background painting. There are no hardcoded purple or pink presets: private and Tor windows use the same check as ordinary windows.
-
-### Restart after changing colors
-
-Restart Brave normally after enabling, disabling, or changing the mod. Brave caches brushes and opacity information when windows are created. Saving new colors does not rebuild every cached surface. Close **all** Brave windows normally and reopen Brave. If Brave is configured to keep running in the background, exit that background instance normally as well.
-
-### Recovery after Brave updates
-
-**Download compatibility data after Brave updates** is enabled by default. Working builds use local detection or their existing cache without a network request. If function detection fails, a single background check looks for a **256-byte file for the exact installed Brave build** on this repository's `compatibility-v1` branch.
-
-The mod checks the build identity, executable function boundaries, code fingerprints, and toolbar-color table before saving the file in Windhawk storage. **Restart all Brave windows normally after a successful download** to apply it. The cached data then works offline. Missing or invalid data leaves transparency disabled; it never falls back to another build's addresses.
-
-GitHub Actions handles the large official symbol downloads. Your PC does not download PDBs or updated executable code. Disable the setting to prevent compatibility network checks; valid cached data remains usable. A changed calling convention, removed function, or different painting behavior can still require a mod update.
-
-### Blur, tint, and backdrop
-
-Use the required **Translucent Windows** mod to choose the background effect and tint for `brave.exe`. Brave Acrylic selects which original browser colors become transparent; Translucent Windows supplies the backdrop visible through them.
-
-These are different controls: the color list selects paint to remove, while the backdrop settings control what you see behind it.
-
-### Diagnostics
-
-Turn on **Log colours (diagnostics)** in the mod's Settings tab to report original color IDs and RGB values. Capture them through Windhawk’s **Advanced → Debug logging → Detailed debug logs → Show log output**, then turn diagnostics off again.
-
-Settings and the signature cache use Windhawk’s own storage. No separate configuration file or administrator access is needed to edit the mod settings.
-
-The [advanced reference](docs/advanced.md) explains theme detection, log collection, startup behavior, and cache validation.
+See the [Stylus guide to writing styles](https://github.com/openstyles/stylus/wiki/Writing-styles) for creating a style and limiting it to a particular website.
 
 ## How it works
 
-1. **Find three native drawing functions.** A loader hook initializes the mod when `chrome.dll` is loaded, before Brave's caller starts using it. The resolver scans actual x64 function entries, with one unique match required for each function. Two private functions are hooked: color lookup and background painting. A third, canvas clearing, is called directly. There is no startup polling thread. A validated exact-build compatibility cache can supply the same three addresses when compiled patterns change.
-2. **Discover the toolbar color ID.** It finds `kColorToolbar` in Brave's own named-color tables. The enum number is discovered rather than fixed in the mod, and duplicate definitions must agree.
-3. **Check the original palette for each window.** The window's native color provider supplies its original toolbar color. An unmatched or unavailable palette keeps its original background painting.
-4. **Remove matching paint and clear old pixels.** Exact listed opaque colors become transparent. During each native background paint, the mod tracks whether an eligible color was replaced. If so, it clears that background after the original painter returns, removing cached pixels before Brave draws the foreground. Nested paints keep separate state.
-5. **Keep one set of window buttons.** For unowned, resizable Chromium browser frames, the optional caption fix hides Windows' underlying buttons. Brave retains its logical window style so its controls and fullscreen restoration continue to work. Turning the option or mod off restores the native buttons. Popups, owned dialogs, and tool windows are excluded.
-6. **Let Translucent Windows supply the backdrop.** The caption fix leaves sizing and fullscreen frame bits alone. Translucent Windows controls the backdrop. The GPU hook only adjusts compatible RGBA composition surfaces; HWND, YUV, and protected-video surfaces keep their original settings.
+Brave's existing transparent-host path enables its compositor to preserve transparency. The mod removes the actual vertical-tab backing through Brave's own setter and clears selected native background roles within their paint clip. Child controls and text retain their original painting. Native focus checks preserve the focused address field.
 
-Function addresses and the toolbar table entry are cached in Windhawk’s per-mod storage for the matching `chrome.dll` build and rechecked before use. Optional compatibility checks run on a separate worker only after local detection fails; the worker saves data for the next restart and does not alter a live paint path. A valid cache avoids scanning the full named-color table again. There is no screenshot polling, webpage injection, or recurring full-module scan.
+The webpage option clears the native backing during content-view updates and sets Chromium's persistent page-base color when a tab is attached. That value is also used by future renderers, so switching or restoring tabs does not bring the default white background back. Explicit website backgrounds remain visible unless a website-styling extension changes them.
+
+The map contains **13 native functions**, of which **7 are private hooks**. The implementation uses no sampled colors, private object-member offsets, guessed screen rectangles, screenshot polling, extra backing windows, or GPU hooks. Normal DirectComposition stays enabled, with no special browser launch flag. Windows supplies one backdrop. Acrylic can turn gray when inactive; choose a suitable blur mode in Translucent Windows if you prefer a persistent effect.
+
+## Updates and offline use
+
+Every launch validates the loaded DLL's identity, architecture, function boundaries, and fingerprints. Direct compiler jump stubs can be resolved for any slot, retaining strict validation of their target. Built-in or cached data works offline. Data for another build or older map format is rejected.
+
+For an unknown build, the optional worker requests a **1,080-byte** file from this repository's `compatibility-v6` branch. Missing or invalid data is retried **every 30 minutes** while Brave remains running and downloads are enabled, stopping after a valid file is cached. The worker never changes live hooks; restart Brave normally to use newly downloaded data. Known builds make no compatibility request. The mod downloads no PDBs, executable code, or mod updates.
+
+The download setting is an opt-out for users who want no compatibility network requests. Leave it on for automatic recovery when new exact-build data is available; turn it off to use only built-in or already cached data. It cannot adapt to incompatible native ABI changes.
+
+The repository workflow checks official stable releases **every two hours**. It downloads the browser and symbols only for new or changed assets or a changed compatibility contract. Cosmetic documentation changes skip heavy downloads. GitHub can delay scheduled runs. Workflow changes take effect when pushed to `main`; older client data branches remain separate.
 
 ## Troubleshooting
 
-| Symptom | What to check |
-| --- | --- |
-| No transparency | Enable **both mods**, apply Translucent Windows to `brave.exe`, choose Dark + built-in Blue, then restart Brave. |
-| Two sets of minimize/maximize/close buttons | Enable **Hide duplicate Windows buttons** in this mod. |
-| A window needs Windows' original controls | Disable **Hide duplicate Windows buttons** to restore the native layer immediately. |
-| Private or Tor window stays opaque | Add that theme's **original main toolbar color** and any sidebar colors you want removed. An unmatched palette stays opaque deliberately. |
-| Text or icons disappear | Remove the color that also matches those elements, then restart Brave. Avoid adding common foreground colors. |
-| Effect stops after a Brave update | Collect [Windhawk debug output](docs/advanced.md#collect-logs) and include your exact Brave version in a bug report. |
-| Old colors remain after saving settings | Exit every Brave window and any background instance normally, then reopen Brave. |
+Reopen Brave normally after installation or native-area changes. Enable Windhawk debug logging to check the exact build key, **13/13 native functions**, or a compatibility-cache message. For website styling, check Zen Internet's transparency setting and whether that site has a supported style, or check the CSS and site scope of your Stylus style.
 
-For a bug report, include Windows and Brave versions, the theme and window type, your color list, Translucent Windows settings, and steps to reproduce. Avoid sharing private browsing information in screenshots or logs.
-
-## Credits and license
-
-Created by [bardelyne](https://github.com/bardelyne) with AI assistance. Built for [Windhawk](https://windhawk.net/). The required [Translucent Windows](https://windhawk.net/mods/translucent-windows) mod provides the backdrop shown in the screenshot. Brave and Chromium provide the native UI and color-provider functions this mod works with.
-
-[MIT license](LICENSE).
+For reports, include Windows/Brave versions, window type, enabled areas, backdrop configuration, and reproduction steps. See the [advanced reference](docs/advanced.md), [compatibility data](docs/compatibility.md), [webview investigation](docs/webview-background.md), and [changelog](CHANGELOG.md).

@@ -3,6 +3,7 @@
 #include <winhttp.h>
 #include <dxgi1_2.h>
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
@@ -28,6 +29,7 @@ decltype(WinHttpReadData) MockRead;
 decltype(WinHttpCloseHandle) MockClose;
 decltype(GetModuleHandleExW) MockPin;
 decltype(FreeLibrary) MockFree;
+decltype(WaitForSingleObject) MockWait;
 #define WinHttpOpen MockOpen
 #define WinHttpConnect MockConnect
 #define WinHttpOpenRequest MockRequest
@@ -40,7 +42,9 @@ decltype(FreeLibrary) MockFree;
 #define WinHttpCloseHandle MockClose
 #define GetModuleHandleExW MockPin
 #define FreeLibrary MockFree
+#define WaitForSingleObject MockWait
 #include "../brave-acrylic.wh.cpp"
+#undef WaitForSingleObject
 #undef FreeLibrary
 #undef GetModuleHandleExW
 #undef WinHttpOpen
@@ -61,7 +65,7 @@ static std::unordered_map<std::wstring,std::vector<unsigned char>> storage;
 static std::atomic<bool> settingEnabled{true},inSend{false};
 static bool blockSend=false,releaseSend=false;
 static std::atomic<unsigned> openCalls{0},sendCalls{0},readCalls{0},closeCalls{0},pinCalls{0},freeCalls{0},closeRaces{0};
-static DWORD httpStatus=200,chunkSize=257;
+static DWORD httpStatus=200,chunkSize=521;
 static bool missingLength=false,wrongLength=false,failOpen=false;
 static std::vector<unsigned char> response;
 static size_t position=0;
@@ -69,7 +73,9 @@ static std::wstring host,requestPath;
 static DWORD redirectPolicy=0,disabledFeatures=0,connectRetries=99;
 static HMODULE fakeModule=nullptr;
 static CompatibilityMap fixture{};
-static constexpr size_t toolbarRow=0x3210;
+static unsigned retryWaits=0;
+static bool cancelRetry=false;
+
 
 static void Check(bool ok,const char* label) {
     ++checks;if(!ok){++failures;printf("FAIL: %s\n",label);}
@@ -88,7 +94,10 @@ BOOL Wh_SetBinaryValue(PCWSTR key,const void* bytes,size_t size) {
     std::lock_guard lock(storageMutex);storage[key]=std::vector<unsigned char>(
         static_cast<const unsigned char*>(bytes),static_cast<const unsigned char*>(bytes)+size);return TRUE;
 }
-BOOL Wh_SetFunctionHook(void* target,void*,void** original) {++hookCalls;*original=target;return TRUE;}
+BOOL Wh_SetFunctionHook(void* target,void*,void** original) {
+    ++hookCalls;*original=target;
+    return TRUE;
+}
 BOOL Wh_ApplyHookOperations() {return TRUE;}
 
 HINTERNET WINAPI MockOpen(LPCWSTR,DWORD,LPCWSTR,LPCWSTR,DWORD flags) {
@@ -122,7 +131,7 @@ BOOL WINAPI MockHeaders(HINTERNET,DWORD info,LPCWSTR,LPVOID out,LPDWORD size,LPD
     if((info&~WINHTTP_QUERY_FLAG_NUMBER)==WINHTTP_QUERY_STATUS_CODE)*static_cast<DWORD*>(out)=httpStatus;
     else if((info&~WINHTTP_QUERY_FLAG_NUMBER)==WINHTTP_QUERY_CONTENT_LENGTH) {
         if(missingLength){SetLastError(ERROR_WINHTTP_HEADER_NOT_FOUND);return FALSE;}
-        *static_cast<DWORD*>(out)=wrongLength?257:256;
+        *static_cast<DWORD*>(out)=wrongLength?sizeof(CompatibilityMap)+1:sizeof(CompatibilityMap);
     }else return FALSE;
     *size=4;return TRUE;
 }
@@ -136,13 +145,22 @@ BOOL WINAPI MockPin(DWORD flags,LPCWSTR address,HMODULE* out) {
     *out=reinterpret_cast<HMODULE>(const_cast<wchar_t*>(address));return TRUE;
 }
 BOOL WINAPI MockFree(HMODULE) {++freeCalls;return TRUE;}
+DWORD WINAPI MockWait(HANDLE handle,DWORD timeout) {
+    if(timeout==30*60*1000){
+        ++retryWaits;
+        if(cancelRetry){SetEvent(handle);return WAIT_OBJECT_0;}
+        httpStatus=200;position=0;return WAIT_TIMEOUT;
+    }
+    return WaitForSingleObject(handle,timeout);
+}
 
 static std::vector<unsigned char> ReadFile(const wchar_t* file) {
     FILE* f=_wfopen(file,L"rb");if(!f)return {};fseek(f,0,SEEK_END);long size=ftell(f);rewind(f);
     std::vector<unsigned char> b(size);if(fread(b.data(),1,b.size(),f)!=b.size())b.clear();fclose(f);return b;
 }
 static void ResetNetwork() {
-    httpStatus=200;chunkSize=257;missingLength=wrongLength=failOpen=false;position=0;
+    retryWaits=0;cancelRetry=false;
+    httpStatus=200;chunkSize=521;missingLength=wrongLength=failOpen=false;position=0;
     response.assign(reinterpret_cast<const unsigned char*>(&fixture),reinterpret_cast<const unsigned char*>(&fixture)+sizeof(fixture));
     openCalls=sendCalls=readCalls=closeCalls=pinCalls=freeCalls=closeRaces=0;
     redirectPolicy=0;disabledFeatures=0;connectRetries=99;host.clear();requestPath.clear();
@@ -151,21 +169,24 @@ static void ResetNetwork() {
 static void Reset() {
     if(s_downloadThread){WaitForSingleObject(s_downloadThread,5000);Wh_ModUninit();}
     storage.clear();hookCalls=0;s_stopping=false;s_afterInit=false;s_downloadAttempted=false;
-    s_recoveryModule=nullptr;s_recoveryToolbarRow=0;s_chromeAttempted=false;
+    s_recoveryModule=nullptr;s_chromeAttempted=false;
     s_activateAfterInit=false;s_transparencyReady=false;s_isBrowserProcess=false;
-    pOrigGetColor=nullptr;pOrigViewOnPaintBackground=nullptr;pCanvasDrawColor=nullptr;s_toolbarColorId=-1;
+    s_background.originalPaint=nullptr;s_background.clear=nullptr;s_background.getClass=nullptr;
+    s_background.originalTransparent=nullptr;s_background.originalConstruct=nullptr;s_background.setBackground=nullptr;
+    s_locationFocus=s_viewFocus=nullptr;s_originalTheme=s_originalReady=nullptr;
+    s_originalLayerColor=nullptr;s_setPageBase=nullptr;s_originalAttachContents=nullptr;
     ResetNetwork();
 }
 static void PutCache() {
-    CompatibilityCache cache{};cache.map=fixture;cache.toolbarRowRva=toolbarRow;strcpy(cache.version,"fixture");
-    Wh_SetBinaryValue(L"compatibilityMapV1",&cache,sizeof(cache));
+    CompatibilityCache cache{};cache.map=fixture;cache.revision=1;strcpy(cache.braveVersion,"fixture");strcpy(cache.modVersion,"3.3");
+    Wh_SetBinaryValue(L"compatibilityMapV6",&cache,sizeof(cache));
 }
 static void TestValidation() {
     BuildIdentity identity{};Check(GetBuildIdentity(fakeModule,&identity),"read bounded CodeView identity");
     wchar_t key[48]{};Check(FormatBuildKey(identity,key,48),"format exact identity key");
     Check(!wcscmp(key,L"33221100554477668899AABBCCDDEEFF1"),"canonical GUID endianness and hexadecimal age");
-    size_t rva[3]{};Check(ValidateCompatibilityMap(fakeModule,fixture,rva),"accept producer-generated map");
-    Check(rva[0]==0x1000&&rva[1]==0x1100&&rva[2]==0x1200,"fixed ABI slot order");
+    size_t rva[kFunctionSlots]{};Check(ValidateCompatibilityMap(fakeModule,fixture,rva),"accept producer-generated map");
+    Check(rva[0]==0x1000&&rva[1]==0x1060&&rva[2]==0x10c0&&rva[5]==0x1200,"fixed ABI slot order");
     for(int kind=0;kind<13;kind++) {
         auto bad=fixture;
         switch(kind) {
@@ -182,29 +203,79 @@ static void TestValidation() {
     }
     auto* bytes=reinterpret_cast<unsigned char*>(fakeModule);const auto original=bytes[0x1008];
     bytes[0x1008]^=0x40;Check(ValidateCompatibilityMap(fakeModule,fixture,rva),"loader relocation is masked");bytes[0x1008]=original;
-    PutCache();size_t row=0;int id=-1;
-    Check(LoadCompatibilityCache(fakeModule,rva,&row,&id)&&row==toolbarRow&&id==18,"load and validate cached toolbar table");
-    CompatibilityCache corrupt{};corrupt.map=fixture;corrupt.toolbarRowRva=0x3fff;
-    Wh_SetBinaryValue(L"compatibilityMapV1",&corrupt,sizeof(corrupt));
-    Check(!LoadCompatibilityCache(fakeModule,rva,&row,&id),"reject invalid cached color table");
-    memset(corrupt.version,'x',64);Wh_SetBinaryValue(L"compatibilityMapV1",&corrupt,sizeof(corrupt));
-    Check(!LoadCompatibilityCache(fakeModule,rva,&row,&id),"reject unterminated cached version");
+    PutCache();Check(LoadCompatibilityCache(fakeModule,rva),"cached exact DLL/format works offline");
+    CompatibilityCache corrupt{};corrupt.map=fixture;corrupt.revision=99;
+    Wh_SetBinaryValue(L"compatibilityMapV6",&corrupt,sizeof(corrupt));
+    Check(!LoadCompatibilityCache(fakeModule,rva),"reject newer incompatible cache revision");
+    corrupt.revision=1;memset(corrupt.modVersion,'x',sizeof(corrupt.modVersion));
+    Wh_SetBinaryValue(L"compatibilityMapV6",&corrupt,sizeof(corrupt));
+    Check(!LoadCompatibilityCache(fakeModule,rva),"reject unterminated cached mod version");
+    corrupt={};corrupt.map=fixture;corrupt.revision=1;corrupt.reserved=1;
+    Wh_SetBinaryValue(L"compatibilityMapV6",&corrupt,sizeof(corrupt));
+    Check(!LoadCompatibilityCache(fakeModule,rva),"reject reserved cache fields");
+    for(int kind=0;kind<7;++kind){auto bad=fixture;
+        switch(kind){case 0:bad.functions[3].kind=0;break;case 1:bad.functions[0].kind=1;break;
+        case 2:bad.functions[3].length=12;break;case 3:bad.functions[3].mask[0]=0;break;
+        case 4:bad.functions[3].code[12]=0x90;break;case 5:bad.functions[3].reserved=1;break;
+        case 6:bad.functions[3].code[13]=1;break;}
+        Check(!ValidateCompatibilityMap(fakeModule,bad,rva),"reject invalid short-leaf contract");
+    }
+    Check(rva[8]==0x1300,"named thunk resolves to its exact unwind-backed body");
+    for(int kind=0;kind<12;++kind){auto bad=fixture;
+        switch(kind){
+        case 0:bad.functions[6].length=31;break;
+        case 1:bad.functions[6].mask[3]=0;break;
+        case 2:bad.functions[6].code[0]^=1;break;
+        case 3:bad.functions[6].code[3]^=1;break;
+        case 4:bad.functions[7].kind=2;break;
+        case 5:bad.functions[8].reserved=0x1301;break;
+        case 6:bad.functions[8].reserved=0xFFFFFFFF;break;
+        case 7:bad.functions[9].kind=3;break;
+        case 8:bad.functions[8].rva=0x12a0;break;
+        case 9:bad.functions[12].rva=bad.functions[8].rva;break;
+        case 10:bad.functions[12].reserved=1;break;
+        case 11:memset(bad.functions[12].mask,0,32);break;
+        }
+        std::fill(std::begin(rva),std::end(rva),0xdeadbeef);
+        Check(!ValidateCompatibilityMap(fakeModule,bad,rva),"reject invalid added dependency or named thunk");
+        Check(std::all_of(std::begin(rva),std::end(rva),[](size_t value){return value==0xdeadbeef;}),"reject added dependency without publishing any addresses");
+    }
+    for(unsigned i=0;i<kFunctionSlots;++i){
+        auto bad=fixture;bad.functions[i]={};
+        Check(!ValidateCompatibilityMap(fakeModule,bad,rva),"reject every missing native dependency");
+    }
+    for(DWORD legacy:{1u,2u,3u,4u,5u}){auto bad=fixture;bad.format=legacy;
+        Check(!ValidateCompatibilityMap(fakeModule,bad,rva),"reject legacy format contracts");}
+    unsigned char savedStub[5];memcpy(savedStub,bytes+0x1700,5);
+    bytes[0x1700]=0xe9;const int displacement=0x1060-0x1700-5;memcpy(bytes+0x1701,&displacement,4);
+    auto thunk=fixture;thunk.functions[1].rva=0x1700;thunk.functions[1].kind=3;thunk.functions[1].reserved=0x1060;
+    Check(ValidateCompatibilityMap(fakeModule,thunk,rva)&&rva[1]==0x1060,"direct named thunk accepted outside the original special slot");
+    bytes[0x1701]^=1;Check(!ValidateCompatibilityMap(fakeModule,thunk,rva),"direct thunk destination still must match exactly");
+    for(unsigned slot:{3u,6u}){
+        auto leafThunk=fixture;auto& f=leafThunk.functions[slot];
+        const DWORD body=f.rva;f.rva=0x1700;f.kind=3;f.reserved=body;
+        const int jump=body-0x1700-5;memcpy(bytes+0x1701,&jump,4);
+        Check(ValidateCompatibilityMap(fakeModule,leafThunk,rva)&&rva[slot]==body,"named thunk can wrap an exact approved leaf body");
+        f.mask[0]=0;Check(!ValidateCompatibilityMap(fakeModule,leafThunk,rva),"thunk leaf bodies retain full fixed-byte validation");
+    }
+    memcpy(bytes+0x1700,savedStub,5);
+
 }
 static void TestHttp() {
     BuildIdentity id{};GetBuildIdentity(fakeModule,&id);
     HANDLE stop=CreateEventW(nullptr,TRUE,FALSE,nullptr);CompatibilityMap out{};
     ResetNetwork();Check(FetchCompatibilityMap(id,stop,&out),"download exact-length data");
     Check(host==L"raw.githubusercontent.com"&&requestPath==
-        L"/bardelyne/brave-acrylic/compatibility-v1/maps/33221100554477668899AABBCCDDEEFF1.bin","fixed host and exact build URL");
+        L"/bardelyne/brave-acrylic/compatibility-v6/maps/33221100554477668899AABBCCDDEEFF1.bin","fixed host and exact build URL");
     Check(redirectPolicy==WINHTTP_OPTION_REDIRECT_POLICY_NEVER&&connectRetries==2,"no redirects; connection attempts stay bounded");
     Check((disabledFeatures&(WINHTTP_DISABLE_COOKIES|WINHTTP_DISABLE_AUTHENTICATION))==
         (WINHTTP_DISABLE_COOKIES|WINHTTP_DISABLE_AUTHENTICATION),"cookies and ambient authentication disabled");
     Check(closeCalls==3&&closeRaces==0,"HTTP handles close in their owning thread");
     ResetNetwork();missingLength=true;chunkSize=1;
-    Check(FetchCompatibilityMap(id,stop,&out)&&readCalls==257,"bounded chunked body without Content-Length");
+    Check(FetchCompatibilityMap(id,stop,&out)&&readCalls==sizeof(CompatibilityMap)+1,"bounded chunked body without Content-Length");
     for(DWORD status:{301u,302u,404u,500u}) {ResetNetwork();httpStatus=status;
         Check(!FetchCompatibilityMap(id,stop,&out)&&readCalls==0,"reject missing/redirected/error responses");}
-    for(int length:{0,255,257,5000}) {ResetNetwork();missingLength=true;response.resize(length);
+    for(int length:{0,256,1079,1081,1240,1320,5000}) {ResetNetwork();missingLength=true;response.resize(length);
         Check(!FetchCompatibilityMap(id,stop,&out),"reject truncated and oversized bodies");}
     ResetNetwork();wrongLength=true;
     Check(!FetchCompatibilityMap(id,stop,&out)&&readCalls==0,"reject inconsistent advertised length");
@@ -216,31 +287,38 @@ static void TestHttp() {
     CloseHandle(stop);
 }
 static void TestResolver() {
-    Reset();PutCache();Check(ResolveBySignature(fakeModule),"offline compatibility cache installs existing native path");
-    Check(hookCalls==2&&openCalls==0,"cache path does no HTTP work");
-    Reset();Check(!ResolveBySignature(fakeModule)&&s_recoveryModule==fakeModule,"unknown signature queues exact module for recovery");
+    Reset();PutCache();Check(ResolveNativeBackground(fakeModule),"offline compatibility cache installs existing native path");
+    Check(hookCalls==7&&openCalls==0,"cache path does no HTTP work");
+    Reset();Check(!ResolveNativeBackground(fakeModule)&&s_recoveryModule==fakeModule,"unknown signature queues exact module for recovery");
     StartCompatibilityDownloadLocked();Check(!s_downloadThread&&openCalls==0,"no download during ModInit or loader initialization");
     s_afterInit=true;StartCompatibilityDownloadLocked();
     Check(s_downloadThread&&WaitForSingleObject(s_downloadThread,5000)==WAIT_OBJECT_0,"background download completes");
-    Check(storage.count(L"compatibilityMapV1")==1&&hookCalls==0,"worker caches data without changing live hooks");
+    Check(storage.count(L"compatibilityMapV6")==1&&hookCalls==0,"worker caches data without changing live hooks");
     Check(pinCalls==1&&freeCalls==1,"worker owns and releases module reference");
-    StartCompatibilityDownloadLocked();Check(openCalls==1,"at most one recovery attempt per browser process");
+    StartCompatibilityDownloadLocked();Check(openCalls==1,"successful download is not repeated in the same browser process");
     Wh_ModBeforeUninit();Wh_ModUninit();
-    s_stopping=false;Check(ResolveBySignature(fakeModule)&&hookCalls==2,"next launch can use saved recovery offline");
-    // Existing local signatures still work and retain their fast cache path.
-    Reset();auto* base=reinterpret_cast<unsigned char*>(fakeModule);
-    std::vector<unsigned char> backup(base+0x1000,base+0x1400);
-    const unsigned char* signatures[]={kSigGetColor,kSigOnPaintBackground,kSigDrawColor};
-    size_t lengths[]={sizeof(kSigGetColor),sizeof(kSigOnPaintBackground),sizeof(kSigDrawColor)};
-    auto* table=reinterpret_cast<RUNTIME_FUNCTION*>(base+0x2000);
-    for(int i=0;i<3;i++){memcpy(base+0x1000+i*0x100,signatures[i],lengths[i]);table[i].EndAddress=0x1000+i*0x100+128;}
-    Check(ResolveBySignature(fakeModule)&&storage.count(L"signatureCache"),"existing signature scan remains functional");
-    Check(ResolveBySignature(fakeModule)&&openCalls==0,"warm signature cache never requests online data");
-    memcpy(base+0x1000,backup.data(),backup.size());for(int i=0;i<3;i++)table[i].EndAddress=0x1000+i*0x100+64;
+    s_stopping=false;Check(ResolveNativeBackground(fakeModule)&&hookCalls==7,"next launch can use saved recovery offline");
+    Reset();PutCache();Check(ResolveNativeBackground(fakeModule),"repeat validated cache lookup");
+    Check(openCalls==0,"known exact build never checks the network");
+    Reset();settingEnabled=false;s_downloadCompatibility=false;s_afterInit=true;s_recoveryModule=fakeModule;
+    StartCompatibilityDownloadLocked();Check(!s_downloadThread&&openCalls==0,"network opt-out stops unknown-build checks");
+
+}
+static void TestRetry() {
+    Reset();s_afterInit=true;s_recoveryModule=fakeModule;httpStatus=404;
+    StartCompatibilityDownloadLocked();
+    Check(s_downloadThread&&WaitForSingleObject(s_downloadThread,5000)==WAIT_OBJECT_0,"missing data becomes available on a later timer attempt");
+    Check(retryWaits==1&&openCalls==2,"only unknown builds use the 30-minute retry");
+    Check(storage.count(L"compatibilityMapV6")==1,"successful retry saves the exact map and stops");
+    Check(hookCalls==0,"retry never changes live hooks");
+    Reset();s_afterInit=true;s_recoveryModule=fakeModule;httpStatus=404;cancelRetry=true;
+    StartCompatibilityDownloadLocked();
+    Check(s_downloadThread&&WaitForSingleObject(s_downloadThread,5000)==WAIT_OBJECT_0,"cancel wakes the idle retry wait immediately");
+    Check(retryWaits==1&&openCalls==1&&storage.empty(),"cancelled retries issue no further request or cache write");
 }
 static void TestShutdown() {
     for(bool disableSetting:{false,true}) {
-        Reset();s_afterInit=true;s_recoveryModule=fakeModule;s_recoveryToolbarRow=toolbarRow;
+        Reset();s_afterInit=true;s_recoveryModule=fakeModule;
         blockSend=true;StartCompatibilityDownloadLocked();
         {std::unique_lock lock(networkMutex);Check(networkCv.wait_for(lock,std::chrono::seconds(3),[]{return inSend.load();}),"worker entered blocking HTTP stage");}
         if(disableSetting){settingEnabled=false;Wh_ModSettingsChanged();}
@@ -249,7 +327,7 @@ static void TestShutdown() {
         Check(WaitForSingleObject(s_downloadStop,0)==WAIT_OBJECT_0,"shutdown requests cancellation");
         {std::lock_guard lock(networkMutex);releaseSend=true;}networkCv.notify_all();stop.join();
         Check(stopped&&closeRaces==0,"unload waits for HTTP owner instead of closing another thread's handle");
-        Check(storage.count(L"compatibilityMapV1")==0,"cancelled or disabled worker never saves data");
+        Check(storage.count(L"compatibilityMapV6")==0,"cancelled or disabled worker never saves data");
         Wh_ModUninit();Check(!s_downloadThread&&!s_downloadStop,"worker handles are released");
     }
 }
@@ -262,18 +340,14 @@ int wmain(int argc,wchar_t** argv) {
     const auto* nt=reinterpret_cast<const IMAGE_NT_HEADERS64*>(base+reinterpret_cast<IMAGE_DOS_HEADER*>(base)->e_lfanew);
     const auto* section=IMAGE_FIRST_SECTION(nt);
     for(unsigned i=0;i<nt->FileHeader.NumberOfSections;i++)memcpy(base+section[i].VirtualAddress,file.data()+section[i].PointerToRawData,section[i].SizeOfRawData);
-    const char* names[]={"kColorBefore","kColorToolbar","kColorAfter"};
-    for(int i=0;i<3;i++) {
-        unsigned long long id=17+i,ptr=reinterpret_cast<ULONG_PTR>(base+0x3300+i*32);
-        memcpy(base+0x3200+i*16,&id,8);memcpy(base+0x3208+i*16,&ptr,8);strcpy(reinterpret_cast<char*>(base+0x3300+i*32),names[i]);
-    }
-    TestValidation();TestHttp();TestResolver();TestShutdown();Reset();
+    TestValidation();TestHttp();TestResolver();TestRetry();TestShutdown();Reset();
     if(argc==5) {
         HMODULE actual=LoadLibraryExW(argv[3],nullptr,DONT_RESOLVE_DLL_REFERENCES);
-        auto bytes=ReadFile(argv[4]);CompatibilityMap real{};size_t rva[3]{};
+        auto bytes=ReadFile(argv[4]);CompatibilityMap real{};size_t rva[kFunctionSlots]{};
         Check(actual&&bytes.size()==sizeof(real),"map real Brave DLL without executing it");
         if(actual&&bytes.size()==sizeof(real)) {
             memcpy(&real,bytes.data(),sizeof(real));Check(ValidateCompatibilityMap(actual,real,rva),"validate official PDB-derived data against the loaded real DLL");
+            Check(!memcmp(kBuiltinMap,bytes.data(),sizeof(real)),"embedded data matches the official PDB-derived map");
             real.functions[2].code[0]^=1;Check(!ValidateCompatibilityMap(actual,real,rva),"reject altered real-build fingerprint");
         }
         if(actual)FreeLibrary(actual);

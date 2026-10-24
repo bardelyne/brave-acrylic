@@ -7,10 +7,10 @@ const crypto = require('node:crypto');
 const {Readable, Transform} = require('node:stream');
 const {pipeline} = require('node:stream/promises');
 const {spawnSync} = require('node:child_process');
-const {FORMAT, MAP_SIZE, SYMBOLS, generate, validateMap} = require('./symbol-map.cjs');
+const {FORMAT, MAP_SIZE, HEADER_SIZE, ENTRY_SIZE, EXTRACTOR, ABI_REVISION, CLIENT_VERSION,
+  SYMBOLS, REQUIRED_SLOTS, generate, validateMap} = require('./symbol-map-v6.cjs');
 const REPOSITORY = 'bardelyne/brave-acrylic';
-const BRANCH = 'compatibility-v1';
-const EXTRACTOR = 1;
+const BRANCH = 'compatibility-v6';
 const WORK = path.resolve(process.env.COMPATIBILITY_WORK_DIR ||
   (process.env.RUNNER_TEMP ? path.join(process.env.RUNNER_TEMP, 'brave-compatibility') : 'compatibility-work'));
 const API = 'https://api.github.com';
@@ -20,6 +20,43 @@ function tagName(value) {
   return value;
 }
 function hash(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
+const hexHash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+async function contractMetadata() {
+  return {format:FORMAT, extractor:EXTRACTOR, abiRevision:ABI_REVISION, clientVersion:CLIENT_VERSION,
+    modContract:{abiSha256:hash(JSON.stringify({format:FORMAT, abiRevision:ABI_REVISION,
+      clientVersion:CLIENT_VERSION, mapSize:MAP_SIZE, headerSize:HEADER_SIZE, entrySize:ENTRY_SIZE,
+      symbols:SYMBOLS,requiredSlots:REQUIRED_SLOTS,normal:{kind:0, minLength:16, minFixed:16, maxLength:32, unwind:true},
+      leaf:{kind:1, slot:3, length:13, code:'4883B9????????00740331C0C3', fixed:13, unwind:false},
+      focusLeaf:{kind:2,slot:6,length:32,fixed:32,unwind:false,
+        layout:'4883B9????????007413488B81????????488B4028837818000F95C0C331C0C3'},
+      namedThunk:{kind:3,slots:'any',opcode:0xE9,length:5,unwind:false,targetField:'reserved',body:'normal-unwind-or-approved-slot-leaf',
+        ranges:'source-and-body-distinct-nonoverlapping-executable'},
+      nativeAbi:{color:'float4-indirect',pageBase:'optional-color8-register-present-byte4',attach:'canonical-WebContents-before-native-attach'},
+      aliases:'reject-all-thirteen-and-thunk-bodies'}))}};
+}
+async function modSourceHash(source) {
+  return hash(source ?? await fs.readFile(path.join(__dirname, '..', 'brave-acrylic.wh.cpp')));
+}
+function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+function assetIdentity(asset, name, limit) {
+  check(asset && asset.name === name && Number.isSafeInteger(asset.id) && asset.id > 0 &&
+    Number.isSafeInteger(asset.size) && asset.size > 0 && asset.size <= limit &&
+    typeof asset.updated_at === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(asset.updated_at) &&
+    Number.isFinite(Date.parse(asset.updated_at)) &&
+    (asset.digest == null || /^sha256:[a-f0-9]{64}$/.test(asset.digest)), 'Invalid official release asset');
+  return {id:asset.id, name, size:asset.size, updated_at:asset.updated_at, digest:asset.digest ?? null};
+}
+function releaseIdentity(release) {
+  const tag = tagName(release.tag_name), name = `brave-${tag}-win32-x64.zip`;
+  check(release.draft === false && release.prerelease === false && Array.isArray(release.assets),
+    'Only stable Brave releases are generated automatically');
+  const find = filename => {
+    const matches = release.assets.filter(a => a.name === filename);
+    check(matches.length === 1, 'Missing or ambiguous official asset'); return matches[0];
+  };
+  return {tag, name, assets:{archive:assetIdentity(find(name), name, 1024 ** 3),
+    checksum:assetIdentity(find(name + '.sha256'), name + '.sha256', 4096)}};
+}
 async function api(route, method = 'GET', body, missing = false) {
   check(route.startsWith('/'), 'Invalid API route');
   const headers = {'User-Agent':'brave-acrylic-compatibility', Accept:'application/vnd.github+json',
@@ -36,28 +73,31 @@ async function output(name, value) {
   if (process.env.GITHUB_OUTPUT) await fs.appendFile(process.env.GITHUB_OUTPUT, name + '=' + value + '\n');
   console.log(name + '=' + value);
 }
-async function prepare() {
-  await fs.mkdir(WORK, {recursive:true});
-  const requested = process.env.BRAVE_TAG || '';
-  const release = await api('/repos/brave/brave-browser/releases/' +
+async function prepare({work = WORK, env = process.env, request = api, modSource, emit = output} = {}) {
+  await fs.mkdir(work, {recursive:true});
+  const requested = env.BRAVE_TAG || '';
+  const release = await request('/repos/brave/brave-browser/releases/' +
     (requested ? 'tags/' + tagName(requested) : 'latest'));
-  const tag = tagName(release.tag_name);
-  check(!release.draft && !release.prerelease, 'Only stable Brave releases are generated automatically');
-  const name = `brave-${tag}-win32-x64.zip`;
-  const asset = release.assets.find(a => a.name === name);
-  const checksum = release.assets.find(a => a.name === name + '.sha256');
-  check(asset && checksum && asset.size > 0 && asset.size <= 1024 ** 3, 'Missing or oversized x64 release asset');
-  const existing = await api(`/repos/${REPOSITORY}/contents/releases/${tag}.json?ref=${BRANCH}`, 'GET', undefined, true);
+  const official = releaseIdentity(release), {tag} = official;
+  check(!requested || tag === requested, 'Official release tag mismatch');
+  const metadata = await contractMetadata();
+  const existing = await request(`/repos/${REPOSITORY}/contents/releases/${tag}.json?ref=${BRANCH}`, 'GET', undefined, true);
   let known = false;
   if (existing) {
-    check(existing.encoding === 'base64' && existing.size < 16384, 'Invalid published release record');
-    const record = JSON.parse(Buffer.from(existing.content, 'base64').toString('utf8'));
-    known = record.format === FORMAT && record.extractor === EXTRACTOR && record.tag === tag;
+    check(existing.encoding === 'base64' && existing.size > 0 && existing.size <= 16384 &&
+      typeof existing.content === 'string' && existing.content.length <= 24000, 'Invalid published release record');
+    try {
+      const record = JSON.parse(Buffer.from(existing.content, 'base64').toString('utf8'));
+      known = record.tag === tag && hexHash(record.sha256) &&
+        Object.entries(metadata).every(([key, value]) => same(record[key], value)) &&
+        same(record.assets, official.assets);
+    } catch { /* A broken record requires regeneration. */ }
   }
-  const needed = !known || process.env.FORCE_REBUILD === 'true';
-  await fs.writeFile(path.join(WORK, 'plan.json'), JSON.stringify({tag, name,
-    size:asset.size, needed}, null, 2));
-  await output('needed', String(needed)); await output('tag', tag);
+  const needed = !known || env.FORCE_REBUILD === 'true';
+  const plan = {...official, ...metadata, modSourceSha256:await modSourceHash(modSource), needed};
+  await fs.writeFile(path.join(work, 'plan.json'), JSON.stringify(plan, null, 2));
+  await emit('needed', String(needed)); await emit('tag', tag);
+  return plan;
 }
 async function download(url, destination, limit) {
   const u = new URL(url);
@@ -89,19 +129,29 @@ async function shaFile(file) {
 }
 async function build() {
   const plan = JSON.parse(await fs.readFile(path.join(WORK, 'plan.json'), 'utf8'));
-  tagName(plan.tag); check(plan.needed, 'No generation requested');
+  tagName(plan.tag); check(plan.needed === true, 'No generation requested');
   check(plan.name === `brave-${plan.tag}-win32-x64.zip`, 'Unexpected archive name');
+  const metadata = await contractMetadata();
+  check(Object.entries(metadata).every(([key, value]) => same(plan[key], value)), 'Stale generation contract');
+  const official = releaseIdentity(await api('/repos/brave/brave-browser/releases/tags/' + plan.tag));
+  check(official.tag === plan.tag && same(official.assets, plan.assets), 'Official assets changed; prepare again');
   const out = path.join(WORK, 'out'); await fs.mkdir(out, {recursive:true});
   const zip = path.join(WORK, 'brave.zip'), sums = path.join(WORK, 'archive.sha256');
   const dll = path.join(WORK, 'chrome.dll'), pdb = path.join(WORK, 'chrome.dll.pdb');
   const base = `https://github.com/brave/brave-browser/releases/download/${plan.tag}/${plan.name}`;
   const started = Date.now();
   await download(base + '.sha256', sums, 4096);
+  check((await fs.stat(sums)).size === plan.assets.checksum.size &&
+    (!plan.assets.checksum.digest || plan.assets.checksum.digest === 'sha256:' + await shaFile(sums)),
+    'Official checksum asset changed');
   const checksumText = await fs.readFile(sums, 'utf8');
   const checksum = /^([0-9a-f]{64})\s+\*?([^\r\n]+)\s*$/i.exec(checksumText);
   check(checksum && checksum[2].trim() === plan.name, 'Invalid official archive checksum');
   await download(base, zip, 1024 ** 3);
-  check((await shaFile(zip)) === checksum[1].toLowerCase(), 'Official archive SHA256 mismatch');
+  const archiveHash = await shaFile(zip);
+  check((await fs.stat(zip)).size === plan.assets.archive.size && archiveHash === checksum[1].toLowerCase() &&
+    (!plan.assets.archive.digest || plan.assets.archive.digest === 'sha256:' + archiveHash),
+    'Official archive size or SHA256 mismatch');
   // Extract just the DLL to a fixed path. Never execute the downloaded browser,
   // follow archive paths, or unpack a PDB's source-server commands.
   const extract = spawnSync(process.env.PYTHON || 'python3', ['-c',
@@ -120,34 +170,70 @@ async function build() {
   console.log('Downloading symbols for exact build ' + pe.identity.key);
   await download(url, pdb, 12 * 1024 ** 3);
   const result = await generate(dll, pdb, path.join(out, 'map.bin'));
-  const record = {...result, tag:plan.tag, extractor:EXTRACTOR,
+  const record = {...result, ...metadata, tag:plan.tag, assets:plan.assets,
+    modSourceSha256:await modSourceHash(),
     createdUtc:new Date().toISOString(), source:{release:base, archiveSha256:checksum[1].toLowerCase(),
       dllSha256:await shaFile(dll), symbols:url}, elapsedMs:Date.now() - started};
   await fs.writeFile(path.join(out, 'record.json'), JSON.stringify(record, null, 2) + '\n');
-  await verify(out);
+  await verify(out, {allowLegacy:false});
   console.log('Generated ' + MAP_SIZE + ' bytes in ' + Math.round(record.elapsedMs / 1000) + ' seconds');
 }
-async function verify(directory) {
+async function verify(directory, {allowLegacy = true, modSource} = {}) {
+  const names = (await fs.readdir(directory)).sort();
+  check(same(names, ['map.bin', 'record.json']), 'Unexpected generated artifact files');
+  for (const [name, max] of [['map.bin', MAP_SIZE], ['record.json', 16384]]) {
+    const stat = await fs.lstat(path.join(directory, name));
+    check(stat.isFile() && !stat.isSymbolicLink() && stat.size > 0 && stat.size <= max, 'Invalid generated artifact size or type');
+  }
   const map = await fs.readFile(path.join(directory, 'map.bin'));
   const record = JSON.parse(await fs.readFile(path.join(directory, 'record.json'), 'utf8'));
+  if (allowLegacy && record.format === 1) return verifyLegacy(map, record);
   const identity = validateMap(map);
   tagName(record.tag);
-  check(record.format === FORMAT && record.extractor === EXTRACTOR && record.key === identity.key &&
-    record.sha256 === hash(map), 'Invalid generated artifact');
+  const metadata = await contractMetadata();
+  check(Object.entries(metadata).every(([key, value]) => same(record[key], value)) && record.key === identity.key &&
+    record.sha256 === hash(map) && record.modSourceSha256 === await modSourceHash(modSource),
+    'Invalid generated artifact');
+  check(record.machine === identity.machine && record.timestamp === identity.timestamp &&
+    record.imageSize === identity.imageSize && Number.isSafeInteger(record.records) && record.records >= REQUIRED_SLOTS.length &&
+    record.dbiAge === map.readUInt32LE(24) && Number.isSafeInteger(record.infoAge) &&
+    record.infoAge >= record.dbiAge,
+    'Invalid generated identity metadata');
+  const name = `brave-${record.tag}-win32-x64.zip`;
+  check(same(record.assets, {archive:assetIdentity(record.assets?.archive, name, 1024 ** 3),
+    checksum:assetIdentity(record.assets?.checksum, name + '.sha256', 4096)}), 'Invalid asset provenance');
   check(record.source?.symbols === `https://brave-symbols.s3.brave.com/chrome.dll.pdb/${identity.key}/chrome.dll.pdb`,
     'Unexpected symbol provenance');
   check(record.source.release === `https://github.com/brave/brave-browser/releases/download/${record.tag}/brave-${record.tag}-win32-x64.zip` &&
-    /^[a-f0-9]{64}$/.test(record.source.archiveSha256) && /^[a-f0-9]{64}$/.test(record.source.dllSha256) &&
+    hexHash(record.source.archiveSha256) && hexHash(record.source.dllSha256) &&
+    (!record.assets.archive.digest || record.assets.archive.digest === 'sha256:' + record.source.archiveSha256) &&
     record.functions?.length === SYMBOLS.length && record.functions.every((f,i) =>
-      f.name === SYMBOLS[i] && f.rva === identity.addresses[i] && f.length === map.readUInt32LE(44+i*72)),
+      f.name === SYMBOLS[i] && f.rva === identity.entries[i].rva && f.length === identity.entries[i].length &&
+      f.kind === identity.entries[i].kind && f.reserved === identity.entries[i].reserved),
   'Invalid generated provenance or ABI slots');
+  return {map, record};
+}
+// Preserve the v1 verifier API for legacy fixtures and local callers. The
+// publishing path explicitly disables this dispatch and can only write v6.
+function verifyLegacy(map, record) {
+  const legacy = require('./symbol-map.cjs'), identity = legacy.validateMap(map);
+  tagName(record.tag);
+  check(record.extractor === 1 && record.key === identity.key && record.sha256 === hash(map), 'Invalid generated artifact');
+  check(record.source?.symbols === `https://brave-symbols.s3.brave.com/chrome.dll.pdb/${identity.key}/chrome.dll.pdb` &&
+    record.source.release === `https://github.com/brave/brave-browser/releases/download/${record.tag}/brave-${record.tag}-win32-x64.zip` &&
+    hexHash(record.source.archiveSha256) && hexHash(record.source.dllSha256) &&
+    record.functions?.length === legacy.SYMBOLS.length && record.functions.every((f,i) =>
+      f.name === legacy.SYMBOLS[i] && f.rva === identity.addresses[i] && f.length === map.readUInt32LE(44+i*72)),
+    'Invalid generated provenance or ABI slots');
   return {map, record};
 }
 async function publish() {
   check(process.env.GITHUB_REPOSITORY === REPOSITORY && process.env.GITHUB_REF === 'refs/heads/main',
     'Publishing is allowed only from the owner repository default branch');
   check(process.env.GH_TOKEN, 'Publishing token is required');
-  const {map, record} = await verify(path.join(WORK, 'out'));
+  const {map, record} = await verify(path.join(WORK, 'out'), {allowLegacy:false});
+  const official = releaseIdentity(await api('/repos/brave/brave-browser/releases/tags/' + record.tag));
+  check(official.tag === record.tag && same(official.assets, record.assets), 'Official assets changed before publication');
   const ref = await api(`/repos/${REPOSITORY}/git/ref/heads/${BRANCH}`, 'GET', undefined, true);
   const commit = ref ? await api(`/repos/${REPOSITORY}/git/commits/${ref.object.sha}`) : null;
   const files = [
@@ -173,10 +259,10 @@ async function publish() {
   else await api(`/repos/${REPOSITORY}/git/refs`, 'POST', {ref:'refs/heads/' + BRANCH, sha:next.sha});
   console.log(`Published maps/${record.key}.bin on ${BRANCH}`);
 }
-module.exports = {tagName, verify, prepare, build, publish};
+module.exports = {tagName, verify, prepare, build, publish, contractMetadata, assetIdentity, releaseIdentity, BRANCH};
 if (require.main === module) {
   const mode = process.argv[2];
-  const action = {prepare, build, publish, verify:() => verify(path.join(WORK, 'out'))}[mode];
+  const action = {prepare, build, publish, verify:() => verify(path.join(WORK, 'out'), {allowLegacy:false})}[mode];
   if (!action) { console.error('Usage: node tools/update-compatibility.cjs prepare|build|verify|publish'); process.exitCode = 1; }
   else action().catch(e => { console.error(e.message); process.exitCode = 1; });
 }

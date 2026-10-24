@@ -1,97 +1,57 @@
 # Advanced reference
 
-Brave Acrylic is **alpha software** and requires **Translucent Windows** configured for `brave.exe`. Start with the built-in Dark + Blue theme.
+Brave Acrylic 3.3 is alpha software. Translucent Windows supplies the backdrop for brave.exe. Version 3 ignores the former color list.
 
-## Settings
+## Areas and focus
 
-All user settings are in Windhawk. No separate configuration file or administrator access is needed to edit them.
+**Vertical tabs background** controls the frame and vertical-tab backing. **Toolbar** controls the toolbar, bookmarks bar, and unfocused address field. **Webpage background** controls both the native content backing and the renderer fallback canvas. All three default on; the common transparent browser root is needed when any area is selected. Unselected child areas keep native painting.
 
-| Setting | Default | Purpose |
+Focused address fields retain their theme background. Buttons, tab highlights, labels, menus, and website-painted colors are preserved by the native path.
+
+Restart Brave after changing Vertical tabs background or Toolbar. Webpage background is set on tab attachment, so selecting an existing tab applies it without a refresh. Restart after disabling Webpage background to restore its previously stored base color. Some backgrounds and compositor opacity are initialized with their windows; disabling a setting does not recreate a destroyed native Background object in an existing window. Exit any remaining background instance normally as well.
+
+## Website styling
+
+Use [Zen Internet](https://chromewebstore.google.com/detail/zen-internet/dpkamhkboipomecencjpammmjdfkgjha) for website-specific background removal. In the extension, open **Advanced Settings** and turn **Disable Transparency** off under **Global Feature Controls**. Keep **Webpage background** enabled in Brave Acrylic. Apply extension changes to a newly opened or reloaded page.
+
+Alternatively, use [Stylus](https://chromewebstore.google.com/detail/stylus/clngdbkpkpeebahjckkjfobafhncgmne) to create a style for an individual website. It does not remove backgrounds out of the box: write or paste CSS rules for the elements you want transparent, or install a suitable userstyle. Keep **Webpage background** enabled in Brave Acrylic. The [Stylus writing guide](https://github.com/openstyles/stylus/wiki/Writing-styles) explains CSS and website scope.
+
+The mod clears only Chromium's native webpage-area backing and default white fallback; it does not modify website HTML, CSS or content. Explicit CSS backgrounds remain unless an extension changes them. Website coverage, contrast and images depend on its styles. The mod contains no website-code settings, load observer, JavaScript execution helper or URL-scheme helper. Older saved website-code values are ignored.
+
+## Native dependencies
+
+| Slot | Dependency | Hooked? |
 | --- | --- | --- |
-| **Colours to make transparent** | `333C4D`, `1D2636` | Up to 16 original RGB colors. Include the theme's main toolbar color to enable its palette. |
-| **Hide duplicate Windows buttons** | On | Hide the native button layer underneath Brave's controls; applies immediately and restores it when disabled. |
-| **Log colours (diagnostics)** | Off | Report native color IDs and original RGB values through Windhawk's log. Enable temporarily when identifying a theme. |
+| 0 | View::OnPaintBackground | Yes: selected background roles. |
+| 1 | Canvas::DrawColor | No: clear the native clip. |
+| 2 | View::GetClassNameW | No: exact View role. |
+| 3 | Browser-host transparency predicate | Yes: native transparent compositor path. |
+| 4 | Vertical-tab container constructor | Yes: exact anonymous backing View. |
+| 5 | View::SetBackground | No: native background ownership. |
+| 6 | LocationBarView::HasFocus | No. |
+| 7 | View::HasFocus | No. |
+| 8 | ContentsWebView::OnThemeChanged | Yes: scope backing-color updates. |
+| 9 | ContentsWebView::RenderViewReady | Yes: scope initial renderer setup. |
+| 10 | LayerAnimator::SetColor | Yes: clear backing only inside that scope. |
+| 11 | WebContentsImpl::SetPageBaseBackgroundColor | No: store and broadcast a persistent transparent canvas. |
+| 12 | ContentsWebView::SetWebContents | Yes: set the supplied page base before attaching a tab. |
 
-Colors must contain exactly six hexadecimal digits (`RRGGBB`), optionally preceded by `#`. Leading and trailing whitespace are accepted. Alpha channels, extra digits, and invalid characters are rejected. A bad row is logged and skipped without hiding later valid entries. If there are no usable entries, the built-in defaults are restored.
+All thirteen slots are required; seven dependencies are private hooks. Format 6 includes their exact decorated names and x64 ABI. Native string-view returns, indirectly passed empty unique pointers, 16-byte colors, and an 8-byte optional color passed by value follow the matching Brave build. The optional color is explicitly present with transparent ARGB; nullopt would restore Chromium's white default. No private object-member offsets are read. These contracts still need review if Brave changes its ABI.
 
-Settings are parsed into a local snapshot and published under a shared/exclusive lock. Paint readers see a complete list. The hook does not hold that lock while calling Brave's native functions.
+The page base is applied through the canonical WebContents pointer supplied to ContentsWebView::SetWebContents, before original attachment notifications. Chromium stores it on that page and broadcasts it to current renderers; future renderers inherit it. No refresh, timer, retained tab pointer, or extra window is involved. Explicit author CSS remains unchanged.
 
-Earlier experimental configuration and external-cache files are no longer read. The current settings and signature cache use Windhawk's managed storage.
+Direct E9 stubs are supported at any named slot if they lead directly to a unique validated normal body or the already-approved host/focus leaf for that slot. Both the stub and body are checked. Indirect jumps, this-adjustors, jump chains, shared bodies, unsupported leaves, missing required functions and changed ABIs remain unsupported.
 
-## Per-window detection
+Only the browser process installs hooks. GPU, renderer and utility processes are excluded. There are no color-provider, GPU, DWM, color-key or overlay-window hooks; normal DirectComposition remains enabled.
 
-The mod queries the original `kColorToolbar` value through Brave's unmodified color provider. Its numeric ID is discovered from Brave's named-color tables; no fixed enum number or private View-member offset is used.
+## Compatibility and lifecycle
 
-Brave passes the current native provider to its color lookup function. The mod checks that provider directly and records eligible matches during each background paint. Theme changes and newly opened private/Tor windows use their own palettes. No private View getter, class-name lookup, or provider lifetime cache is needed.
+Embedded and cached format-6 maps are checked against the loaded DLL before readiness is published. The exact PDB identity and PE properties matter; display version strings alone do not establish compatibility. Legacy formats are separate.
 
-If the provider is missing, the toolbar color is not listed, or Chromium returns its missing-color placeholder, the original painting is retained. A shared secondary color cannot enable an otherwise unmatched palette. Color replacement rechecks the requested color and toolbar color against one settings snapshot.
+For unknown builds, an optional worker makes a bounded request, then waits 30 minutes before retrying missing or invalid data. Waiting is cancellable, disabling downloads prevents further requests, and a successful cache write ends retries. The worker never installs live hooks; use a normal restart after a download. Known builds do no network work.
 
-The setting is a shared color list, not toolbar/sidebar pairs. An exact listed color returned by an eligible palette can affect text, buttons, or popup backgrounds too. Keep entries specific and avoid common foreground colors such as pure white.
+Loader installation and shutdown share a lock and readiness barrier. Resource-only DLL mappings are ignored. Shutdown disables readiness, cancels the worker, and waits outside the installation lock; HTTP handles close in their owning thread. No late hook batch can activate after shutdown.
 
-## Startup and shutdown
+The caption option hides only the recorded native system-menu bit on eligible resizable, unowned Chrome_WidgetWin_1 frames. Chromium sees its logical style; resize/minimize/maximize bits remain. Existing frames update immediately, and disabling/unloading restores recorded bits. Tool windows and dialogs are excluded.
 
-In the browser process, the mod hooks `LoadLibraryExW` from `kernelbase.dll` when `chrome.dll` is not already loaded. It installs and activates the native hooks before returning the newly loaded module to Brave's caller. Resource-only or unresolved library mappings are ignored.
-
-If `chrome.dll` is already present, the initial hook batch is registered in `Wh_ModInit` and activated through Windhawk's normal initialization sequence. A post-init check covers loading between the initial module check and activation of the loader hook. Repeated loads do not install duplicate hooks.
-
-Installation and `Wh_ModBeforeUninit` share a barrier. Disabling the mod stops activation and waits for any in-flight installation before the callback returns. There are no startup polling threads, worker-thread timeouts, or background window-restyling loops. The caption option updates existing frames once and handles later creation/style changes through Windows API hooks.
-
-Process types are read from complete Windows command-line arguments. A URL containing `--type=` cannot be mistaken for a process switch. Parsing stops at `--` or Chromium's `--single-argument` association switch, so spaces in an opened path cannot create false process switches. Renderer and utility processes are skipped before reading settings. The GPU process only installs the narrowly scoped composition hook; it does not read browser color settings.
-
-## GPU behavior
-
-The mod never hooks `CreateSwapChainForHwnd`. HWND swap chains retain Brave's original descriptors.
-
-For composition swap chains, alpha is requested only for compatible RGBA formats: BGRA8, RGBA8, RGBA16 float, and RGB10A2. YUV/opaque formats, protected or restricted video surfaces, and existing explicit alpha choices are left alone. The caller's descriptor is copied, not modified.
-
-If the driver rejects the adjusted alpha mode as invalid or unsupported, creation is retried with the original descriptor. Device failures are returned unchanged.
-
-The GPU hook runs independently of the browser's theme detection and native-function resolver. Eligible composition surfaces can receive the alpha override even when the browser paint path is disabled or a window uses an unmatched theme. Opaque pixels stay opaque. If you see unintended transparent areas while the paint path is inactive, include that detail in your report; the GPU override is a separate place to investigate.
-
-`dxgi.dll` is loaded from System32, and its module reference is kept until Windhawk removes the hook. Translucent Windows controls backdrop selection. Brave Acrylic does not set DWM backdrop attributes, extend frames, or add resize borders. The caption option removes only the native `WS_SYSMENU` bit; caption, sizing, minimize, and maximize bits stay under Brave's control.
-
-## Collect logs
-
-1. Open Brave Acrylic in Windhawk and temporarily disable it.
-2. Open **Advanced**, set **Debug logging** to **Detailed debug logs**, and select **Show log output**.
-3. Enable the mod and restart Brave normally to capture initialization.
-4. Reproduce the issue and save the output. For theme discovery, also enable **Log colours (diagnostics)** in the mod's Settings tab.
-5. Restore debug logging to **None** and disable color diagnostics after collecting the information.
-
-These steps follow [Windhawk's troubleshooting guide](https://github.com/ramensoftware/windhawk/wiki/Troubleshooting#some-or-all-windhawk-mods-dont-work).
-
-Look for the discovered `kColorToolbar` ID and a **3/3** signature scan/cache report. The enum ID can change between Brave builds. When collecting colors, activate the relevant regular/private/Tor window and find the original RGB value for that reported ID. Color diagnostics are capped at 256 distinct ID/RGB pairs per process and do not record webpage contents or URLs.
-
-## Cache and update safeguards
-
-The optional background recovery path and its data-generation workflow are documented in [Exact-build compatibility data](compatibility.md). Working builds remain offline. An accepted recovery file is cached for the next normal Brave restart; it does not change the live paint path.
-
-The normal `signatureCache` and optional `compatibilityMapV1` values are stored through Windhawk's per-mod storage API. The latter is a validated 256-byte map plus the toolbar entry and version. The signature cache records the build key, Brave version, three function addresses, and the relative address of the named toolbar-color entry. Windhawk owns the storage and removes it with the mod.
-
-The key includes the exact `chrome.dll` timestamp, image size, and signature revision. Cached addresses must remain inside executable code, start at complete x64 function entries, and match the current byte signatures. Invalid or incomplete values trigger a fresh scan before any native hook is registered.
-
-Each signature must have exactly one function match. Color lookup, background-paint, and canvas-clear signatures extend beyond their prologues into native operations. Changing relocations and selected operands are excluded from matching. A missing or ambiguous signature does not install paint hooks. Recovery can proceed only with an independently validated compatibility cache.
-
-The toolbar ID comes from bounded read-only tables. A full scan requires agreement between duplicate definitions. On subsequent launches, the cached entry must still have the exact `kColorToolbar` name, valid read-only pointers, and consecutive neighboring color IDs. An invalid entry triggers the full scan again. A valid cache avoids the full table scan; no screen sampling or recurring module scan is used.
-
-These checks reduce the chance of a bad match; they cannot make private Brave functions permanent. Compiler or rendering changes can still require a mod update.
-
-## Rendering scope
-
-Each native background paint gets a temporary scope on its current thread. If color lookup replaces a configured color from an eligible palette during that paint, the canvas is cleared after the original background painter returns. This removes cached opaque pixels before subsequent foreground painting. Unmatched paints retain their original behavior. Nested scopes are independent, and no Brave object is retained after the call.
-
-The private dependencies are `ui::ColorProvider::GetColor`, `views::View::OnPaintBackground`, and `gfx::Canvas::DrawColor`. The first two are hooked; the third is called for a transparent clear. Exact color replacement can still affect other elements that share an eligible palette and a configured color.
-
-No website scripts, DOM overrides, extensions, or webpage-background hooks are installed. Restart Brave normally after enabling, disabling, or changing the mod because Brave caches native brushes and opacity information.
-
-## Native caption buttons
-
-**Hide duplicate Windows buttons** is enabled by default. Windows can draw its own minimize/maximize/close buttons underneath a transparent Chromium toolbar; hiding that native layer leaves Brave's buttons visible.
-
-The browser process hooks `CreateWindowExW`, both wide window-style getters, and both wide window-style setters. Only unowned, resizable `Chrome_WidgetWin_1` frames in that process are eligible. Child windows, tool windows, owned dialogs, and frames without minimize/maximize support are excluded. There is no window polling.
-
-A small window property records each native system-menu bit removed by the mod. Style reads and the old-style value returned by writes preserve that logical bit for Chromium, including its saved fullscreen state. The real style seen by Windows omits the native buttons. API errors are preserved, and a window whose application explicitly removes that bit is no longer owned by the fix.
-
-Changing the option updates existing frames immediately. Disabling the option or unloading the mod restores only the recorded system-menu bit and removes the property. Other style changes are retained. No window subclass or callback is left behind.
-
-If a special browser frame needs Windows' original controls, disable the option.
+For diagnostics, look for **Brave Acrylic 3.3**, **13/13 native functions**, the build key and cache messages. Compatibility details and the two-hour workflow are in [compatibility.md](compatibility.md). Version-matched rendering sources are in [webview-background.md](webview-background.md).

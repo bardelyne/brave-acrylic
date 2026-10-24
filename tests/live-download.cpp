@@ -20,7 +20,7 @@ int wmain(int argc,wchar_t** argv) {
     if(argc!=2)return 2;
     HMODULE module=LoadLibraryExW(argv[1],nullptr,DONT_RESOLVE_DLL_REFERENCES);
     if(!module){printf("Could not map DLL: %lu\n",GetLastError());return 3;}
-    BuildIdentity id{};CompatibilityMap map{};size_t rva[3]{};
+    BuildIdentity id{};CompatibilityMap map{};size_t rva[kFunctionSlots]{};
     HANDLE stop=CreateEventW(nullptr,TRUE,FALSE,nullptr);
     const DWORD started=GetTickCount();
     const bool fetched=GetBuildIdentity(module,&id)&&FetchCompatibilityMap(id,stop,&map);

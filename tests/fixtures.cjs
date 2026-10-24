@@ -33,10 +33,11 @@ function fixturePdb(pe, names = SYMBOLS) {
   const info = Buffer.alloc(28), dbi = Buffer.alloc(64);
   info.writeUInt32LE(2,8);pe.identity.guid.copy(info,12);
   dbi.writeUInt32LE(pe.identity.age,8);dbi.writeUInt16LE(4,20);dbi.writeUInt16LE(pe.machine,58);
-  const records=names.map((name,i)=>{
+  const records=names.map((entry,i)=>{
+    const {name, within = (i%3)*0x100, segment = 1} = typeof entry === 'string' ? {name:entry} : entry;
     const length=(14+Buffer.byteLength(name)+1+3)&~3,b=Buffer.alloc(length);
-    b.writeUInt16LE(length-2);b.writeUInt16LE(0x110e,2);b.writeUInt32LE((i%3)*0x100,8);
-    b.writeUInt16LE(1,12);b.write(name,14);return b;
+    b.writeUInt16LE(length-2);b.writeUInt16LE(0x110e,2);b.writeUInt32LE(within,8);
+    b.writeUInt16LE(segment,12);b.write(name,14);return b;
   });
   const streams=[null,info,null,dbi,Buffer.concat(records)], blockSize=512;
   const counts=streams.map(b=>b?Math.ceil(b.length/blockSize):0);
