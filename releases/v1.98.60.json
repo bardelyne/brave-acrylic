@@ -1,0 +1,136 @@
+{
+  "format": 6,
+  "extractor": 1,
+  "abiRevision": 1,
+  "clientVersion": "3.3",
+  "key": "75D8DB6BA8EC43F64C4C44205044422E1",
+  "machine": 34404,
+  "timestamp": 1792569403,
+  "imageSize": 336756736,
+  "records": 4089691,
+  "infoAge": 2,
+  "dbiAge": 1,
+  "sha256": "79d26e466b3d1d3e71921507d17af8a55646ba16d3048bcfdc5b4c067223109e",
+  "functions": [
+    {
+      "name": "?OnPaintBackground@View@views@@MEAAXPEAVCanvas@gfx@@@Z",
+      "rva": 5652544,
+      "length": 32,
+      "kind": 0,
+      "reserved": 0
+    },
+    {
+      "name": "?DrawColor@Canvas@gfx@@QEAAXIW4SkBlendMode@@@Z",
+      "rva": 65373520,
+      "length": 32,
+      "kind": 0,
+      "reserved": 0
+    },
+    {
+      "name": "?GetClassNameW@View@views@@QEBA?AV?$basic_string_view@DU?$char_traits@D@__Cr@std@@@__Cr@std@@XZ",
+      "rva": 65192464,
+      "length": 32,
+      "kind": 0,
+      "reserved": 0
+    },
+    {
+      "name": "?ShouldWindowContentsBeTransparent@BrowserDesktopWindowTreeHostWin_ChromiumImpl@@EEBA_NXZ",
+      "rva": 63357376,
+      "length": 13,
+      "kind": 1,
+      "reserved": 0
+    },
+    {
+      "name": "??0BraveVerticalTabStripContainerView@@QEAA@PEAVBrowserView@@PEAVView@views@@@Z",
+      "rva": 61718128,
+      "length": 32,
+      "kind": 0,
+      "reserved": 0
+    },
+    {
+      "name": "?SetBackground@View@views@@QEAAXV?$unique_ptr@VBackground@views@@U?$default_delete@VBackground@views@@@__Cr@std@@@__Cr@std@@@Z",
+      "rva": 13494736,
+      "length": 32,
+      "kind": 0,
+      "reserved": 0
+    },
+    {
+      "name": "?HasFocus@LocationBarView@@UEBA_NXZ",
+      "rva": 189915760,
+      "length": 32,
+      "kind": 2,
+      "reserved": 0
+    },
+    {
+      "name": "?HasFocus@View@views@@UEBA_NXZ",
+      "rva": 8611968,
+      "length": 32,
+      "kind": 0,
+      "reserved": 0
+    },
+    {
+      "name": "?OnThemeChanged@ContentsWebView@@UEAAXXZ",
+      "rva": 29267808,
+      "length": 32,
+      "kind": 3,
+      "reserved": 29267824
+    },
+    {
+      "name": "?RenderViewReady@ContentsWebView@@UEAAXXZ",
+      "rva": 50175696,
+      "length": 32,
+      "kind": 0,
+      "reserved": 0
+    },
+    {
+      "name": "?SetColor@LayerAnimator@ui@@UEAAXU?$SkRGBA4f@$02@@@Z",
+      "rva": 16795744,
+      "length": 32,
+      "kind": 0,
+      "reserved": 0
+    },
+    {
+      "name": "?SetPageBaseBackgroundColor@WebContentsImpl@content@@UEAAXV?$optional@I@__Cr@std@@@Z",
+      "rva": 49585792,
+      "length": 32,
+      "kind": 0,
+      "reserved": 0
+    },
+    {
+      "name": "?SetWebContents@ContentsWebView@@UEAAXPEAVWebContents@content@@@Z",
+      "rva": 39799728,
+      "length": 32,
+      "kind": 0,
+      "reserved": 0
+    }
+  ],
+  "modContract": {
+    "abiSha256": "7c35220c8b383bc4c17dd035df1f9b0a1423eb47e52b08834cd93b08a3f79762"
+  },
+  "tag": "v1.98.60",
+  "assets": {
+    "archive": {
+      "id": 662185339,
+      "name": "brave-v1.98.60-win32-x64.zip",
+      "size": 254190053,
+      "updated_at": "2026-10-21T10:49:04Z",
+      "digest": "sha256:2c937c91f5061fb1034097c932112b06f429d5bdd08bc5e32921b88609d011e7"
+    },
+    "checksum": {
+      "id": 662185344,
+      "name": "brave-v1.98.60-win32-x64.zip.sha256",
+      "size": 94,
+      "updated_at": "2026-10-21T10:48:55Z",
+      "digest": "sha256:4542c4d61342436e6a1bd6933e96595f95ab2cc5613f76910d7db7a9b1b96413"
+    }
+  },
+  "modSourceSha256": "d70bbc84252f02752e93485315cf34ae3b0ee930ec79ba5be7dbb1e6e2c53fb8",
+  "createdUtc": "2026-10-24T22:22:46.853Z",
+  "source": {
+    "release": "https://github.com/brave/brave-browser/releases/download/v1.98.60/brave-v1.98.60-win32-x64.zip",
+    "archiveSha256": "2c937c91f5061fb1034097c932112b06f429d5bdd08bc5e32921b88609d011e7",
+    "dllSha256": "c68b8057218e0c551e9916ba34872aedcc96bf2ff1bcec5f87971332d148e5f9",
+    "symbols": "https://brave-symbols.s3.brave.com/chrome.dll.pdb/75D8DB6BA8EC43F64C4C44205044422E1/chrome.dll.pdb"
+  },
+  "elapsedMs": 41501
+}
