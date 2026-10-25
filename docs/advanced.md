@@ -1,6 +1,6 @@
 # Advanced reference
 
-Brave Acrylic 3.3 is alpha software. Translucent Windows supplies the backdrop for brave.exe. Version 3 ignores the former color list.
+Brave Acrylic 3.4 is alpha software. Translucent Windows supplies the backdrop for brave.exe. Version 3 ignores the former color list.
 
 ## Areas and focus
 
@@ -36,7 +36,7 @@ The mod clears only Chromium's native webpage-area backing and default white fal
 | 11 | WebContentsImpl::SetPageBaseBackgroundColor | No: store and broadcast a persistent transparent canvas. |
 | 12 | ContentsWebView::SetWebContents | Yes: set the supplied page base before attaching a tab. |
 
-All thirteen slots are required; seven dependencies are private hooks. Format 6 includes their exact decorated names and x64 ABI. Native string-view returns, indirectly passed empty unique pointers, 16-byte colors, and an 8-byte optional color passed by value follow the matching Brave build. The optional color is explicitly present with transparent ARGB; nullopt would restore Chromium's white default. No private object-member offsets are read. These contracts still need review if Brave changes its ABI.
+All thirteen slots are required; seven dependencies are private hooks. The symbol-cache contract specifies their full C++ prototypes and x64 ABI. Native string-view returns, indirectly passed empty unique pointers, 16-byte colors, and an 8-byte optional color passed by value follow the matching Brave build. The optional color is explicitly present with transparent ARGB; nullopt would restore Chromium's white default. No private object-member offsets are read. These contracts still need review if Brave changes its ABI.
 
 The page base is applied through the canonical WebContents pointer supplied to ContentsWebView::SetWebContents, before original attachment notifications. Chromium stores it on that page and broadcasts it to current renderers; future renderers inherit it. No refresh, timer, retained tab pointer, or extra window is involved. Explicit author CSS remains unchanged.
 
@@ -46,12 +46,12 @@ Only the browser process installs hooks. GPU, renderer and utility processes are
 
 ## Compatibility and lifecycle
 
-Embedded and cached format-6 maps are checked against the loaded DLL before readiness is published. The exact PDB identity and PE properties matter; display version strings alone do not establish compatibility. Legacy formats are separate.
+The reviewed built-in table is checked against the loaded DLL. For other builds, Windhawk resolves all thirteen full C++ prototypes through its local cache and optional `onlineCacheUrl`. Remote PDB fallback is disabled with `symbolServer=L""`. No old downloaded binary map is read. PE bounds, exact unwind starts, approved short leaves, direct E9 targets and non-overlapping function ranges must pass before any native hooks are registered. Failed or partial lookup outputs never publish readiness.
 
-For unknown builds, an optional worker makes a bounded request, then waits 30 minutes before retrying missing or invalid data. Waiting is cancellable, disabling downloads prevents further requests, and a successful cache write ends retries. The worker never installs live hooks; use a normal restart after a download. Known builds do no network work.
+Windhawk handles downloads, caching and cancellation. There is no custom HTTP implementation, compatibility worker or periodic retry. Initial discovery runs during initialization or when the browser loads chrome.dll. Installation and shutdown share a lock and readiness barrier; resource-only mappings are ignored and no hook batch can activate after shutdown returns. The cache publisher remains trusted; these local safety checks do not independently authenticate symbol names.
 
-Loader installation and shutdown share a lock and readiness barrier. Resource-only DLL mappings are ignored. Shutdown disables readiness, cancels the worker, and waits outside the installation lock; HTTP handles close in their owning thread. No late hook batch can activate after shutdown.
+For offline-only use, turn off **Use Windhawk online symbol cache** and re-enable the mod. No history, page content, settings or analytics are uploaded. A cache download necessarily exposes the requester's IP and exact-build URL to its host. Missing data leaves transparency off until a later re-enable or normal restart can resolve it.
 
-The caption option hides only the recorded native system-menu bit on eligible resizable, unowned Chrome_WidgetWin_1 frames. Chromium sees its logical style; resize/minimize/maximize bits remain. Existing frames update immediately, and disabling/unloading restores recorded bits. Tool windows and dialogs are excluded.
+The caption option defaults off. Prefer **Use compact mode** in Brave Appearance. The opt-in workaround hides only the recorded native system-menu bit on eligible resizable, unowned Chrome_WidgetWin_1 frames. Chromium sees its logical style; resize/minimize/maximize bits remain. Existing frames update immediately, and disabling restores recorded bits. Unload restores them in BeforeUninit while style hooks are still installed. The real system-menu style is absent while enabled, so Alt+Space, taskbar menus and other tools can be affected. Tool windows and dialogs are excluded.
 
-For diagnostics, look for **Brave Acrylic 3.3**, **13/13 native functions**, the build key and cache messages. Compatibility details and the two-hour workflow are in [compatibility.md](compatibility.md). Version-matched rendering sources are in [webview-background.md](webview-background.md).
+For diagnostics, look for **Brave Acrylic 3.4**, **13/13 native functions**, Windhawk symbol-cache messages. Compatibility details and the two-hour workflow are in [compatibility.md](compatibility.md). Version-matched rendering sources are in [webview-background.md](webview-background.md).

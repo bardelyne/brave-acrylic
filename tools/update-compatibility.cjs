@@ -7,10 +7,10 @@ const crypto = require('node:crypto');
 const {Readable, Transform} = require('node:stream');
 const {pipeline} = require('node:stream/promises');
 const {spawnSync} = require('node:child_process');
-const {FORMAT, MAP_SIZE, HEADER_SIZE, ENTRY_SIZE, EXTRACTOR, ABI_REVISION, CLIENT_VERSION,
-  SYMBOLS, REQUIRED_SLOTS, generate, validateMap} = require('./symbol-map-v6.cjs');
+const {FORMAT, MAP_SIZE, EXTRACTOR, ABI_REVISION, CLIENT_VERSION,
+  SYMBOLS, REQUIRED_SLOTS, generate, validateMap} = require('./symbol-cache.cjs');
 const REPOSITORY = 'bardelyne/brave-acrylic';
-const BRANCH = 'compatibility-v6';
+const BRANCH = 'symbol-cache';
 const WORK = path.resolve(process.env.COMPATIBILITY_WORK_DIR ||
   (process.env.RUNNER_TEMP ? path.join(process.env.RUNNER_TEMP, 'brave-compatibility') : 'compatibility-work'));
 const API = 'https://api.github.com';
@@ -24,8 +24,8 @@ const hexHash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(valu
 async function contractMetadata() {
   return {format:FORMAT, extractor:EXTRACTOR, abiRevision:ABI_REVISION, clientVersion:CLIENT_VERSION,
     modContract:{abiSha256:hash(JSON.stringify({format:FORMAT, abiRevision:ABI_REVISION,
-      clientVersion:CLIENT_VERSION, mapSize:MAP_SIZE, headerSize:HEADER_SIZE, entrySize:ENTRY_SIZE,
-      symbols:SYMBOLS,requiredSlots:REQUIRED_SLOTS,normal:{kind:0, minLength:16, minFixed:16, maxLength:32, unwind:true},
+      clientVersion:CLIENT_VERSION, maxCacheSize:MAP_SIZE, encoding:"Windhawk named-symbol cache v1",
+      symbols:SYMBOLS,decoratedInputs:require('./symbol-map-v6.cjs').SYMBOLS,requiredSlots:REQUIRED_SLOTS,normal:{kind:0, minLength:16, minFixed:16, maxLength:32, unwind:true},
       leaf:{kind:1, slot:3, length:13, code:'4883B9????????00740331C0C3', fixed:13, unwind:false},
       focusLeaf:{kind:2,slot:6,length:32,fixed:32,unwind:false,
         layout:'4883B9????????007413488B81????????488B4028837818000F95C0C331C0C3'},
@@ -169,62 +169,47 @@ async function build() {
   check(Number(disk.bavail) * Number(disk.bsize) >= 8 * 1024 ** 3, 'Not enough free space for the official symbols');
   console.log('Downloading symbols for exact build ' + pe.identity.key);
   await download(url, pdb, 12 * 1024 ** 3);
-  const result = await generate(dll, pdb, path.join(out, 'map.bin'));
+  const result = await generate(dll, pdb, path.join(out, 'cache.txt'));
   const record = {...result, ...metadata, tag:plan.tag, assets:plan.assets,
     modSourceSha256:await modSourceHash(),
     createdUtc:new Date().toISOString(), source:{release:base, archiveSha256:checksum[1].toLowerCase(),
       dllSha256:await shaFile(dll), symbols:url}, elapsedMs:Date.now() - started};
   await fs.writeFile(path.join(out, 'record.json'), JSON.stringify(record, null, 2) + '\n');
   await verify(out, {allowLegacy:false});
-  console.log('Generated ' + MAP_SIZE + ' bytes in ' + Math.round(record.elapsedMs / 1000) + ' seconds');
+  console.log('Generated ' + (await fs.stat(path.join(out, 'cache.txt'))).size + ' bytes in ' + Math.round(record.elapsedMs / 1000) + ' seconds');
 }
-async function verify(directory, {allowLegacy = true, modSource} = {}) {
+async function verify(directory, {modSource} = {}) {
   const names = (await fs.readdir(directory)).sort();
-  check(same(names, ['map.bin', 'record.json']), 'Unexpected generated artifact files');
-  for (const [name, max] of [['map.bin', MAP_SIZE], ['record.json', 16384]]) {
+  check(same(names, ['cache.txt', 'record.json']), 'Unexpected generated artifact files');
+  for (const [name, max] of [['cache.txt', MAP_SIZE], ['record.json', 16384]]) {
     const stat = await fs.lstat(path.join(directory, name));
     check(stat.isFile() && !stat.isSymbolicLink() && stat.size > 0 && stat.size <= max, 'Invalid generated artifact size or type');
   }
-  const map = await fs.readFile(path.join(directory, 'map.bin'));
+  const map = await fs.readFile(path.join(directory, 'cache.txt'));
   const record = JSON.parse(await fs.readFile(path.join(directory, 'record.json'), 'utf8'));
-  if (allowLegacy && record.format === 1) return verifyLegacy(map, record);
   const identity = validateMap(map);
   tagName(record.tag);
   const metadata = await contractMetadata();
-  check(Object.entries(metadata).every(([key, value]) => same(record[key], value)) && record.key === identity.key &&
+  check(Object.entries(metadata).every(([key, value]) => same(record[key], value)) && typeof record.key === "string" && /^[A-F0-9]{32}[1-9A-F][A-F0-9]{0,7}$/.test(record.key) &&
     record.sha256 === hash(map) && record.modSourceSha256 === await modSourceHash(modSource),
     'Invalid generated artifact');
   check(record.machine === identity.machine && record.timestamp === identity.timestamp &&
     record.imageSize === identity.imageSize && Number.isSafeInteger(record.records) && record.records >= REQUIRED_SLOTS.length &&
-    record.dbiAge === map.readUInt32LE(24) && Number.isSafeInteger(record.infoAge) &&
+    Number.isSafeInteger(record.dbiAge) && record.dbiAge > 0 &&
+    record.key.slice(32) === record.dbiAge.toString(16).toUpperCase() && Number.isSafeInteger(record.infoAge) &&
     record.infoAge >= record.dbiAge,
     'Invalid generated identity metadata');
   const name = `brave-${record.tag}-win32-x64.zip`;
   check(same(record.assets, {archive:assetIdentity(record.assets?.archive, name, 1024 ** 3),
     checksum:assetIdentity(record.assets?.checksum, name + '.sha256', 4096)}), 'Invalid asset provenance');
-  check(record.source?.symbols === `https://brave-symbols.s3.brave.com/chrome.dll.pdb/${identity.key}/chrome.dll.pdb`,
+  check(record.source?.symbols === `https://brave-symbols.s3.brave.com/chrome.dll.pdb/${record.key}/chrome.dll.pdb`,
     'Unexpected symbol provenance');
   check(record.source.release === `https://github.com/brave/brave-browser/releases/download/${record.tag}/brave-${record.tag}-win32-x64.zip` &&
     hexHash(record.source.archiveSha256) && hexHash(record.source.dllSha256) &&
     (!record.assets.archive.digest || record.assets.archive.digest === 'sha256:' + record.source.archiveSha256) &&
     record.functions?.length === SYMBOLS.length && record.functions.every((f,i) =>
-      f.name === SYMBOLS[i] && f.rva === identity.entries[i].rva && f.length === identity.entries[i].length &&
-      f.kind === identity.entries[i].kind && f.reserved === identity.entries[i].reserved),
+      f.name === SYMBOLS[i] && f.rva === identity.entries[i].rva),
   'Invalid generated provenance or ABI slots');
-  return {map, record};
-}
-// Preserve the v1 verifier API for legacy fixtures and local callers. The
-// publishing path explicitly disables this dispatch and can only write v6.
-function verifyLegacy(map, record) {
-  const legacy = require('./symbol-map.cjs'), identity = legacy.validateMap(map);
-  tagName(record.tag);
-  check(record.extractor === 1 && record.key === identity.key && record.sha256 === hash(map), 'Invalid generated artifact');
-  check(record.source?.symbols === `https://brave-symbols.s3.brave.com/chrome.dll.pdb/${identity.key}/chrome.dll.pdb` &&
-    record.source.release === `https://github.com/brave/brave-browser/releases/download/${record.tag}/brave-${record.tag}-win32-x64.zip` &&
-    hexHash(record.source.archiveSha256) && hexHash(record.source.dllSha256) &&
-    record.functions?.length === legacy.SYMBOLS.length && record.functions.every((f,i) =>
-      f.name === legacy.SYMBOLS[i] && f.rva === identity.addresses[i] && f.length === map.readUInt32LE(44+i*72)),
-    'Invalid generated provenance or ABI slots');
   return {map, record};
 }
 async function publish() {
@@ -237,7 +222,7 @@ async function publish() {
   const ref = await api(`/repos/${REPOSITORY}/git/ref/heads/${BRANCH}`, 'GET', undefined, true);
   const commit = ref ? await api(`/repos/${REPOSITORY}/git/commits/${ref.object.sha}`) : null;
   const files = [
-    [`maps/${record.key}.bin`, map, 'base64'],
+    [`brave-acrylic/pdb_${record.key}.txt`, map, 'base64'],
     [`releases/${record.tag}.json`, Buffer.from(JSON.stringify(record, null, 2) + '\n'), 'utf-8'],
   ];
   // Older releases remain on the branch; source code and contributor history
@@ -257,7 +242,7 @@ async function publish() {
       author:{name:'github-actions[bot]', email:'41898282+github-actions[bot]@users.noreply.github.com'}});
   if (ref) await api(`/repos/${REPOSITORY}/git/refs/heads/${BRANCH}`, 'PATCH', {sha:next.sha, force:false});
   else await api(`/repos/${REPOSITORY}/git/refs`, 'POST', {ref:'refs/heads/' + BRANCH, sha:next.sha});
-  console.log(`Published maps/${record.key}.bin on ${BRANCH}`);
+  console.log(`Published brave-acrylic/pdb_${record.key}.txt on ${BRANCH}`);
 }
 module.exports = {tagName, verify, prepare, build, publish, contractMetadata, assetIdentity, releaseIdentity, BRANCH};
 if (require.main === module) {

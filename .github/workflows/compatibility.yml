@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: brave-compatibility-v6
+  group: brave-symbol-cache-v1
   cancel-in-progress: false
 
 jobs:
@@ -64,9 +64,9 @@ jobs:
         if: steps.plan.outputs.needed == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: compatibility-data-v6
+          name: windhawk-symbol-cache-v1
           path: |
-            ${{ runner.temp }}/brave-compatibility/out/map.bin
+            ${{ runner.temp }}/brave-compatibility/out/cache.txt
             ${{ runner.temp }}/brave-compatibility/out/record.json
           if-no-files-found: error
           retention-days: 3
@@ -85,7 +85,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: compatibility-data-v6
+          name: windhawk-symbol-cache-v1
           path: ${{ runner.temp }}/brave-compatibility/out/
       - name: Validate and publish data only
         env:

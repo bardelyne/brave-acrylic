@@ -70,3 +70,5 @@ size_t Wh_GetBinaryValue(PCWSTR,void*,size_t){return 0;}
 BOOL Wh_SetBinaryValue(PCWSTR,const void*,size_t){return FALSE;}
 BOOL Wh_SetFunctionHook(void*,void*,void**){return FALSE;}
 BOOL Wh_ApplyHookOperations(){return FALSE;}
+
+bool WindhawkUtils::HookSymbols(HMODULE,const SYMBOL_HOOK*,size_t,const WH_HOOK_SYMBOLS_OPTIONS*) {return false;}

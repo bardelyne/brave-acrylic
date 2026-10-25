@@ -35,8 +35,8 @@ No theme-color setup is required. Old saved color-list and website-code settings
 | **Vertical tabs background** | On | Reveal the backdrop behind the vertical tab area and browser frame. |
 | **Toolbar** | On | Clear the toolbar, bookmarks bar, and unfocused address-field backgrounds. Focused address fields keep their native theme. |
 | **Webpage background** | On | Clear only Chromium's background behind the webpage area, including its default white fallback. Website HTML, CSS, and content are unchanged. Use Zen Internet or Stylus for website backgrounds; Stylus requires custom CSS. |
-| **Hide duplicate Windows buttons** | On | Hide the Windows caption-button layer underneath Brave's own controls. |
-| **Download compatibility data after Brave updates** | On | Download a small compatibility file only when the exact Brave build has no valid local data. Turn off to prevent these downloads. |
+| **Hide duplicate Windows buttons** | Off | Optional workaround that removes the real Windows system-menu style. It can affect Alt+Space, taskbar menus and other window tools. Prefer Brave's **Use compact mode** option in Appearance. |
+| **Use Windhawk online symbol cache** | On | Let Windhawk fetch a small named-symbol cache for an unknown exact build. Turn off and re-enable the mod to use only built-in or locally cached data. |
 
 Some backing views and compositor properties are created with the window, so changing Vertical tabs background or Toolbar may require reopening Brave. Enabling Webpage background applies when a tab is selected, without refreshing the page. Reopening Brave after disabling it restores existing renderer defaults. The caption-button option applies immediately.
 
@@ -64,20 +64,24 @@ Brave's existing transparent-host path enables its compositor to preserve transp
 
 The webpage option clears the native backing during content-view updates and sets Chromium's persistent page-base color when a tab is attached. That value is also used by future renderers, so switching or restoring tabs does not bring the default white background back. Explicit website backgrounds remain visible unless a website-styling extension changes them.
 
-The map contains **13 native functions**, of which **7 are private hooks**. The implementation uses no sampled colors, private object-member offsets, guessed screen rectangles, screenshot polling, extra backing windows, or GPU hooks. Normal DirectComposition stays enabled, with no special browser launch flag. Windows supplies one backdrop. Acrylic can turn gray when inactive; choose a suitable blur mode in Translucent Windows if you prefer a persistent effect.
+The native path uses **13 functions**, of which **7 are private hooks**. The implementation uses no sampled colors, private object-member offsets, guessed screen rectangles, screenshot polling, extra backing windows, or GPU hooks. Normal DirectComposition stays enabled, with no special browser launch flag. Windows supplies one backdrop. Acrylic can turn gray when inactive; choose a suitable blur mode in Translucent Windows if you prefer a persistent effect.
 
-## Updates and offline use
+## Symbol resolution, privacy and updates
 
-Every launch validates the loaded DLL's identity, architecture, function boundaries, and fingerprints. Direct compiler jump stubs can be resolved for any slot, retaining strict validation of their target. Built-in or cached data works offline. Data for another build or older map format is rejected.
+Brave Acrylic uses Windhawk's supported `HookSymbols` / `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` mechanism. A reviewed built-in table covers the reference build without network access. Other builds use Windhawk's local symbol cache first, then optionally a small text file containing the thirteen full C++ prototypes and their locations. Remote PDB downloads are disabled, including when a cache file is missing. There is no custom downloader or 30-minute retry thread.
 
-For an unknown build, the optional worker requests a **1,080-byte** file from this repository's `compatibility-v6` branch. Missing or invalid data is retried **every 30 minutes** while Brave remains running and downloads are enabled, stopping after a valid file is cached. The worker never changes live hooks; restart Brave normally to use newly downloaded data. Known builds make no compatibility request. The mod downloads no PDBs, executable code, or mod updates.
+The cache is published on this repository's [`symbol-cache` branch](https://github.com/bardelyne/brave-acrylic/tree/symbol-cache), under `brave-acrylic/pdb_<GUID-and-age>.txt`. It is about **1 KB** for the reference build. It is hosted by this project's author, not the official Windhawk cache repository. The publisher is trusted: local function-boundary, leaf-layout, jump-target and overlap checks are safeguards, not cryptographic proof of function identity. Native ABI or rendering changes can still require a mod update.
 
-The download setting is an opt-out for users who want no compatibility network requests. Leave it on for automatic recovery when new exact-build data is available; turn it off to use only built-in or already cached data. It cannot adapt to incompatible native ABI changes.
+**No telemetry or uploads:** the mod sends no browsing history, page content, settings, account details or analytics. Windhawk makes the cache download request; the server necessarily sees the requester's IP address and the build-specific URL. Turn **Use Windhawk online symbol cache** off and re-enable the mod for offline-only resolution. Built-in and already cached symbols continue to work offline. Existing requests cannot be withdrawn by changing a setting.
 
-The repository workflow checks official stable releases **every two hours**. It downloads the browser and symbols only for new or changed assets or a changed compatibility contract. Cosmetic documentation changes skip heavy downloads. GitHub can delay scheduled runs. Workflow changes take effect when pushed to `main`; older client data branches remain separate.
+The workflow checks official stable releases **every two hours**. It downloads Brave and its large symbols only on the GitHub runner, and only when release assets or the native compatibility contract change. It verifies the DLL/PDB identity and exact names before publishing the small text cache. GitHub can delay scheduled runs. If data is unavailable, transparency remains off; re-enable the mod or reopen Brave normally after data becomes available. Older binary-map branches are retained only for older clients.
+
+## Duplicate corner buttons
+
+If two sets of minimize/maximize/close buttons appear, first enable **Use compact mode** in Brave **Settings → Appearance**. The optional **Hide duplicate Windows buttons** workaround is off on a fresh install because it removes the window's actual `WS_SYSMENU` style. Windows system menus, taskbar interactions, accessibility tools or other window managers may be affected. Previously saved preferences are preserved. Disabling the option or unloading the mod restores its recorded style changes.
 
 ## Troubleshooting
 
-Reopen Brave normally after installation or native-area changes. Enable Windhawk debug logging to check the exact build key, **13/13 native functions**, or a compatibility-cache message. For website styling, check Zen Internet's transparency setting and whether that site has a supported style, or check the CSS and site scope of your Stylus style.
+Reopen Brave normally after installation or native-area changes. Enable Windhawk debug logging to check **13/13 native functions** or a Windhawk symbol-cache message. For website styling, check Zen Internet's transparency setting and whether that site has a supported style, or check the CSS and site scope of your Stylus style.
 
 For reports, include Windows/Brave versions, window type, enabled areas, backdrop configuration, and reproduction steps. See the [advanced reference](docs/advanced.md), [compatibility data](docs/compatibility.md), [webview investigation](docs/webview-background.md), and [changelog](CHANGELOG.md).

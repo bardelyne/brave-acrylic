@@ -5,7 +5,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const {PeImage, Pdb, SYMBOLS, encodeMap, validateMap, generate} = require('../tools/symbol-map.cjs');
-const {tagName, verify} = require('../tools/update-compatibility.cjs');
+const {tagName, verify} = require('../tools/update-compatibility-v6.cjs');
 
 const {fixturePe,fixturePdb,fixtureMap}=require('./fixtures.cjs');
 async function temp(t) {

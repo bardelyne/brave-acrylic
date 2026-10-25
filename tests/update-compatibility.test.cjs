@@ -6,9 +6,9 @@ const os = require('node:os');
 const path = require('node:path');
 const {createHash} = require('node:crypto');
 const {prepare, verify, contractMetadata, releaseIdentity, BRANCH} = require('../tools/update-compatibility.cjs');
-const {SYMBOLS} = require('../tools/symbol-map-v6.cjs');
+const {SYMBOLS, encodeCache} = require('../tools/symbol-cache.cjs');
 const {fixtureMapV6} = require('./fixtures-v6.cjs');
-const SOURCE = '// @version 3.3\n// The client contract is independent of comments.\n';
+const SOURCE = '// @version 3.4\n// The client contract is independent of comments.\n';
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const clone = value => JSON.parse(JSON.stringify(value));
 function release(tag = 'v1.98.60') {
@@ -26,12 +26,12 @@ async function temp(t) {
   return dir;
 }
 async function recordFor(official = release()) {
-  const {pe,map} = fixtureMapV6(), {tag,assets} = releaseIdentity(official);
+  const {pe,map:internal} = fixtureMapV6(), {tag,assets} = releaseIdentity(official);
+  const map=encodeCache(pe,SYMBOLS.map((_,i)=>({rva:internal.readUInt32LE(40+i*80)})));
   return {map, record:{...await contractMetadata(), tag, assets, key:pe.identity.key,
     modSourceSha256:hash(SOURCE), sha256:hash(map), machine:pe.machine, timestamp:pe.timestamp,
     imageSize:pe.imageSize, records:SYMBOLS.length, infoAge:2, dbiAge:1,
-    functions:SYMBOLS.map((name,i) => ({name,rva:map.readUInt32LE(40+i*80),
-      length:map.readUInt32LE(44+i*80), kind:map.readUInt32LE(48+i*80), reserved:map.readUInt32LE(52+i*80)})),
+    functions:SYMBOLS.map((name,i) => ({name,rva:internal.readUInt32LE(40+i*80)})),
     source:{release:`https://github.com/brave/brave-browser/releases/download/${tag}/brave-${tag}-win32-x64.zip`,
       archiveSha256:'1'.repeat(64), dllSha256:'2'.repeat(64),
       symbols:`https://brave-symbols.s3.brave.com/chrome.dll.pdb/${pe.identity.key}/chrome.dll.pdb`}}};
@@ -45,7 +45,7 @@ async function planned(t, {official = release(), record = null, env = {}, modSou
   const request = async (route, method = 'GET', body, missing) => {
     calls.push({route, method}); assert.equal(method,'GET'); assert.equal(body,undefined);
     if (route.startsWith('/repos/brave/brave-browser/releases/')) return official;
-    assert.equal(route,`/repos/bardelyne/brave-acrylic/contents/releases/${official.tag_name}.json?ref=compatibility-v6`);
+    assert.equal(route,`/repos/bardelyne/brave-acrylic/contents/releases/${official.tag_name}.json?ref=symbol-cache`);
     assert.equal(missing,true); return record && content(record);
   };
   const plan = await prepare({work,request,env,modSource,emit:async (name,value) => {emitted[name] = value;}});
@@ -62,7 +62,7 @@ test('prepare checks latest stable metadata repeatedly without another heavy bui
     if (plan.needed) { ++heavyBuilds; cached = (await recordFor()).record; }
     assert.equal(plan.needed,i===0);
   }
-  assert.equal(heavyBuilds,1); assert.equal(BRANCH,'compatibility-v6');
+  assert.equal(heavyBuilds,1); assert.equal(BRANCH,'symbol-cache');
 });
 test('new stable tag or replaced archive/checksum metadata requires generation', async t => {
   const original = (await recordFor()).record;
@@ -115,17 +115,17 @@ test('missing fields in old records rebuild; unstable or malformed official meta
 });
 async function artifact(t, mutate = () => {}) {
   const work = await temp(t), fixture = await recordFor(); mutate(fixture);
-  await fs.writeFile(path.join(work,'map.bin'),fixture.map);
+  await fs.writeFile(path.join(work,'cache.txt'),fixture.map);
   await fs.writeFile(path.join(work,'record.json'),JSON.stringify(fixture.record));
   return work;
 }
-test('publisher independently verifies format 6 metadata, hashes and thirteen exact ABI slots', async t => {
+test('publisher independently verifies standard cache metadata, hashes and thirteen exact ABI slots', async t => {
   const work = await artifact(t);
-  assert.equal((await verify(work,{allowLegacy:false,modSource:SOURCE})).map.length,1080);
+  assert.ok((await verify(work,{modSource:SOURCE})).map.length<2048);
   for (const mutate of [f => {f.record.sha256='0'.repeat(64);},
-    f => {f.record.functions[3].kind=0;}, f => {f.record.functions[4].name='wrong';},
-    f => {f.record.functions[5].rva++;}, f => {f.record.functions[0].length--;},
-    f => {f.record.functions[8].reserved++;}, f => {f.record.functions[12].name='wrong';},
+ f => {f.record.functions[4].name='wrong';},
+    f => {f.record.functions[5].rva++;},
+ f => {f.record.functions[12].name='wrong';},
     f => {f.record.machine=0xaa64;}, f => {f.record.timestamp++;},
     f => {f.record.dbiAge++;}, f => {f.record.infoAge=0;}, f => {f.record.infoAge='2';},
     f => {f.record.modContract.abiSha256='0'.repeat(64);},
@@ -138,14 +138,15 @@ test('publisher independently verifies format 6 metadata, hashes and thirteen ex
 
 test('publisher rejects every omitted native dependency',async t=>{
  for(let slot=0;slot<SYMBOLS.length;++slot)await assert.rejects(()=>artifact(t,f=>{
-  f.map.fill(0,40+slot*80,40+(slot+1)*80);f.record.sha256=hash(f.map);
-  Object.assign(f.record.functions[slot],{rva:0,length:0,kind:0,reserved:0});
+  const fields=f.map.toString().split('#');fields.splice(3+slot*2,2);
+  f.map=Buffer.from(fields.join('#'));f.record.sha256=hash(f.map);
+  f.record.functions.splice(slot,1);
  }).then(p=>verify(p,{allowLegacy:false,modSource:SOURCE})));
 });
 test('publisher rejects legacy payloads, extra files, nonfiles and oversized records', async t => {
   const legacy = require('./fixtures.cjs').fixtureMap();
   let dir = await artifact(t, f => {f.map=legacy.map; f.record.format=1;});
-  await assert.rejects(() => verify(dir,{allowLegacy:false,modSource:SOURCE}), /format/);
+  await assert.rejects(() => verify(dir,{allowLegacy:false,modSource:SOURCE}), /ASCII/);
   dir = await artifact(t); await fs.writeFile(path.join(dir,'unexpected.bin'),Buffer.alloc(1));
   await assert.rejects(() => verify(dir,{allowLegacy:false,modSource:SOURCE}), /Unexpected/);
   dir = await artifact(t); await fs.writeFile(path.join(dir,'record.json'),' '.repeat(16385));

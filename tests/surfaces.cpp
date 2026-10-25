@@ -77,7 +77,7 @@ int main(){
 
  for(bool selected:{false,true}){enabled=selected;LoadModSettings();
   assert(s_background.areas==(selected?BraveBackground::All:0u));
-  assert(s_downloadCompatibility==selected&&s_hideNativeCaptionButtons==selected);++checks;}
+  assert(s_useOnlineSymbolCache==selected&&s_hideNativeCaptionButtons==selected);++checks;}
  printf("%u address focus, scoped webview and tab-selection checks passed.\n",checks);
 }
 void TestLog(PCWSTR,...){}
@@ -88,3 +88,5 @@ size_t Wh_GetBinaryValue(PCWSTR,void*,size_t){return 0;}
 BOOL Wh_SetBinaryValue(PCWSTR,const void*,size_t){return FALSE;}
 BOOL Wh_SetFunctionHook(void*,void*,void**){return FALSE;}
 BOOL Wh_ApplyHookOperations(){return FALSE;}
+
+bool WindhawkUtils::HookSymbols(HMODULE,const SYMBOL_HOOK*,size_t,const WH_HOOK_SYMBOLS_OPTIONS*) {return false;}

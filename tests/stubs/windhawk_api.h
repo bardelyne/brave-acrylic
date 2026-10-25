@@ -1,6 +1,13 @@
 #pragma once
 #include <windows.h>
 #include <cstddef>
+#define WH_MOD_VERSION L"test"
+struct WH_HOOK_SYMBOLS_OPTIONS {
+    size_t optionsSize;
+    PCWSTR symbolServer;
+    BOOL noUndecoratedSymbols;
+    PCWSTR onlineCacheUrl;
+};
 void TestLog(PCWSTR, ...);
 #define Wh_Log(...) TestLog(__VA_ARGS__)
 PCWSTR Wh_GetStringSetting(PCWSTR, ...);

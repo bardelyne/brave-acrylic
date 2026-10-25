@@ -22,7 +22,7 @@ function main() {
     '-D_WIN32_IE=0x0A00', '-DNTDDI_VERSION=0x0A000008', '-D__USE_MINGW_ANSI_STDIO=0',
     '-DWH_MOD', '-DWH_MOD_ID=L"brave-acrylic"', `-DWH_MOD_VERSION=L"${version}"`,
     '-include', 'windhawk_api.h', library, source, '-Wl,--export-all-symbols',
-    '-lshell32', '-luser32', '-lwinhttp', '-o', dll,
+    '-lshell32', '-luser32', '-o', dll,
   ], {encoding:'utf8', windowsHide:true,
     env:{...process.env, TEMP:path.join(out, 'temp'), TMP:path.join(out, 'temp')}});
   fs.writeFileSync(path.join(out, 'build.log'), (result.stdout || '') + (result.stderr || ''));

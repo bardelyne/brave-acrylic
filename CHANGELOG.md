@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.4 — Alpha
+
+- Replace custom runtime map downloads, binary-map storage and retry worker with Windhawk's standard named-symbol cache mechanism. Disable remote PDB fallback and keep an offline-only setting.
+- Publish standard `pdb_<GUID-age>.txt` caches through the two-hour workflow; retain strict official DLL/PDB checks and skip unchanged releases.
+- Resolve all thirteen names before registering native hooks, with local PE, function-boundary, leaf, thunk and overlap validation. Preserve the persistent white-fallback fix.
+- Default duplicate-caption hiding off, restore compact-mode guidance, disclose system-menu effects, and restore real styles before hook teardown.
+- Use the build version macro in logs, clarify cache hosting/trust and request metadata, and expand failure, offline, shutdown and caption regression tests.
+
 ## 3.3 — Alpha
 
 - Rename Window background to Vertical tabs background and Webpage canvas to Webpage background; simplify the settings descriptions and clarify the default white fallback.
