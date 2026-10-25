@@ -1,0 +1,97 @@
+{
+  "format": "windhawk-symbol-cache-v1",
+  "extractor": 1,
+  "abiRevision": 2,
+  "clientVersion": "3.4",
+  "key": "75D8DB6BA8EC43F64C4C44205044422E1",
+  "machine": 34404,
+  "timestamp": 1792569403,
+  "imageSize": 336756736,
+  "records": 4089691,
+  "infoAge": 2,
+  "dbiAge": 1,
+  "sha256": "2bda186b8e55061b802f8c42f37bd1a5a7f976bb2e01fddd2ff0b032301f17e9",
+  "functions": [
+    {
+      "name": "protected: virtual void __cdecl views::View::OnPaintBackground(class gfx::Canvas *)",
+      "rva": 5652544
+    },
+    {
+      "name": "public: void __cdecl gfx::Canvas::DrawColor(unsigned int,enum SkBlendMode)",
+      "rva": 65373520
+    },
+    {
+      "name": "public: class std::__Cr::basic_string_view<char,struct std::__Cr::char_traits<char> > __cdecl views::View::GetClassNameW(void)const",
+      "rva": 65192464
+    },
+    {
+      "name": "private: virtual bool __cdecl BrowserDesktopWindowTreeHostWin_ChromiumImpl::ShouldWindowContentsBeTransparent(void)const",
+      "rva": 63357376
+    },
+    {
+      "name": "public: __cdecl BraveVerticalTabStripContainerView::BraveVerticalTabStripContainerView(class BrowserView *,class views::View *)",
+      "rva": 61718128
+    },
+    {
+      "name": "public: void __cdecl views::View::SetBackground(class std::__Cr::unique_ptr<class views::Background,struct std::__Cr::default_delete<class views::Background> >)",
+      "rva": 13494736
+    },
+    {
+      "name": "public: virtual bool __cdecl LocationBarView::HasFocus(void)const",
+      "rva": 189915760
+    },
+    {
+      "name": "public: virtual bool __cdecl views::View::HasFocus(void)const",
+      "rva": 8611968
+    },
+    {
+      "name": "public: virtual void __cdecl ContentsWebView::OnThemeChanged(void)",
+      "rva": 29267808
+    },
+    {
+      "name": "public: virtual void __cdecl ContentsWebView::RenderViewReady(void)",
+      "rva": 50175696
+    },
+    {
+      "name": "public: virtual void __cdecl ui::LayerAnimator::SetColor(struct SkRGBA4f<3>)",
+      "rva": 16795744
+    },
+    {
+      "name": "public: virtual void __cdecl content::WebContentsImpl::SetPageBaseBackgroundColor(class std::__Cr::optional<unsigned int>)",
+      "rva": 49585792
+    },
+    {
+      "name": "public: virtual void __cdecl ContentsWebView::SetWebContents(class content::WebContents *)",
+      "rva": 39799728
+    }
+  ],
+  "modContract": {
+    "abiSha256": "e7ee2da855c31dfc8fb9c4c8551beee130f5f52013f7a812d27815d0e9fabb22"
+  },
+  "tag": "v1.98.60",
+  "assets": {
+    "archive": {
+      "id": 662185339,
+      "name": "brave-v1.98.60-win32-x64.zip",
+      "size": 254190053,
+      "updated_at": "2026-10-21T10:49:04Z",
+      "digest": "sha256:2c937c91f5061fb1034097c932112b06f429d5bdd08bc5e32921b88609d011e7"
+    },
+    "checksum": {
+      "id": 662185344,
+      "name": "brave-v1.98.60-win32-x64.zip.sha256",
+      "size": 94,
+      "updated_at": "2026-10-21T10:48:55Z",
+      "digest": "sha256:4542c4d61342436e6a1bd6933e96595f95ab2cc5613f76910d7db7a9b1b96413"
+    }
+  },
+  "modSourceSha256": "6f0bb234df5e6a17723467ec47db6472c34030e998f55f41fbe583a63c18e5d2",
+  "createdUtc": "2026-10-25T02:10:33.661Z",
+  "source": {
+    "release": "https://github.com/brave/brave-browser/releases/download/v1.98.60/brave-v1.98.60-win32-x64.zip",
+    "archiveSha256": "2c937c91f5061fb1034097c932112b06f429d5bdd08bc5e32921b88609d011e7",
+    "dllSha256": "c68b8057218e0c551e9916ba34872aedcc96bf2ff1bcec5f87971332d148e5f9",
+    "symbols": "https://brave-symbols.s3.brave.com/chrome.dll.pdb/75D8DB6BA8EC43F64C4C44205044422E1/chrome.dll.pdb"
+  },
+  "elapsedMs": 30640
+}
