@@ -48,6 +48,7 @@ test('client and producer agree on the thirteen required names and online downlo
   assert.doesNotMatch(code,/WinHttp|Wh_GetUrlContent|CreateThread|CompatibilityWorker|compatibilityMapV6|Wh_GetBinaryValue|Wh_SetBinaryValue/);
   assert.match(code,/options\.symbolServer = L""/);
   assert.doesNotMatch(code,/noUndecoratedSymbols/);
+  assert.doesNotMatch(code,/kBuiltinMap|knownBuild|builtIn/);
   assert.match(code,/options\.onlineCacheUrl = s_useOnlineSymbolCache/);
   assert.match(source,/- hideNativeCaptionButtons: false/);
 });

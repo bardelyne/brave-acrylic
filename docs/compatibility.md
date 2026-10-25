@@ -1,11 +1,11 @@
 # Windhawk symbol-cache compatibility
 
-Brave Acrylic 3.4 uses Windhawk's supported `HookSymbols` / `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` mechanism. It has no custom HTTP implementation, compatibility-download worker, periodic retry or writable binary-map cache. Native ABI or rendering changes can still require a mod update.
+Brave Acrylic 3.4.1 uses Windhawk's supported `HookSymbols` / `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` mechanism. It has no custom HTTP implementation, compatibility-download worker, periodic retry or writable binary-map cache. Native ABI or rendering changes can still require a mod update.
 
 ## Client resolution
 
-1. Validate the reviewed, embedded Brave 1.98.60 table against the loaded DLL. This path makes no symbol-cache request.
-2. Otherwise ask Windhawk to resolve all thirteen full C++ prototypes. Windhawk checks its own local cache first, then the configured online cache if enabled.
+1. Read the loaded DLL's identity and resolve all thirteen full C++ prototypes through Windhawk. There is no embedded address table or version-specific fast path.
+2. Windhawk checks its own local cache first, then the configured online cache if enabled.
 3. Set `symbolServer=L""` to prevent remote PDB fallback, and use Windhawk's default readable C++ prototypes for standard cache tooling. A missing cache cannot trigger a multi-GB download.
 4. Validate the complete address group locally before registering any native hooks: executable `.text` bounds, exact unwind boundaries, approved short host/focus leaves, direct E9 entry/body ranges and overlap rejection. Resolve-only calls avoid partial native hook installation on failed name lookup. No callable helper is published on a missing or rejected group.
 5. Register seven native hooks, then publish readiness only after Windhawk activates them. Initial discovery and teardown share a lock; no late installation can activate after BeforeUninit returns. Resource-only DLL loads are ignored.
@@ -30,7 +30,7 @@ Legacy `compatibility-v1` through `compatibility-v6` branches remain separate fo
 
 The mod uploads no history, website content, settings, account data, diagnostic reports or analytics. It delegates the download to Windhawk. As with any direct download, the server sees the requester's IP address and exact-build cache URL. No claim of anonymous or metadata-free downloading is made.
 
-Turn **Use Windhawk online symbol cache** off and re-enable the mod for offline-only resolution. The reviewed built-in table and Windhawk's existing local cache still work. A change cannot withdraw an already running request. Windhawk may perform its own short startup connection retries; the mod adds no timer. If exact data is unavailable or unsupported, transparency stays off. Re-enable the mod or reopen Brave normally after a cache is published.
+Turn **Use Windhawk online symbol cache** off and re-enable the mod for offline-only resolution. Windhawk's existing local cache still works. First use requires a download unless matching symbols are already available locally. A change cannot withdraw an already running request. Windhawk may perform its own short startup connection retries; the mod adds no timer. If exact data is unavailable or unsupported, transparency stays off. Re-enable the mod or reopen Brave normally after a cache is published.
 
 ## Fixed native ABI
 
@@ -73,6 +73,6 @@ node tools/build.cjs
 node tools/symbol-cache.cjs chrome.dll chrome.dll.pdb cache.txt
 ```
 
-The Windows test runner optionally accepts a real DLL and its trusted embedded-map fixture. It maps the DLL without running its initialization. Tests cover complete and partial symbol resolution, offline options, missing/invalid addresses, shutdown ordering, caption-style restoration, native background roles, focused address fields and repeated tab selection preserving author CSS. The separate real-engine probe also checks online cache misses, incomplete/wrong-name caches, successful resolution and subsequent offline reuse. It does not execute mapped browser functions or replace visual testing in Brave.
+The Windows test runner optionally accepts a real DLL and a matching PDB-derived validation fixture. It maps the DLL without running its initialization. Tests cover complete and partial symbol resolution, offline options, missing/invalid addresses, shutdown ordering, caption-style restoration, native background roles, focused address fields and repeated tab selection preserving author CSS. The separate real-engine probe also checks online cache misses, incomplete/wrong-name caches, successful resolution and subsequent offline reuse. It does not execute mapped browser functions or replace visual testing in Brave.
 
 Do not commit browser ZIPs, DLLs or PDBs or pass them to the publishing job. See [advanced.md](advanced.md) for area settings and native ownership, and [webview-background.md](webview-background.md) for the persistent white-fallback investigation.

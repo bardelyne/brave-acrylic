@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.4.1 — Alpha
+
+- Remove the embedded Brave 1.98.60 function-address table and its special-case resolver. Every build now uses Windhawk's local or online symbol cache.
+- Keep complete-group validation, offline-only control and remote PDB downloads disabled. Clarify that uncached builds require an initial cache download or matching local symbols.
+
 ## 3.4 — Alpha
 
 - Replace custom runtime map downloads, binary-map storage and retry worker with Windhawk's standard named-symbol cache mechanism. Disable remote PDB fallback and keep an offline-only setting.

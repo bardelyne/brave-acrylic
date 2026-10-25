@@ -1,6 +1,6 @@
 # Advanced reference
 
-Brave Acrylic 3.4 is alpha software. Translucent Windows supplies the backdrop for brave.exe. Version 3 ignores the former color list.
+Brave Acrylic 3.4.1 is alpha software. Translucent Windows supplies the backdrop for brave.exe. Version 3 ignores the former color list.
 
 ## Areas and focus
 
@@ -46,7 +46,7 @@ Only the browser process installs hooks. GPU, renderer and utility processes are
 
 ## Compatibility and lifecycle
 
-The reviewed built-in table is checked against the loaded DLL. For other builds, Windhawk resolves all thirteen full C++ prototypes through its local cache and optional `onlineCacheUrl`. Remote PDB fallback is disabled with `symbolServer=L""`. No old downloaded binary map is read. PE bounds, exact unwind starts, approved short leaves, direct E9 targets and non-overlapping function ranges must pass before any native hooks are registered. Failed or partial lookup outputs never publish readiness.
+Every build uses Windhawk to resolve all thirteen full C++ prototypes through its local cache and optional `onlineCacheUrl`. Remote PDB fallback is disabled with `symbolServer=L""`. No old downloaded binary map is read. PE bounds, exact unwind starts, approved short leaves, direct E9 targets and non-overlapping function ranges must pass before any native hooks are registered. Failed or partial lookup outputs never publish readiness.
 
 Windhawk handles downloads, caching and cancellation. There is no custom HTTP implementation, compatibility worker or periodic retry. Initial discovery runs during initialization or when the browser loads chrome.dll. Installation and shutdown share a lock and readiness barrier; resource-only mappings are ignored and no hook batch can activate after shutdown returns. The cache publisher remains trusted; these local safety checks do not independently authenticate symbol names.
 
@@ -54,4 +54,4 @@ For offline-only use, turn off **Use Windhawk online symbol cache** and re-enabl
 
 The caption option defaults off. Prefer **Use compact mode** in Brave Appearance. The opt-in workaround hides only the recorded native system-menu bit on eligible resizable, unowned Chrome_WidgetWin_1 frames. Chromium sees its logical style; resize/minimize/maximize bits remain. Existing frames update immediately, and disabling restores recorded bits. Unload restores them in BeforeUninit while style hooks are still installed. The real system-menu style is absent while enabled, so Alt+Space, taskbar menus and other tools can be affected. Tool windows and dialogs are excluded.
 
-For diagnostics, look for **Brave Acrylic 3.4**, **13/13 native functions**, Windhawk symbol-cache messages. Compatibility details and the two-hour workflow are in [compatibility.md](compatibility.md). Version-matched rendering sources are in [webview-background.md](webview-background.md).
+For diagnostics, look for **Brave Acrylic 3.4.1**, **13/13 native functions**, Windhawk symbol-cache messages. Compatibility details and the two-hour workflow are in [compatibility.md](compatibility.md). Version-matched rendering sources are in [webview-background.md](webview-background.md).

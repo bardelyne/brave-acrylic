@@ -223,12 +223,11 @@ int wmain(int argc,wchar_t** argv) {
         Check(actual&&bytes.size()==sizeof(real),"map real Brave DLL without executing it");
         if(actual&&bytes.size()==sizeof(real)) {
             memcpy(&real,bytes.data(),sizeof(real));Check(ValidateCompatibilityMap(actual,real,rva),"validate official PDB-derived data against the loaded real DLL");
-            Check(!memcmp(kBuiltinMap,bytes.data(),sizeof(real)),"embedded data matches the official PDB-derived map");
             Reset();
             mockModule=actual;mockMap=real;
             Check(ResolveSymbolAddresses(actual,rva),"real named-entry validation, including the live E9 thunk");
-            Check(ResolveNativeBackground(actual)&&hookCalls==7&&lookupCalls==1,
-                  "reviewed real build installs seven hooks without another symbol lookup");
+            Check(ResolveNativeBackground(actual)&&hookCalls==7&&lookupCalls==2,
+                  "real build always uses Windhawk lookup before installing seven hooks");
             real.functions[2].code[0]^=1;Check(!ValidateCompatibilityMap(actual,real,rva),"reject altered real-build fingerprint");
         }
         if(actual)FreeLibrary(actual);
