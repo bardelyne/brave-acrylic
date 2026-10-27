@@ -30,6 +30,7 @@ async function recordFor(official = release()) {
   const map=encodeCache(pe,SYMBOLS.map((_,i)=>({rva:internal.readUInt32LE(40+i*80)})));
   return {map, record:{...await contractMetadata(), tag, assets, key:pe.identity.key,
     modSourceSha256:hash(SOURCE), sha256:hash(map), machine:pe.machine, timestamp:pe.timestamp,
+    pipelineProof:{schema:1,artifactId:123,runId:456,sha256:hash(map)},
     imageSize:pe.imageSize, records:SYMBOLS.length, infoAge:2, dbiAge:1,
     functions:SYMBOLS.map((name,i) => ({name,rva:internal.readUInt32LE(40+i*80)})),
     source:{release:`https://github.com/brave/brave-browser/releases/download/${tag}/brave-${tag}-win32-x64.zip`,
@@ -63,6 +64,11 @@ test('prepare checks latest stable metadata repeatedly without another heavy bui
     assert.equal(plan.needed,i===0);
   }
   assert.equal(heavyBuilds,1); assert.equal(BRANCH,'symbol-cache');
+});
+test('unproven legacy cache is regenerated instead of being trusted by the new pipeline', async t => {
+  const {record} = await recordFor();
+  delete record.pipelineProof;
+  assert.equal((await planned(t,{record})).plan.needed,true);
 });
 test('new stable tag or replaced archive/checksum metadata requires generation', async t => {
   const original = (await recordFor()).record;

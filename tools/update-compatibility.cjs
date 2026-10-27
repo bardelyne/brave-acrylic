@@ -14,6 +14,7 @@ const BRANCH = 'symbol-cache';
 const WORK = path.resolve(process.env.COMPATIBILITY_WORK_DIR ||
   (process.env.RUNNER_TEMP ? path.join(process.env.RUNNER_TEMP, 'brave-compatibility') : 'compatibility-work'));
 const API = 'https://api.github.com';
+const {proofFor} = require('./trusted-pipeline.cjs');
 function check(ok, message) { if (!ok) throw Error(message); }
 function tagName(value) {
   check(/^v\d{1,3}\.\d{1,3}\.\d{1,5}$/.test(value), 'Expected a stable Brave tag such as v1.98.60');
@@ -89,6 +90,8 @@ async function prepare({work = WORK, env = process.env, request = api, modSource
     try {
       const record = JSON.parse(Buffer.from(existing.content, 'base64').toString('utf8'));
       known = record.tag === tag && hexHash(record.sha256) &&
+        record.pipelineProof?.schema === 1 && Number.isSafeInteger(record.pipelineProof.artifactId) &&
+        record.pipelineProof.artifactId > 0 && record.pipelineProof.sha256 === record.sha256 &&
         Object.entries(metadata).every(([key, value]) => same(record[key], value)) &&
         same(record.assets, official.assets);
     } catch { /* A broken record requires regeneration. */ }
@@ -154,7 +157,7 @@ async function build() {
     'Official archive size or SHA256 mismatch');
   // Extract just the DLL to a fixed path. Never execute the downloaded browser,
   // follow archive paths, or unpack a PDB's source-server commands.
-  const extract = spawnSync(process.env.PYTHON || 'python3', ['-c',
+  const extract = spawnSync(process.env.PYTHON || 'python3', ['-I', '-c',
     'import zipfile,sys,shutil\nwith zipfile.ZipFile(sys.argv[1]) as z:\n' +
     ' files=[i for i in z.infolist() if i.filename.replace("\\\\","/").split("/")[-1]=="chrome.dll"]\n' +
     ' if len(files)!=1 or files[0].file_size>1024**3: raise ValueError("Invalid chrome.dll entry")\n' +
@@ -219,10 +222,18 @@ async function publish() {
   const {map, record} = await verify(path.join(WORK, 'out'), {allowLegacy:false});
   const official = releaseIdentity(await api('/repos/brave/brave-browser/releases/tags/' + record.tag));
   check(official.tag === record.tag && same(official.assets, record.assets), 'Official assets changed before publication');
+  const artifactId = process.env.TRUSTED_ARTIFACT_ID || '';
+  check(/^[1-9]\d{0,15}$/.test(artifactId), 'Missing raw-cache artifact identity');
+  const artifact = await api(`/repos/${REPOSITORY}/actions/artifacts/${artifactId}`);
+  check(artifact.id === Number(artifactId), 'Artifact identity mismatch');
+  const proof = proofFor(artifact, {runId:Number(process.env.GITHUB_RUN_ID),
+    headSha:process.env.GITHUB_SHA, sha256:hash(map), size:map.length});
+  record.pipelineProof = proof;
   const ref = await api(`/repos/${REPOSITORY}/git/ref/heads/${BRANCH}`, 'GET', undefined, true);
   const commit = ref ? await api(`/repos/${REPOSITORY}/git/commits/${ref.object.sha}`) : null;
   const files = [
     [`brave-acrylic/pdb_${record.key}.txt`, map, 'base64'],
+    [`brave-acrylic/pdb_${record.key}.proof.json`, Buffer.from(JSON.stringify(proof) + '\n'), 'utf-8'],
     [`releases/${record.tag}.json`, Buffer.from(JSON.stringify(record, null, 2) + '\n'), 'utf-8'],
   ];
   // Older releases remain on the branch; source code and contributor history
