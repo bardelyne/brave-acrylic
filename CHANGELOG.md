@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.5 — Alpha
+
+- Gate every native address on an approved workflow and exact-PDB artifact, authenticated using GitHub API metadata, SHA256 and fixed extractor/action revisions. Reject replaced data, unapproved workflows, forks, failed runs, non-hosted runner attempts and cross-build substitutions.
+- Preserve standard Windhawk named-symbol lookup, but compare all thirteen results with verified entries before local ABI checks and hook registration. Old unverified local entries cannot bypass the gate.
+- Cache authenticated builds in Windhawk mod storage for offline reuse. Keep proof downloads bounded and download-only, with no login, uploads, telemetry, remote PDB fallback or retry thread.
+- Add a staggered backup to the two-hour workflow schedule and record requested versus actual starts. GitHub scheduling remains best-effort; unchanged releases still skip large downloads.
+- Document the trust boundary, anonymous API limits, offline behavior and pipeline approval procedure.
+
 ## 3.4.1 — Alpha
 
 - Remove the embedded Brave 1.98.60 function-address table and its special-case resolver. Every build now uses Windhawk's local or online symbol cache.

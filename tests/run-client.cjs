@@ -15,22 +15,22 @@ async function main(){
     await fs.writeFile(path.join(out,'map.bin'),map);
     const compiler=process.env.WINDHAWK_CXX||'C:/Program Files/Windhawk/Compiler/bin/clang++.exe';
     const exe=path.join(out,'client.exe');
-    const result=cp.spawnSync(compiler,['--target=x86_64-w64-mingw32','-std=c++23','-O2','-municode','-static','-Werror',
-      '-I'+path.join(root,'tests/stubs'),path.join(root,'tests/client.cpp'),'-lshell32','-luser32','-o',exe],
+    const result=cp.spawnSync(compiler,['--target=x86_64-w64-mingw32','-std=c++23','-O2','-municode','-static','-Werror','-DWINVER=0x0A00','-D_WIN32_WINNT=0x0A00',
+      '-I'+path.join(root,'tests/stubs'),path.join(root,'tests/client.cpp'),'-lshell32','-luser32','-lwinhttp','-lbcrypt','-lcrypt32','-lole32','-loleaut32','-lruntimeobject','-o',exe],
     {encoding:'utf8',windowsHide:true,env:{...process.env,TEMP:out,TMP:out}});
     process.stdout.write(result.stdout||'');process.stderr.write(result.stderr||'');
     if(result.status!==0)throw Error('Client test compilation failed');
     const backgroundExe=path.join(out,'background.exe');
-    const backgroundBuild=cp.spawnSync(compiler,['--target=x86_64-w64-mingw32','-std=c++23','-O2','-static','-Werror',
-      '-I'+path.join(root,'tests/stubs'),path.join(root,'tests/background.cpp'),'-lshell32','-luser32','-o',backgroundExe],
+    const backgroundBuild=cp.spawnSync(compiler,['--target=x86_64-w64-mingw32','-std=c++23','-O2','-static','-Werror','-DWINVER=0x0A00','-D_WIN32_WINNT=0x0A00',
+      '-I'+path.join(root,'tests/stubs'),path.join(root,'tests/background.cpp'),'-lshell32','-luser32','-lwinhttp','-lbcrypt','-lcrypt32','-lole32','-loleaut32','-lruntimeobject','-o',backgroundExe],
       {encoding:'utf8',windowsHide:true,env:{...process.env,TEMP:out,TMP:out}});
     if(backgroundBuild.status!==0)throw Error('Background test compilation failed: '+backgroundBuild.stderr);
     const backgroundTest=cp.spawnSync(backgroundExe,[],{encoding:'utf8',windowsHide:true,timeout:10000});
     process.stdout.write(backgroundTest.stdout||'');process.stderr.write(backgroundTest.stderr||'');
     if(backgroundTest.status!==0)throw Error('Background tests failed');
     const surfacesExe=path.join(out,'surfaces.exe');
-    const surfacesBuild=cp.spawnSync(compiler,['--target=x86_64-w64-mingw32','-std=c++23','-O2','-static','-Werror',
-      '-I'+path.join(root,'tests/stubs'),path.join(root,'tests/surfaces.cpp'),'-lshell32','-luser32','-o',surfacesExe],
+    const surfacesBuild=cp.spawnSync(compiler,['--target=x86_64-w64-mingw32','-std=c++23','-O2','-static','-Werror','-DWINVER=0x0A00','-D_WIN32_WINNT=0x0A00',
+      '-I'+path.join(root,'tests/stubs'),path.join(root,'tests/surfaces.cpp'),'-lshell32','-luser32','-lwinhttp','-lbcrypt','-lcrypt32','-lole32','-loleaut32','-lruntimeobject','-o',surfacesExe],
       {encoding:'utf8',windowsHide:true,env:{...process.env,TEMP:out,TMP:out}});
     if(surfacesBuild.status!==0)throw Error('Surface test compilation failed: '+surfacesBuild.stderr);
     const surfacesTest=cp.spawnSync(surfacesExe,[],{encoding:'utf8',windowsHide:true,timeout:10000});

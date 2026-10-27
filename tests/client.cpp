@@ -16,7 +16,8 @@ static int badSlot=-1,failHook=-1;
 static std::mutex mutex;
 static std::condition_variable condition;
 static HMODULE fakeModule=nullptr,mockModule=nullptr;
-static CompatibilityMap fixture{},mockMap{};
+static CompatibilityMap fixture{},mockMap{},trustedMap{};
+static bool haveVerifiedCache=true;
 static void Check(bool ok,const char* label) {
     ++checks;
     if(!ok){++failures;printf("FAIL: %s\n",label);}
@@ -25,8 +26,17 @@ void TestLog(PCWSTR, ...) {}
 PCWSTR Wh_GetStringSetting(PCWSTR, ...) {return L"";}
 void Wh_FreeStringSetting(PCWSTR) {}
 int Wh_GetIntSetting(PCWSTR) {return 0;}
-size_t Wh_GetBinaryValue(PCWSTR,void*,size_t) {Check(false,"no custom binary cache reads");return 0;}
-BOOL Wh_SetBinaryValue(PCWSTR,const void*,size_t) {Check(false,"no custom binary cache writes");return FALSE;}
+size_t Wh_GetBinaryValue(PCWSTR name,void* out,size_t maximum) {
+    if(!haveVerifiedCache)return 0;
+    BuildIdentity id{};if(!GetBuildIdentity(mockModule,&id))return 0;
+    Check(PipelineTrust::StorageKey(id)==name,"verified storage is bound to approved workflow and exact PDB identity");
+    std::string text="1#chrome.dll#x86-64_"+std::to_string(id.timestamp)+"_"+std::to_string(id.imageSize);
+    for(unsigned i=0;i<kFunctionSlots;++i)text+="#"+std::string(PipelineTrust::kSymbols[i])+"#"+std::to_string(trustedMap.functions[i].rva);
+    const auto digest=PipelineTrust::Digest(text);
+    std::vector<unsigned char> data(digest.begin(),digest.end());data.insert(data.end(),text.begin(),text.end());
+    if(maximum<data.size())return 0;memcpy(out,data.data(),data.size());return data.size();
+}
+BOOL Wh_SetBinaryValue(PCWSTR,const void*,size_t) {Check(false,"unit fixtures never fetch or save remote data");return FALSE;}
 BOOL Wh_SetFunctionHook(void* target,void*,void** original) {
     const int index=hookCalls++;
     if(index==failHook)return FALSE;
@@ -66,7 +76,7 @@ static void Reset() {
     s_background.originalTransparent=nullptr;s_background.originalConstruct=nullptr;s_background.setBackground=nullptr;
     s_locationFocus=s_viewFocus=nullptr;s_originalTheme=s_originalReady=nullptr;
     s_originalLayerColor=nullptr;s_setPageBase=nullptr;s_originalAttachContents=nullptr;
-    mockModule=fakeModule;mockMap=fixture;
+    mockModule=fakeModule;mockMap=trustedMap=fixture;haveVerifiedCache=true;PipelineTrust::stopping=false;
 }
 static void TestValidation() {
     BuildIdentity identity{};Check(GetBuildIdentity(fakeModule,&identity),"read bounded CodeView identity");
@@ -146,6 +156,10 @@ static void TestSymbols() {
               "every incomplete native group leaves all hooks unregistered");
         Check(!s_transparencyReady&&!HasCompleteTransparencyPath(),"incomplete lookup publishes no callable helpers");
     }
+    Reset();haveVerifiedCache=false;s_useOnlineSymbolCache=false;
+    Check(!ResolveNativeBackground(fakeModule)&&lookupCalls==0&&hookCalls==0,"offline Windhawk cache alone cannot bypass missing pipeline proof");
+    Reset();mockMap.functions[0].rva=fixture.functions[1].rva;
+    Check(!ResolveNativeBackground(fakeModule)&&hookCalls==0,"a valid function boundary with the wrong approved name is rejected before hooks");
     Reset();engineSuccess=false;
     Check(!ResolveNativeBackground(fakeModule)&&hookCalls==0,"even thirteen outputs cannot override a failed engine lookup");
     for(bool online:{false,true}){
@@ -224,7 +238,7 @@ int wmain(int argc,wchar_t** argv) {
         if(actual&&bytes.size()==sizeof(real)) {
             memcpy(&real,bytes.data(),sizeof(real));Check(ValidateCompatibilityMap(actual,real,rva),"validate official PDB-derived data against the loaded real DLL");
             Reset();
-            mockModule=actual;mockMap=real;
+            mockModule=actual;mockMap=trustedMap=real;
             Check(ResolveSymbolAddresses(actual,rva),"real named-entry validation, including the live E9 thunk");
             Check(ResolveNativeBackground(actual)&&hookCalls==7&&lookupCalls==2,
                   "real build always uses Windhawk lookup before installing seven hooks");

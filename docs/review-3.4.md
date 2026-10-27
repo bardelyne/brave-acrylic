@@ -1,5 +1,7 @@
 # Review changes in 3.4
 
+Historical notes for 3.4/3.4.1. Version 3.5 adds a bounded HTTPS pipeline-proof gate; see [trusted-pipeline.md](trusted-pipeline.md) for the current trust model and network behavior.
+
 Addresses the [3.3 AI review](https://github.com/ramensoftware/windhawk-mods/pull/6471#issuecomment-6390506396) and the [maintainer's online-cache suggestion](https://github.com/ramensoftware/windhawk-mods/pull/6471#issuecomment-6391627353).
 
 - Removed the custom WinHTTP fetcher, download worker, periodic retry, downloaded binary-map storage, old download setting and WinHTTP link dependency. Unknown builds use `WindhawkUtils::HookSymbols` and `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` with Windhawk's default C++ prototypes. Remote PDB fallback is disabled; an offline-only setting remains.

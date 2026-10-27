@@ -1,36 +1,12 @@
-# Windhawk symbol-cache compatibility
+# Verified Windhawk symbol-cache compatibility
 
-Brave Acrylic 3.4.1 uses Windhawk's supported `HookSymbols` / `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` mechanism. It has no custom HTTP implementation, compatibility-download worker, periodic retry or writable binary-map cache. Native ABI or rendering changes can still require a mod update.
+Brave Acrylic 3.5 retains Windhawk named-symbol resolution and adds an approved-pipeline gate. All thirteen named entries must match data verified against GitHub's immutable artifact and run records before any function is used. No build-specific address table is embedded and no remote PDB fallback is allowed.
 
-## Client resolution
+See [trusted-pipeline.md](trusted-pipeline.md) for the complete account-compromise threat model, trusted revisions, HTTPS verification sequence, offline behavior, rate/retention limits, and approval procedure.
 
-1. Read the loaded DLL's identity and resolve all thirteen full C++ prototypes through Windhawk. There is no embedded address table or version-specific fast path.
-2. Windhawk checks its own local cache first, then the configured online cache if enabled.
-3. Set `symbolServer=L""` to prevent remote PDB fallback, and use Windhawk's default readable C++ prototypes for standard cache tooling. A missing cache cannot trigger a multi-GB download.
-4. Validate the complete address group locally before registering any native hooks: executable `.text` bounds, exact unwind boundaries, approved short host/focus leaves, direct E9 entry/body ranges and overlap rejection. Resolve-only calls avoid partial native hook installation on failed name lookup. No callable helper is published on a missing or rejected group.
-5. Register seven native hooks, then publish readiness only after Windhawk activates them. Initial discovery and teardown share a lock; no late installation can activate after BeforeUninit returns. Resource-only DLL loads are ignored.
+The standard cache format remains `1#chrome.dll#x86-64_<timestamp>_<size>#<full-prototype>#<decimal-RVA>#...`, with exactly thirteen entries. The immutable artifact's name binds that payload to the exact PDB GUID/age; the live PE header and executable ranges are independently checked. The author-hosted branch is only a download location, not the trust anchor. Windhawk may return earlier cached entries, but the gate compares each address against the approved data before using it.
 
-The online base is `https://raw.githubusercontent.com/bardelyne/brave-acrylic/symbol-cache/brave-acrylic`. Windhawk appends `/pdb_<GUID-and-age>.txt`, deriving the identity from chrome.dll's CodeView record. This is the author's cache; it is **not** a deployment to `ramensoftware/windhawk-mod-symbol-cache`. Official hosting would require the maintainer's agreement and Brave support in that repository.
-
-The symbol-cache publisher remains trusted. Function-boundary and shape checks constrain unsafe targets but do not independently prove a named RVA really belongs to that function. Downloading through Windhawk does not add a signature or online function-authentication service. The producer's official PDB checks and review of its publication pipeline matter.
-
-## Standard text format
-
-The file uses Windhawk's existing ASCII cache format:
-
-```text
-1#chrome.dll#x86-64_<PE-timestamp>_<image-size>#<full-C++-prototype>#<decimal-RVA>#...
-```
-
-There are exactly thirteen ordered name/RVA pairs and no trailing newline. The second and third fields are descriptive header comments in the online format; the PDB identity belongs in the requested filename. Windhawk rewrites the local cache into its own format. The reference build's cache is **approximately 1.5 KB**. The producer/publisher impose a 16 KiB limit, canonical decimal addresses, complete exact names, and no duplicate addresses. Named compiler E9 stubs retain their original public entry RVA; the client validates and normalizes a direct target from the actual DLL.
-
-Legacy `compatibility-v1` through `compatibility-v6` branches remain separate for old clients. This client never reads their downloaded binary maps. The frozen v6 producer and old fixture tests remain for historical verification; the active workflow publishes standard text only.
-
-## Privacy and offline use
-
-The mod uploads no history, website content, settings, account data, diagnostic reports or analytics. It delegates the download to Windhawk. As with any direct download, the server sees the requester's IP address and exact-build cache URL. No claim of anonymous or metadata-free downloading is made.
-
-Turn **Use Windhawk online symbol cache** off and re-enable the mod for offline-only resolution. Windhawk's existing local cache still works. First use requires a download unless matching symbols are already available locally. A change cannot withdraw an already running request. Windhawk may perform its own short startup connection retries; the mod adds no timer. If exact data is unavailable or unsupported, transparency stays off. Re-enable the mod or reopen Brave normally after a cache is published.
+Legacy binary maps and 3.4's unverified cache-only path are not accepted as proof. A new build needs an initial anonymous verification. Successfully verified entries in per-mod storage can be reused offline. Missing/deleted metadata or anonymous rate limits fail closed on a first use; no user token is requested.
 
 ## Fixed native ABI
 
@@ -56,19 +32,20 @@ The producer resolves exact names from the official matching DLL/PDB, rejects al
 
 ## Two-hour workflow
 
-Cron is `17 */2 * * *`: twelve metadata checks daily. GitHub can delay scheduled runs. A manual dispatch can backfill a stable tag or force regeneration.
+The primary cron is `17 */2 * * *`, with a staggered `47 */2 * * *` backup. GitHub can delay or drop scheduled runs; these are requested checks, not an exact two-hour timer. A manual dispatch can backfill a stable tag or force regeneration.
 
 Preparation compares the official stable release and archive/checksum asset IDs, sizes, update times and available digests, plus the text-cache format, extractor, native ABI revision, client version and explicit contract hash. Unchanged releases skip binary downloads, extraction and publication. Source hashes record provenance without making cosmetic documentation changes trigger large downloads.
 
-When needed, a read-only 35-minute job downloads the official ZIP/checksum, verifies sizes, SHA256 and available digests, extracts only chrome.dll to a fixed path, and downloads its exact PDB on the runner. The PDB parser validates all required functions before generating cache.txt and record.json.
+When needed, a read-only 35-minute job downloads the official ZIP/checksum, verifies sizes, SHA256 and available digests, extracts only chrome.dll to a fixed path, and downloads its exact PDB on the runner. The PDB parser validates all required functions before generating cache.txt and record.json. A raw artifact named for the exact PDB identity records the original payload SHA256 in GitHub metadata; only small files are retained.
 
-A separate five-minute publisher receives only those two small files. It independently validates their types, sizes, ASCII schema, names, RVAs, identity/provenance metadata, hashes and source contract, then rechecks official release assets. Only `bardelyne/brave-acrylic` on `main` can publish non-forced Git updates to `symbol-cache`. Files are `brave-acrylic/pdb_<GUID-age>.txt` and `releases/<stable-tag>.json`; older caches remain. Actions are pinned and checkout credentials are not persisted. Beta/nightly/custom builds are outside this schedule.
+A separate five-minute publisher receives only those two small files. It independently validates their types, sizes, ASCII schema, names, RVAs, identity/provenance metadata, hashes and source contract, then rechecks official release assets. Only `bardelyne/brave-acrylic` on `main` can publish non-forced Git updates to `symbol-cache`. Files are `brave-acrylic/pdb_<GUID-age>.txt`, its `.proof.json` locator, and `releases/<stable-tag>.json`; older caches remain. The publisher checks the raw artifact digest, name, repository, run and head revision before publishing. The mod independently authenticates that run and its approved workflow through GitHub. Actions are pinned and checkout credentials are not persisted. Beta/nightly/custom builds are outside this schedule.
 
 ## Local verification
 
 ```text
 node --test tests/*.test.cjs
 node tests/run-client.cjs
+node tests/run-pipeline-trust.cjs
 node tools/build.cjs
 node tools/symbol-cache.cjs chrome.dll chrome.dll.pdb cache.txt
 ```

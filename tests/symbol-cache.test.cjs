@@ -40,15 +40,32 @@ test('the producer actually resolves a matching PDB and emits a standard text ca
   await fs.writeFile(pdb,fixturePdbV6(pe,[{name:'DifferentAliasedName',within:RVAS[1]-0x1000}]));
   await assert.rejects(()=>generate(dll,pdb,out),/alias/i);
 });
-test('client and producer agree on the thirteen required names and online downloads have no custom transport', async () => {
+test('client, trusted parser and producer agree on names; all Windhawk targets are gated before use', async () => {
   const source=await fs.readFile(path.join(__dirname,'../brave-acrylic.wh.cpp'),'utf8');
   const lookups=source.slice(source.indexOf('WindhawkUtils::SYMBOL_HOOK chromeHooks[]'),source.indexOf('static_assert(ARRAYSIZE(chromeHooks)'));
   assert.deepEqual([...lookups.matchAll(/\{\{L"([^"]+)"\}/g)].map(m=>m[1]),SYMBOLS);
   const code=source.slice(source.indexOf('#include <windhawk_api.h>'));
-  assert.doesNotMatch(code,/WinHttp|Wh_GetUrlContent|CreateThread|CompatibilityWorker|compatibilityMapV6|Wh_GetBinaryValue|Wh_SetBinaryValue/);
+  const trusted=code.slice(code.indexOf('static constexpr const char* kSymbols[]'),code.indexOf('static_assert(ARRAYSIZE(kSymbols)'));
+  assert.deepEqual([...trusted.matchAll(/"([^"]+)"/g)].map(m=>m[1]),SYMBOLS);
+  assert.doesNotMatch(code,/Wh_GetUrlContent|CreateThread|CompatibilityWorker|compatibilityMapV6/);
+  assert.ok(code.indexOf('PipelineTrust::Load(identity')<code.indexOf('WindhawkUtils::HookSymbols(module'));
+  assert.match(code,/addresses\[i\]\) != base \+ trusted\[i\]/);
   assert.match(code,/options\.symbolServer = L""/);
   assert.doesNotMatch(code,/noUndecoratedSymbols/);
   assert.doesNotMatch(code,/kBuiltinMap|knownBuild|builtIn/);
-  assert.match(code,/options\.onlineCacheUrl = s_useOnlineSymbolCache/);
+  assert.match(code,/options\.onlineCacheUrl\s*=\s*s_useOnlineSymbolCache/);
   assert.match(source,/- hideNativeCaptionButtons: false/);
+});
+test('compiled workflow approval matches canonical repository bytes and fixed source/action pins',async()=>{
+  const crypto=require('node:crypto');
+  const yaml=Buffer.from((await fs.readFile(path.join(__dirname,'../.github/workflows/compatibility.yml'),'utf8')).replaceAll('\r\n','\n'));
+  const source=await fs.readFile(path.join(__dirname,'../brave-acrylic.wh.cpp'),'utf8');
+  const blob=crypto.createHash('sha1').update('blob '+yaml.length+'\0').update(yaml).digest('hex');
+  const sha=crypto.createHash('sha256').update(yaml).digest('hex');
+  const flat=source.replace(/\s+/g,' ');
+  assert.ok(flat.includes(`kWorkflowBlob[] = L"${blob}"`));
+  assert.ok(flat.includes(`kWorkflowSha256[] = L"${sha}"`));
+  assert.equal([...yaml.toString().matchAll(/ref: c2aa63967241937406121a70a74ebbaef57b33bc/g)].length,2);
+  assert.ok(!yaml.toString().includes('ref: ${{ github.sha }}'));
+  assert.equal([...yaml.toString().matchAll(/uses: [^\s]+@[a-f0-9]{40}/g)].length,5);
 });
