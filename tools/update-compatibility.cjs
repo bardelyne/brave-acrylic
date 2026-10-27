@@ -14,7 +14,7 @@ const BRANCH = 'symbol-cache';
 const WORK = path.resolve(process.env.COMPATIBILITY_WORK_DIR ||
   (process.env.RUNNER_TEMP ? path.join(process.env.RUNNER_TEMP, 'brave-compatibility') : 'compatibility-work'));
 const API = 'https://api.github.com';
-const {proofFor} = require('./trusted-pipeline.cjs');
+const {proofFor, artifactName} = require('./trusted-pipeline.cjs');
 function check(ok, message) { if (!ok) throw Error(message); }
 function tagName(value) {
   check(/^v\d{1,3}\.\d{1,3}\.\d{1,5}$/.test(value), 'Expected a stable Brave tag such as v1.98.60');
@@ -92,6 +92,7 @@ async function prepare({work = WORK, env = process.env, request = api, modSource
       known = record.tag === tag && hexHash(record.sha256) &&
         record.pipelineProof?.schema === 1 && Number.isSafeInteger(record.pipelineProof.artifactId) &&
         record.pipelineProof.artifactId > 0 && record.pipelineProof.sha256 === record.sha256 &&
+        record.pipelineProof.artifactName === artifactName(record.key) &&
         Object.entries(metadata).every(([key, value]) => same(record[key], value)) &&
         same(record.assets, official.assets);
     } catch { /* A broken record requires regeneration. */ }
@@ -179,6 +180,9 @@ async function build() {
       dllSha256:await shaFile(dll), symbols:url}, elapsedMs:Date.now() - started};
   await fs.writeFile(path.join(out, 'record.json'), JSON.stringify(record, null, 2) + '\n');
   await verify(out, {allowLegacy:false});
+  const trusted = path.join(WORK, 'trusted');
+  await fs.mkdir(trusted, {recursive:true});
+  await fs.copyFile(path.join(out, 'cache.txt'), path.join(trusted, artifactName(record.key)));
   console.log('Generated ' + (await fs.stat(path.join(out, 'cache.txt'))).size + ' bytes in ' + Math.round(record.elapsedMs / 1000) + ' seconds');
 }
 async function verify(directory, {modSource} = {}) {
@@ -227,7 +231,7 @@ async function publish() {
   const artifact = await api(`/repos/${REPOSITORY}/actions/artifacts/${artifactId}`);
   check(artifact.id === Number(artifactId), 'Artifact identity mismatch');
   const proof = proofFor(artifact, {runId:Number(process.env.GITHUB_RUN_ID),
-    headSha:process.env.GITHUB_SHA, sha256:hash(map), size:map.length});
+    headSha:process.env.GITHUB_SHA, sha256:hash(map), size:map.length, key:record.key});
   record.pipelineProof = proof;
   const ref = await api(`/repos/${REPOSITORY}/git/ref/heads/${BRANCH}`, 'GET', undefined, true);
   const commit = ref ? await api(`/repos/${REPOSITORY}/git/commits/${ref.object.sha}`) : null;

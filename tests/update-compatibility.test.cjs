@@ -30,7 +30,7 @@ async function recordFor(official = release()) {
   const map=encodeCache(pe,SYMBOLS.map((_,i)=>({rva:internal.readUInt32LE(40+i*80)})));
   return {map, record:{...await contractMetadata(), tag, assets, key:pe.identity.key,
     modSourceSha256:hash(SOURCE), sha256:hash(map), machine:pe.machine, timestamp:pe.timestamp,
-    pipelineProof:{schema:1,artifactId:123,runId:456,sha256:hash(map)},
+    pipelineProof:{schema:1,artifactId:123,artifactName:`pdb_${pe.identity.key}.txt`,runId:456,sha256:hash(map)},
     imageSize:pe.imageSize, records:SYMBOLS.length, infoAge:2, dbiAge:1,
     functions:SYMBOLS.map((name,i) => ({name,rva:internal.readUInt32LE(40+i*80)})),
     source:{release:`https://github.com/brave/brave-browser/releases/download/${tag}/brave-${tag}-win32-x64.zip`,
