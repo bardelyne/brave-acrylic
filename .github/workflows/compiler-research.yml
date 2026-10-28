@@ -1,12 +1,12 @@
 name: Brave compiler compatibility research
 
 on:
-  push:
-    branches: [compiler-resilience-20261029]
-    paths:
-      - '.github/workflows/compiler-research.yml'
-      - 'tools/research-compiler.cjs'
   workflow_dispatch:
+    inputs:
+      tags:
+        description: JSON array of 1-12 official stable Brave tags
+        type: string
+        default: '["v1.98.62","v1.98.60","v1.97.59","v1.96.61","v1.95.104","v1.94.121"]'
 
 permissions:
   contents: read
@@ -16,14 +16,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      tags: ${{ steps.tags.outputs.tags }}
+    steps:
+      - id: tags
+        env:
+          RELEASE_TAGS: ${{ inputs.tags }}
+        run: |
+          node -e 'const fs=require("node:fs"),t=JSON.parse(process.env.RELEASE_TAGS); if(!Array.isArray(t)||t.length<1||t.length>12||new Set(t).size!==t.length||t.some(x=>typeof x!=="string"||!/^v\d{1,3}\.\d{1,3}\.\d{1,5}$/.test(x))) throw Error("Expected 1-12 unique stable release tags"); fs.appendFileSync(process.env.GITHUB_OUTPUT,"tags="+JSON.stringify(t)+"\n")'
   analyze:
+    needs: plan
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     strategy:
       fail-fast: false
       max-parallel: 3
       matrix:
-        tag: [v1.98.62, v1.98.60, v1.97.59, v1.96.61, v1.95.104, v1.94.121]
+        tag: ${{ fromJSON(needs.plan.outputs.tags) }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:

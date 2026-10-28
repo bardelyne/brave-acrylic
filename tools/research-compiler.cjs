@@ -133,5 +133,14 @@ async function collect(tag,work){
  await fs.unlink(pdb);await fs.unlink(dll);
  return report;
 }
-module.exports={collect,analyze,entryEvidence,scanPublics,HOOK_SLOTS};
-if(require.main===module){const[tag,work]=process.argv.slice(2);collect(tag,work).catch(e=>{console.error(e.stack);process.exitCode=1;});}
+async function diagnose(dll,pdb,output){
+ output=path.resolve(output);await fs.mkdir(output,{recursive:true});
+ try{const report=await analyze(dll,pdb);await disassemble(report,output);
+  await fs.writeFile(path.join(output,'compiler-report.json'),JSON.stringify(report,null,2)+'\n');
+  return report;
+ }catch(e){await fs.writeFile(path.join(output,'diagnostic-error.json'),JSON.stringify({error:e.message},null,2)+'\n');throw e;}
+}
+module.exports={collect,analyze,diagnose,entryEvidence,scanPublics,HOOK_SLOTS};
+if(require.main===module){const args=process.argv.slice(2);
+ const action=args[0]==='--existing'?diagnose(...args.slice(1)):collect(...args);
+ action.catch(e=>{console.error(e.stack);process.exitCode=1;});}
