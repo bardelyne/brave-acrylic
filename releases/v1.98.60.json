@@ -1,6 +1,6 @@
 {
   "format": "windhawk-symbol-cache-v1",
-  "extractor": 1,
+  "extractor": 2,
   "abiRevision": 2,
   "clientVersion": "3.4",
   "key": "75D8DB6BA8EC43F64C4C44205044422E1",
@@ -66,7 +66,7 @@
     }
   ],
   "modContract": {
-    "abiSha256": "e7ee2da855c31dfc8fb9c4c8551beee130f5f52013f7a812d27815d0e9fabb22"
+    "abiSha256": "5e21f61f63ddc046aec9ff8c1f0ee0a5febbcb50c652c225fa077c547a8e9df4"
   },
   "tag": "v1.98.60",
   "assets": {
@@ -85,20 +85,20 @@
       "digest": "sha256:4542c4d61342436e6a1bd6933e96595f95ab2cc5613f76910d7db7a9b1b96413"
     }
   },
-  "modSourceSha256": "8f25496237776e1abbeab3342bab258b1eb3682d49e13a08e9147cda36c6aae3",
-  "createdUtc": "2026-10-27T17:33:25.470Z",
+  "modSourceSha256": "a3fc3f151c3aa681f25327f25f99016e8e864a31ce9e3e82a01072c2b3437c8b",
+  "createdUtc": "2026-10-28T22:22:11.943Z",
   "source": {
     "release": "https://github.com/brave/brave-browser/releases/download/v1.98.60/brave-v1.98.60-win32-x64.zip",
     "archiveSha256": "2c937c91f5061fb1034097c932112b06f429d5bdd08bc5e32921b88609d011e7",
     "dllSha256": "c68b8057218e0c551e9916ba34872aedcc96bf2ff1bcec5f87971332d148e5f9",
     "symbols": "https://brave-symbols.s3.brave.com/chrome.dll.pdb/75D8DB6BA8EC43F64C4C44205044422E1/chrome.dll.pdb"
   },
-  "elapsedMs": 28340,
+  "elapsedMs": 36137,
   "pipelineProof": {
     "schema": 1,
-    "artifactId": 12755382050,
+    "artifactId": 12855708652,
     "artifactName": "pdb_75D8DB6BA8EC43F64C4C44205044422E1.txt",
-    "runId": 40551612544,
+    "runId": 40779337625,
     "sha256": "2bda186b8e55061b802f8c42f37bd1a5a7f976bb2e01fddd2ff0b032301f17e9"
   }
 }
