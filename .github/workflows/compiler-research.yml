@@ -1,0 +1,43 @@
+name: Brave compiler compatibility research
+
+on:
+  push:
+    branches: [compiler-resilience-20261029]
+    paths:
+      - '.github/workflows/compiler-research.yml'
+      - 'tools/research-compiler.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brave-compiler-research-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        tag: [v1.98.62, v1.98.60, v1.97.59, v1.96.61, v1.95.104, v1.94.121]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Download matching official inputs and inspect compiler output
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRAVE_TAG: ${{ matrix.tag }}
+        run: node tools/research-compiler.cjs "$BRAVE_TAG" "$RUNNER_TEMP/compiler-research"
+      - name: Save small analysis evidence only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: compiler-${{ matrix.tag }}
+          path: ${{ runner.temp }}/compiler-research/report/
+          if-no-files-found: warn
+          retention-days: 14
