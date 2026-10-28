@@ -22,7 +22,7 @@ const SYMBOLS = Object.freeze([
   "public: virtual void __cdecl ContentsWebView::SetWebContents(class content::WebContents *)"
 ]);
 const FORMAT = 'windhawk-symbol-cache-v1';
-const EXTRACTOR = 1, ABI_REVISION = 2, CLIENT_VERSION = '3.4', MAP_SIZE = 16384;
+const EXTRACTOR = 2, ABI_REVISION = 2, CLIENT_VERSION = '3.4', MAP_SIZE = 16384;
 function check(ok, message) { if (!ok) throw Error(message); }
 function validateMap(bytes) {
   check(Buffer.isBuffer(bytes) && bytes.length > 0 && bytes.length <= MAP_SIZE &&
@@ -57,8 +57,8 @@ function encodeCache(pe, entries) {
 async function generate(dll, pdbPath, output) {
   const pe = new PeImage(await fs.readFile(dll)), pdb = await Pdb.open(pdbPath);
   try {
-    // Resolve exact decorated names and reject aliases, mismatched PDBs,
-    // unsupported leaf shapes and non-boundary addresses before publishing.
+    // Resolve exact decorated names, rejecting unsafe hook aliases, mismatched
+    // PDBs, unsupported leaves and non-boundary addresses before publishing.
     const result = await native.resolveFunctions(pe, pdb);
     native.encodeMap(pe, result.entries);
     // Publish the named entry, including a validated E9 entry when present.

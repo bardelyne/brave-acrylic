@@ -203,7 +203,8 @@ class Pdb {
     }
     return b;
   }
-  async symbols(pe, {names = SYMBOLS, fingerprint = rva => pe.fingerprint(rva), rejectAliases = false} = {}) {
+  async symbols(pe, {names = SYMBOLS, fingerprint = rva => pe.fingerprint(rva), rejectAliases = false,
+    aliasPolicy = null} = {}) {
     const info = await this.stream(1, 0, 28), dbi = await this.stream(3, 0, 64);
     // Public/stripped PDB processing can increment the Info age without changing
     // the image's DBI age. Validate the GUID plus DBI age against CodeView.
@@ -258,6 +259,7 @@ class Pdb {
     const entries = rvas.map((rva, slot) => fingerprint(rva, slot));
     if (rejectAliases) {
       const targets = new Map(rvas.map((rva, i) => [rva, names[i]]));
+      const slots = new Map(names.map((name,i) => [name,i]));
       const thunkBodies = new Map();
       entries.forEach((entry,i) => {
         for (const rva of entry.aliasRvas || []) {
@@ -269,12 +271,14 @@ class Pdb {
         const section = pe.sections[segment - 1];
         if (!section || within >= section.size) return;
         const rva=section.rva+within;
-        let target = targets.get(rva);
+        let target = targets.get(rva), viaThunk = false;
         if(!target && thunkBodies.size && section === pe.text && within+5<=section.rawSize) {
           const p=section.raw+within;
-          if(pe.bytes[p]===0xE9)target=thunkBodies.get(rva+5+pe.bytes.readInt32LE(p+1));
+          if(pe.bytes[p]===0xE9){target=thunkBodies.get(rva+5+pe.bytes.readInt32LE(p+1));viaThunk=!!target;}
         }
-        requireThat(!target || name === target, 'Public symbol alias at target: ' + name);
+        requireThat(!target || name === target || (typeof aliasPolicy === 'function' &&
+          aliasPolicy({name,target,rva,viaThunk,slot:slots.get(target),entry:entries[slots.get(target)]})),
+        'Public symbol alias at target: ' + name);
       });
     }
     return {entries, records, infoAge: info.readUInt32LE(8), dbiAge: dbi.readUInt32LE(8)};

@@ -38,6 +38,8 @@ test('the producer actually resolves a matching PDB and emits a standard text ca
   assert.equal(record.format,'windhawk-symbol-cache-v1');
   assert.deepEqual(record.functions,SYMBOLS.map((name,i)=>({name,rva:RVAS[i]})));
   await fs.writeFile(pdb,fixturePdbV6(pe,[{name:'DifferentAliasedName',within:RVAS[1]-0x1000}]));
+  await generate(dll,pdb,out); // Calling a named helper does not patch its aliases.
+  await fs.writeFile(pdb,fixturePdbV6(pe,[{name:'DifferentAliasedName',within:RVAS[0]-0x1000}]));
   await assert.rejects(()=>generate(dll,pdb,out),/alias/i);
 });
 test('client, trusted parser and producer agree on names; all Windhawk targets are gated before use', async () => {

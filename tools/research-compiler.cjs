@@ -6,7 +6,7 @@ const {Readable,Transform}=require('node:stream'),{pipeline}=require('node:strea
 const {spawnSync}=require('node:child_process');
 const native=require('./symbol-map-v6.cjs');
 const {tagName,releaseIdentity}=require('./update-compatibility.cjs');
-const HOOK_SLOTS=new Set([0,3,4,8,9,10,12]);
+const HOOK_SLOTS=new Set(native.HOOK_SLOTS);
 function check(ok,why){if(!ok)throw Error(why);}
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 async function shaFile(file){const h=crypto.createHash('sha256');for await(const b of createReadStream(file))h.update(b);return h.digest('hex');}
@@ -72,10 +72,15 @@ async function analyze(dll,pdbFile){
   for(const f of functions)for(const entry of f.entries){
    entry.entryAliases=aliases.get(entry.rva)||[];entry.bodyAliases=aliases.get(entry.body.rva)||[];
   }
-  let strict;try{const result=await native.resolveFunctions(pe,pdb);native.encodeMap(pe,result.entries);strict={accepted:true};}
+  let strict;try{const result=await pdb.symbols(pe,{names:native.SYMBOLS,rejectAliases:true,
+   fingerprint:(rva,slot)=>native.fingerprint(pe,rva,slot)});native.encodeMap(pe,result.entries);strict={accepted:true};}
   catch(e){strict={accepted:false,error:e.message};}
+  let candidate;try{const result=await native.resolveFunctions(pe,pdb);native.encodeMap(pe,result.entries);
+   const bytes=require('./symbol-cache.cjs').encodeCache(pe,result.entries);
+   candidate={accepted:true,cache:bytes.toString('ascii'),sha256:sha(bytes)};}
+  catch(e){candidate={accepted:false,error:e.message};}
   return {key:pe.identity.key,machine:pe.machine,timestamp:pe.timestamp,imageSize:pe.imageSize,
-   dllSha256:sha(pe.bytes),...summary,strict,functions,candidates};
+   dllSha256:sha(pe.bytes),...summary,strict,candidate,functions,candidates};
  }finally{await pdb.close();}
 }
 async function disassemble(report,output){
@@ -117,11 +122,13 @@ async function collect(tag,work){
  await disassemble(report,output);
  await fs.writeFile(path.join(output,'compiler-report.json'),JSON.stringify(report,null,2)+'\n');
  const lines=[`# ${tag} compiler analysis`,``, `PDB: ${report.key}`,`Chromium: ${report.chromium}`,
-  `Current extractor: ${report.strict.accepted?'PASS':report.strict.error}`,``, '| Slot | Use | Entries | Boundary checks | Other public names |','| --- | --- | --- | --- | --- |'];
+  `Original strict extractor: ${report.strict.accepted?'PASS':report.strict.error}`,
+  `Role-aware extractor: ${report.candidate.accepted?'PASS':report.candidate.error}`,``, '| Slot | Use | Entries | Boundary checks | Other public names |','| --- | --- | --- | --- | --- |'];
  for(const f of report.functions)lines.push(`| ${f.slot} | ${f.role} | ${f.entries.length} | ${f.entries.map(e=>e.fingerprint.accepted?'pass':e.fingerprint.error).join('; ')} | ${f.entries.map(e=>e.bodyAliases.filter(n=>n!==f.name).length).join(', ')} |`);
  await fs.writeFile(path.join(output,'summary.md'),lines.join('\n')+'\n');
  if(process.env.GITHUB_STEP_SUMMARY)await fs.appendFile(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');
- console.log(JSON.stringify({tag,key:report.key,strict:report.strict,functions:report.functions.length}));
+ if(report.candidate.accepted)await fs.writeFile(path.join(output,'candidate-cache.txt'),report.candidate.cache);
+ console.log(JSON.stringify({tag,key:report.key,strict:report.strict,candidate:report.candidate.accepted,functions:report.functions.length}));
  // Keep huge official inputs only on this runner, not in artifacts or caches.
  await fs.unlink(pdb);await fs.unlink(dll);
  return report;

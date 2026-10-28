@@ -33,7 +33,10 @@ async function contractMetadata() {
       namedThunk:{kind:3,slots:'any',opcode:0xE9,length:5,unwind:false,targetField:'reserved',body:'normal-unwind-or-approved-slot-leaf',
         ranges:'source-and-body-distinct-nonoverlapping-executable'},
       nativeAbi:{color:'float4-indirect',pageBase:'optional-color8-register-present-byte4',attach:'canonical-WebContents-before-native-attach'},
-      aliases:'reject-all-thirteen-and-thunk-bodies'}))}};
+      aliases:{hooks:'reject-unrelated-public-names-and-thunk-bodies',
+        callOnlySlots:[1,2,5,6,7,11],
+        themeForwarder:{slot:8,kind:3,bodyName:'?UpdateBackgroundColor@ContentsWebView@@AEAAXXZ',
+          bodyOnly:true,otherThunks:false}}}))}};
 }
 async function modSourceHash(source) {
   return hash(source ?? await fs.readFile(path.join(__dirname, '..', 'brave-acrylic.wh.cpp')));

@@ -7,6 +7,19 @@ const FORMAT=6,EXTRACTOR=1,ABI_REVISION=1,CLIENT_VERSION='3.3';
 const HEADER_SIZE=40,ENTRY_SIZE=80,MAP_SIZE=1080;
 const SYMBOLS=Object.freeze([...v4.SYMBOLS.slice(0,12),v4.SYMBOLS[15]]);
 const REQUIRED_SLOTS=Object.freeze(SYMBOLS.map((_,i)=>i));
+// Only these entries are patched. Calls to exact named helpers can safely use
+// compiler-folded code: no unrelated caller's instructions are modified.
+const HOOK_SLOTS=Object.freeze([0,3,4,8,9,10,12]);
+const BACKGROUND_UPDATE_ALIAS='?UpdateBackgroundColor@ContentsWebView@@AEAAXXZ';
+function allowCompilerAlias({name,slot,rva,viaThunk,entry}){
+ if(!Number.isInteger(slot)||slot<0||slot>=SYMBOLS.length)return false;
+ if(!HOOK_SLOTS.includes(slot))return true;
+ // Verified on Chromium 152/153/155: OnThemeChanged has its own direct E9
+ // entry forwarding to this same-class, same void(this) background method.
+ // This is the sole semantic alias allowed for a patched body. An arbitrary
+ // alias at the entry/body, including another thunk, remains an error.
+ return slot===8&&entry.kind===3&&!viaThunk&&rva===entry.reserved&&name===BACKGROUND_UPDATE_ALIAS;
+}
 function check(ok,message){if(!ok)throw Error(message);}
 function outsideUnwind(pe,rva,length){
  check(!pe.functionRanges.some(f=>f.begin<rva+length&&(f.begin>=rva||f.end>rva)),'Leaf/thunk overlaps unwind range');
@@ -75,7 +88,8 @@ function encodeMap(pe,entries){
  validateMap(map,pe);return map;
 }
 async function resolveFunctions(pe,pdb){
- return pdb.symbols(pe,{names:SYMBOLS,rejectAliases:true,fingerprint:(rva,slot)=>fingerprint(pe,rva,slot)});
+ return pdb.symbols(pe,{names:SYMBOLS,rejectAliases:true,aliasPolicy:allowCompilerAlias,
+  fingerprint:(rva,slot)=>fingerprint(pe,rva,slot)});
 }
 async function generate(dll,pdbPath,output){
  const pe=new PeImage(await fs.readFile(dll)),pdb=await Pdb.open(pdbPath);
@@ -88,5 +102,5 @@ async function generate(dll,pdbPath,output){
    functions:result.entries.map((e,i)=>({name:SYMBOLS[i],rva:e?.rva||0,length:e?.length||0,kind:e?.kind||0,reserved:e?.reserved||0}))};
  }finally{await pdb.close();}
 }
-module.exports={FORMAT,EXTRACTOR,ABI_REVISION,CLIENT_VERSION,HEADER_SIZE,ENTRY_SIZE,MAP_SIZE,SYMBOLS,REQUIRED_SLOTS,MAGIC,PeImage,Pdb,fingerprint,encodeMap,validateMap,resolveFunctions,generate};
+module.exports={FORMAT,EXTRACTOR,ABI_REVISION,CLIENT_VERSION,HEADER_SIZE,ENTRY_SIZE,MAP_SIZE,SYMBOLS,REQUIRED_SLOTS,HOOK_SLOTS,BACKGROUND_UPDATE_ALIAS,allowCompilerAlias,MAGIC,PeImage,Pdb,fingerprint,encodeMap,validateMap,resolveFunctions,generate};
 if(require.main===module){const[dll,pdb,out]=process.argv.slice(2);generate(dll,pdb,out).then(r=>console.log(JSON.stringify(r,null,2))).catch(e=>{console.error(e.message);process.exitCode=1;});}

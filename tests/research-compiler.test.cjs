@@ -12,6 +12,7 @@ test('research reports compiler aliases without silently approving them',async t
  let r=await analyze(dll,pdb);assert.equal(r.strict.accepted,true);assert.equal(r.functions.length,13);
  await fs.writeFile(pdb,fixturePdbV6(pe,[{name:'?HasFocus@AppMenuButton@@UEBA_NXZ',within:RVAS[6]-0x1000}]));
  r=await analyze(dll,pdb);assert.equal(r.strict.accepted,false);assert.match(r.strict.error,/alias/);
+ assert.equal(r.candidate.accepted,true);
  assert.equal(r.functions[6].entries[0].bodyAliases.includes('?HasFocus@AppMenuButton@@UEBA_NXZ'),true);
  assert.equal(r.functions[6].role,'call-only');assert.equal(r.functions[0].role,'hook');
  assert.deepEqual([...HOOK_SLOTS],[0,3,4,8,9,10,12]);
