@@ -860,9 +860,9 @@ static bool ValidateSymbolAddresses(HMODULE module, void* const* addresses, size
 // checks out fixed extractor/action commits; main cannot replace its tools.
 namespace PipelineTrust {
 using Json = winrt::Windows::Data::Json::JsonObject;
-static constexpr wchar_t kWorkflowBlob[] = L"40a2aa033de380d911c9a92275b2642fea6fd915";
+static constexpr wchar_t kWorkflowBlob[] = L"a16d43f8f65301a1319f402547f3e82ff02c2c2c";
 static constexpr wchar_t kWorkflowSha256[] =
-    L"13a78d83d88475ec9af8937767c7fd7fbccb0cbecf6e6e2ad5f0ea693405a215";
+    L"26e56946190a12df9c35fcc87d48556e42aaac3da8dec639baa39dbcb43cd108";
 static constexpr uint64_t kRepositoryId = 1428612836, kWorkflowId = 394997888;
 static constexpr size_t kMaxCache = 16384;
 static std::atomic<bool> stopping{false};

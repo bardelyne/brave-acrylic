@@ -9,11 +9,11 @@ project's GitHub account. It is not an assurance that native hooks cannot crash.
 
 - Repository numeric ID: `1428612836` (`bardelyne/brave-acrylic`).
 - Workflow numeric ID: `394997888`, `.github/workflows/compatibility.yml`.
-- Approved workflow Git blob: `40a2aa033de380d911c9a92275b2642fea6fd915`.
+- Approved workflow Git blob: `a16d43f8f65301a1319f402547f3e82ff02c2c2c`.
 - SHA256 of the committed LF workflow bytes:
-  `13a78d83d88475ec9af8937767c7fd7fbccb0cbecf6e6e2ad5f0ea693405a215`.
+  `26e56946190a12df9c35fcc87d48556e42aaac3da8dec639baa39dbcb43cd108`.
 - The approved YAML checks out extractor/tests/tools commit
-  `3a0bd879e7538abfd79bb21b2afd76e0574a23fc`, rather than the current main branch.
+  `d0d045ebf7161ca39ef3be6fbc063b30cb688303`, rather than the current main branch.
 - Checkout and artifact-transfer actions are pinned to complete commit IDs.
 - The runner downloads official stable Brave archives, verifies their checksums,
   matches PE/PDB GUID and age, and resolves the thirteen exact decorated names.
