@@ -67,7 +67,8 @@ test('compiled workflow approval matches canonical repository bytes and fixed so
   const flat=source.replace(/\s+/g,' ');
   assert.ok(flat.includes(`kWorkflowBlob[] = L"${blob}"`));
   assert.ok(flat.includes(`kWorkflowSha256[] = L"${sha}"`));
-  assert.equal([...yaml.toString().matchAll(/ref: c2aa63967241937406121a70a74ebbaef57b33bc/g)].length,2);
+  const pins=[...yaml.toString().matchAll(/ref: ([a-f0-9]{40})/g)].map(m=>m[1]);
+  assert.equal(pins.length,2);assert.equal(pins[0],pins[1]);
   assert.ok(!yaml.toString().includes('ref: ${{ github.sha }}'));
-  assert.equal([...yaml.toString().matchAll(/uses: [^\s]+@[a-f0-9]{40}/g)].length,5);
+  assert.equal([...yaml.toString().matchAll(/uses: [^\s]+@[a-f0-9]{40}/g)].length,6);
 });

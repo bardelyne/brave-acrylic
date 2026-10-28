@@ -19,6 +19,8 @@ Windows 11 is the tested environment. Windows 10 is unverified; the backdrop pro
 
 Tested with Brave 1.98.60 / Chromium 156. Other builds need valid compatibility data for their exact `chrome.dll`. Native interfaces and rendering behavior can change and may require a mod update.
 
+Native symbol extraction is also validated on six official releases from Brave 1.94.121 through 1.98.62 (Chromium 152–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](docs/compiler-resilience.md).
+
 ## Fast setup
 
 1. Enable Translucent Windows for `brave.exe` and choose the desired backdrop.
@@ -72,6 +74,8 @@ Brave Acrylic still resolves the thirteen full C++ prototypes with Windhawk's su
 
 The small text cache and a proof locator are published on this repository's [`symbol-cache` branch](https://github.com/bardelyne/brave-acrylic/tree/symbol-cache). Branch contents alone are not trusted. On first use of a build, the mod checks GitHub's HTTPS API for the immutable artifact's SHA256, exact PDB identity, original repository, successful run and GitHub-hosted job attempts. It fetches the workflow at that run's immutable commit and checks its complete bytes against a SHA256 compiled into the mod. The approved workflow checks out fixed extractor and action revisions. Every Windhawk-resolved address must then match the verified named entry and pass local executable-boundary, leaf, thunk and overlap checks.
 
+**Cache ownership:** this service is operated by bardelyne, the mod's author. It is not an official Windhawk cache. The approved workflow and its dependencies remain part of the trust boundary.
+
 Editing the cache branch, replacing the locator, changing the workflow, or changing tools on main cannot silently authorize different functions. A pipeline change requires a reviewed mod update approving the new policy. This trusts GitHub's API/TLS and hosted infrastructure plus the approved extractor and official Brave inputs; it is not a proof that a native ABI can never change. The data is author-hosted, not the official Windhawk cache, and maintainer acceptance remains a separate decision. See the [trust design](https://github.com/bardelyne/brave-acrylic/blob/main/docs/trusted-pipeline.md).
 
 Successfully verified data is retained in Windhawk's per-mod storage, scoped to the exact PDB identity and approved workflow. Warm launches reuse it offline. Old Windhawk entries without this proof cannot bypass the gate. If proof, rate limits, networking or function validation prevent a first-time verification, transparency stays off rather than using unverified addresses. There is no polling or retry thread in the mod.
@@ -79,6 +83,8 @@ Successfully verified data is retained in Windhawk's per-mod storage, scoped to 
 **No telemetry, uploads or login:** requests are download-only GETs to GitHub. No token, browser cookies, history, page content, settings, account details or analytics are sent. GitHub necessarily sees the requester's IP and requested URLs, including the build identity. Turn **Use verified online symbol cache** off and re-enable the mod for offline-only operation; a build must have been verified previously. Initial verification adds several small API requests at startup and can be affected by GitHub's anonymous rate limits. Existing requests cannot be withdrawn by changing the setting.
 
 The workflow requests a check **every two hours, with a backup 30 minutes later**. GitHub can delay or drop scheduled starts, so this is not an exact timer. Unchanged releases skip all browser and PDB downloads. Large official files stay on the GitHub runner. The raw exact-PDB artifact is retained for 90 days; local verified entries continue working if upstream metadata later becomes unavailable. Re-enable the mod or reopen Brave normally after new data becomes available.
+
+The extractor handles verified compiler folding according to each function's role, while rejecting unrelated sharing on patched functions. If a future build fails validation, the workflow saves a small diagnostic report using the same downloaded symbols. Unsupported output is not published.
 
 ## Duplicate corner buttons
 

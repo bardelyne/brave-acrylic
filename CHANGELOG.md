@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.6 — Alpha
+
+- Validate compiler compatibility against six official Brave releases spanning Chromium 152–156. Accept compiler-folded callable helpers while retaining rejection of unrelated hook aliases and all native identity/boundary checks.
+- Admit the verified same-class background forwarder used by three historical releases, only at its validated direct-jump body. Keep every required ABI name and function slot mandatory.
+- Add a manual multi-release symbol research workflow and small automatic diagnostics for future failed extraction, reusing the official inputs already downloaded by the regular workflow.
+- Approve the updated fixed extractor/workflow in the client and fix the local build helper to link the libraries declared by the mod.
+
 ## 3.5 — Alpha
 
 - Gate every native address on an approved workflow and exact-PDB artifact, authenticated using GitHub API metadata, SHA256 and fixed extractor/action revisions. Reject replaced data, unapproved workflows, forks, failed runs, non-hosted runner attempts and cross-build substitutions.

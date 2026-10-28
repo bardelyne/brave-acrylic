@@ -1,6 +1,6 @@
 # Approved compatibility pipeline
 
-Brave Acrylic 3.5 adds a gate inside the Windhawk mod. An author's branch is a
+Brave Acrylic uses a gate inside the Windhawk mod. An author's branch is a
 download location, not an authority for selecting functions. This design protects
 against replacing published data or changing the publisher through control of the
 project's GitHub account. It is not an assurance that native hooks cannot crash.
@@ -9,16 +9,22 @@ project's GitHub account. It is not an assurance that native hooks cannot crash.
 
 - Repository numeric ID: `1428612836` (`bardelyne/brave-acrylic`).
 - Workflow numeric ID: `394997888`, `.github/workflows/compatibility.yml`.
-- Approved workflow Git blob: `f6a8bb8ac2140b8b9e4d0ec116959fb5e91da5a1`.
+- Approved workflow Git blob: `40a2aa033de380d911c9a92275b2642fea6fd915`.
 - SHA256 of the committed LF workflow bytes:
-  `bfde353d078a3e83ca112228a8e72fa22fc7fdec89b9974f092e012c1cdd4ecf`.
+  `13a78d83d88475ec9af8937767c7fd7fbccb0cbecf6e6e2ad5f0ea693405a215`.
 - The approved YAML checks out extractor/tests/tools commit
-  `c2aa63967241937406121a70a74ebbaef57b33bc`, rather than the current main branch.
+  `3a0bd879e7538abfd79bb21b2afd76e0574a23fc`, rather than the current main branch.
 - Checkout and artifact-transfer actions are pinned to complete commit IDs.
 - The runner downloads official stable Brave archives, verifies their checksums,
   matches PE/PDB GUID and age, and resolves the thirteen exact decorated names.
   Source-server commands and downloaded browser code are never executed. Python
   ZIP extraction uses isolated mode, so files on main cannot shadow its modules.
+
+The extractor distinguishes callable helpers from patched functions when
+checking compiler folding. Unrelated aliases on hooks remain rejected. See the
+[six-release compiler study](compiler-resilience.md) for the exact permitted
+forwarder and regression evidence. The native prototypes and client ABI are
+unchanged; the revised extractor policy is part of the pinned code.
 
 Changing unrelated README or mod source on main does not change the pinned
 generation code. Editing the workflow, source pin or action pins changes the
