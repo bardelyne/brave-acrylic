@@ -1,0 +1,86 @@
+[
+  {
+    "tag": "v1.98.62",
+    "chromium": "156.0.8078.74",
+    "key": "2FD98BDE5CE2F69C4C4C44205044422E1",
+    "constructorPresent": true,
+    "focusCode": "4883b9f0030000007413488b81e8030000488b4028837818000f95c0c331c0c3"
+  },
+  {
+    "tag": "v1.98.60",
+    "chromium": "156.0.8078.48",
+    "key": "75D8DB6BA8EC43F64C4C44205044422E1",
+    "constructorPresent": true,
+    "focusCode": "4883b9f0030000007413488b81e8030000488b4028837818000f95c0c331c0c3"
+  },
+  {
+    "tag": "v1.97.59",
+    "chromium": "155.0.8059.85",
+    "key": "DE79BC5A5EDEA7654C4C44205044422E1",
+    "constructorPresent": true,
+    "focusCode": "4883b9f0030000007413488b81e8030000488b4028837818000f95c0c331c0c3"
+  },
+  {
+    "tag": "v1.96.61",
+    "chromium": "154.0.8037.98",
+    "key": "77AC101EC9B1F99D4C4C44205044422E1",
+    "constructorPresent": true,
+    "focusCode": "4883b9f0030000007413488b81e8030000488b4028837818000f95c0c331c0c3"
+  },
+  {
+    "tag": "v1.95.104",
+    "chromium": "153.0.8010.53",
+    "key": "E92E2F0DD283A0C24C4C44205044422E1",
+    "constructorPresent": true,
+    "focusCode": "4883b9f0030000007413488b81e8030000488b4028837818000f95c0c331c0c3"
+  },
+  {
+    "tag": "v1.94.121",
+    "chromium": "152.0.7977.83",
+    "key": "FD825394718192414C4C44205044422E1",
+    "constructorPresent": true,
+    "focusCode": "4883b9f8030000007413488b81f0030000488b4028837818000f95c0c331c0c3"
+  },
+  {
+    "tag": "v1.93.138",
+    "chromium": "151.0.7922.173",
+    "key": "9BF4CE3265F616E74C4C44205044422E1",
+    "constructorPresent": true,
+    "focusCode": "4883b9f0030000007413488b81e8030000488b4028837818000f95c0c331c0c3"
+  },
+  {
+    "tag": "v1.92.144",
+    "chromium": "150.0.7871.186",
+    "key": "AE289EBA25E32EC24C4C44205044422E1",
+    "constructorPresent": false,
+    "focusCode": "4883b9f003000000750331c0c3488b81e8030000488b4028837818000f95c0c3"
+  },
+  {
+    "tag": "v1.91.180",
+    "chromium": "149.0.7827.201",
+    "key": "6980CA0AB0F922384C4C44205044422E1",
+    "constructorPresent": false,
+    "focusCode": "4883b9f003000000750331c0c3488b81e8030000488b4028837818000f95c0c3"
+  },
+  {
+    "tag": "v1.90.128",
+    "chromium": "148.0.7778.217",
+    "key": "65509A6B4092198F4C4C44205044422E1",
+    "constructorPresent": false,
+    "focusCode": "4883b9e803000000750331c0c3488b81e0030000488b4028837818000f95c0c3"
+  },
+  {
+    "tag": "v1.89.145",
+    "chromium": "147.0.7727.137",
+    "key": "69F83ADA6B18290F4C4C44205044422E1",
+    "constructorPresent": false,
+    "focusCode": "4883b9e003000000750331c0c3488b81d8030000488b4028837818000f95c0c3"
+  },
+  {
+    "tag": "v1.88.138",
+    "chromium": "146.0.7680.178",
+    "key": "CBE1B06AA01DBB1D4C4C44205044422E1",
+    "constructorPresent": false,
+    "focusCode": "4883b9e003000000750331c0c3488b81d8030000488b4028837818000f95c0c3"
+  }
+]

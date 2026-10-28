@@ -19,7 +19,7 @@ Windows 11 is the tested environment. Windows 10 is unverified; the backdrop pro
 
 Tested with Brave 1.98.60 / Chromium 156. Other builds need valid compatibility data for their exact `chrome.dll`. Native interfaces and rendering behavior can change and may require a mod update.
 
-Native symbol extraction is also validated on six official releases from Brave 1.94.121 through 1.98.62 (Chromium 152–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](docs/compiler-resilience.md).
+Native symbol extraction is also validated on seven official releases from Brave 1.93.138 through 1.98.62 (Chromium 151–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](docs/compiler-resilience.md).
 
 ## Fast setup
 

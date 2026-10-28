@@ -34,7 +34,7 @@ Windows 11 is the tested environment. Windows 10 is unverified; the backdrop pro
 
 Tested with Brave 1.98.60 / Chromium 156. Other builds need valid compatibility data for their exact `chrome.dll`. Native interfaces and rendering behavior can change and may require a mod update.
 
-Native symbol extraction is also validated on six official releases from Brave 1.94.121 through 1.98.62 (Chromium 152–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compiler-resilience.md).
+Native symbol extraction is also validated on seven official releases from Brave 1.93.138 through 1.98.62 (Chromium 151–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compiler-resilience.md).
 
 ## Fast setup
 
@@ -653,16 +653,24 @@ static bool GetBuildIdentity(HMODULE module, BuildIdentity* identity) {
 }
 
 static bool FocusLeafLayout(const unsigned char* code) {
-    const unsigned char layout[] = {
+    const unsigned char lateFalse[] = {
         0x48, 0x83, 0xB9, 0, 0, 0, 0, 0, 0x74, 0x13, 0x48, 0x8B, 0x81,
         0, 0, 0, 0, 0x48, 0x8B, 0x40, 0x28, 0x83, 0x78, 0x18, 0,
         0x0F, 0x95, 0xC0, 0xC3, 0x31, 0xC0, 0xC3
     };
-    for (unsigned i = 0; i < ARRAYSIZE(layout); ++i) {
-        const bool memberOffset = (i >= 3 && i < 7) || (i >= 13 && i < 17);
-        if (!memberOffset && code[i] != layout[i]) return false;
-    }
-    return true;
+    const unsigned char earlyFalse[] = {
+        0x48, 0x83, 0xB9, 0, 0, 0, 0, 0, 0x75, 3, 0x31, 0xC0, 0xC3,
+        0x48, 0x8B, 0x81, 0, 0, 0, 0, 0x48, 0x8B, 0x40, 0x28,
+        0x83, 0x78, 0x18, 0, 0x0F, 0x95, 0xC0, 0xC3
+    };
+    const auto matches = [&](const unsigned char* layout, unsigned member) {
+        for (unsigned i = 0; i < 32; ++i) {
+            const bool offset = (i >= 3 && i < 7) || (i >= member && i < member + 4);
+            if (!offset && code[i] != layout[i]) return false;
+        }
+        return true;
+    };
+    return matches(lateFalse, 13) || matches(earlyFalse, 16);
 }
 static bool LeafOutsideUnwind(HMODULE module, size_t rva, size_t length) {
     const RUNTIME_FUNCTION* table;

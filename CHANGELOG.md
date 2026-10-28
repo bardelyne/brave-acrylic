@@ -2,8 +2,9 @@
 
 ## 3.6 — Alpha
 
-- Validate compiler compatibility against six official Brave releases spanning Chromium 152–156. Accept compiler-folded callable helpers while retaining rejection of unrelated hook aliases and all native identity/boundary checks.
-- Admit the verified same-class background forwarder used by three historical releases, only at its validated direct-jump body. Keep every required ABI name and function slot mandatory.
+- Study twelve official Brave releases spanning Chromium 146–156. Validate the current native contract on seven releases from Brave 1.93.138 through 1.98.62; reject older builds with a different vertical-tab architecture. Accept compiler-folded callable helpers while retaining rejection of unrelated hook aliases and all native identity/boundary checks.
+- Admit the verified same-class background forwarder used by four historical releases, only at its validated direct-jump body. Keep every required ABI name and function slot mandatory.
+- Recognize both observed focus-helper branch orders with exact instruction and branch-target checks in the extractor and native client. Retain compact instruction samples from all twelve releases as regression fixtures.
 - Add a manual multi-release symbol research workflow and small automatic diagnostics for future failed extraction, reusing the official inputs already downloaded by the regular workflow.
 - Approve the updated fixed extractor/workflow in the client and fix the local build helper to link the libraries declared by the mod.
 

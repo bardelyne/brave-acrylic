@@ -57,3 +57,24 @@ test('hook alias policy never guesses by a name substring, unknown slot or unval
  for(const slot of [-1,13,undefined,'7'])assert.equal(allowCompilerAlias({slot}),false);
  assert.equal(allowCompilerAlias({slot:8,name:BACKGROUND_UPDATE_ALIAS,rva:0x2000,viaThunk:false,entry:{kind:0,reserved:0x2000}}),false);
 });
+test('both observed focus branch orders retain exact opcode, slot and unwind checks',async t=>{
+ const code=Buffer.from('4883b9f003000000750331c0c3488b81e8030000488b4028837818000f95c0c3','hex');
+ const bytes=fixturePeV6();code.copy(bytes,0x400+RVAS[6]-0x1000);
+ await exercise(t,bytes,[]);
+ for(let i=0;i<32;i++)if(!((i>=3&&i<7)||(i>=16&&i<20))){
+  const changed=Buffer.from(bytes);changed[0x400+RVAS[6]-0x1000+i]^=1;
+  await assert.rejects(()=>exercise(t,changed,[]));
+ }
+ const displaced=Buffer.from(bytes);displaced.writeUInt32LE(0x4567,0x400+RVAS[6]-0x1000+3);
+ displaced.writeUInt32LE(0x1234,0x400+RVAS[6]-0x1000+16);await exercise(t,displaced,[]);
+ const wrongSlot=Buffer.from(bytes);code.copy(wrongSlot,0x400+RVAS[3]-0x1000);
+ await assert.rejects(()=>exercise(t,wrongSlot,[]));
+});
+test('focus instruction samples from all twelve official releases pass the exact layout classifier',async t=>{
+ const corpus=require('./corpus/focus-layouts.json');assert.equal(corpus.length,12);
+ for(const sample of corpus){
+  const b=fixturePeV6();Buffer.from(sample.focusCode,'hex').copy(b,0x400+RVAS[6]-0x1000);
+  await exercise(t,b,[]);
+ }
+ assert.equal(corpus.filter(s=>s.constructorPresent).length,7);
+});

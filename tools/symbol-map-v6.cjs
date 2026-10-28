@@ -14,7 +14,7 @@ const BACKGROUND_UPDATE_ALIAS='?UpdateBackgroundColor@ContentsWebView@@AEAAXXZ';
 function allowCompilerAlias({name,slot,rva,viaThunk,entry}){
  if(!Number.isInteger(slot)||slot<0||slot>=SYMBOLS.length)return false;
  if(!HOOK_SLOTS.includes(slot))return true;
- // Verified on Chromium 152/153/155: OnThemeChanged has its own direct E9
+ // Verified on Chromium 151/152/153/155: OnThemeChanged has its own direct E9
  // entry forwarding to this same-class, same void(this) background method.
  // This is the sole semantic alias allowed for a patched body. An arbitrary
  // alias at the entry/body, including another thunk, remains an error.
@@ -26,8 +26,20 @@ function outsideUnwind(pe,rva,length){
 }
 function hostLeaf(code){return code.subarray(0,3).equals(Buffer.from('4883b9','hex'))&&code.subarray(7,13).equals(Buffer.from('00740331c0c3','hex'));}
 function focusLeaf(code){
- const layout=Buffer.from('4883b900000000007413488b8100000000488b4028837818000f95c0c331c0c3','hex');
- return layout.every((b,j)=>(j>=3&&j<7)||(j>=13&&j<17)||code[j]===b);
+ const layouts=[
+  ['4883b900000000007413488b8100000000488b4028837818000f95c0c331c0c3',13],
+  // Same null-check/result, with the early false return placed first.
+  ['4883b90000000000750331c0c3488b8100000000488b4028837818000f95c0c3',16]
+ ];
+ return code.length>=32&&layouts.some(([hex,member])=>Buffer.from(hex,'hex').every((b,j)=>
+  (j>=3&&j<7)||(j>=member&&j<member+4)||code[j]===b));
+}
+function bodyFingerprint(pe,rva,slot){
+ if(slot===6&&!pe.functions.has(rva)){
+  const code=pe.read(rva,32);
+  if(focusLeaf(code)){outsideUnwind(pe,rva,32);return {rva,length:32,kind:2,reserved:0,code:Buffer.from(code),mask:Buffer.alloc(32,255)};}
+ }
+ return v4.fingerprint(pe,rva,slot);
 }
 function fingerprint(pe,rva,slot){
  // Only a direct E9 jump preserves the exact entry ABI without an adjustment.
@@ -36,12 +48,12 @@ function fingerprint(pe,rva,slot){
   const jump=pe.read(rva,5);
   if(jump[0]===0xe9){
    outsideUnwind(pe,rva,5);
-   const target=rva+5+jump.readInt32LE(1),body=v4.fingerprint(pe,target,slot);
+   const target=rva+5+jump.readInt32LE(1),body=bodyFingerprint(pe,target,slot);
    check(body.kind!==3,'Chained named thunks are unsupported');
    return {...body,rva,kind:3,reserved:target,aliasRvas:[target]};
   }
  }
- return v4.fingerprint(pe,rva,slot);
+ return bodyFingerprint(pe,rva,slot);
 }
 function validateMap(map,pe){
  check(map.length===MAP_SIZE&&map.readUInt32LE()===MAGIC&&map.readUInt32LE(4)===FORMAT,'Invalid compatibility file format');

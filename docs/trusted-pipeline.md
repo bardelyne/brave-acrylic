@@ -22,7 +22,7 @@ project's GitHub account. It is not an assurance that native hooks cannot crash.
 
 The extractor distinguishes callable helpers from patched functions when
 checking compiler folding. Unrelated aliases on hooks remain rejected. See the
-[six-release compiler study](compiler-resilience.md) for the exact permitted
+[twelve-release compiler study](compiler-resilience.md) for the exact permitted
 forwarder and regression evidence. The native prototypes and client ABI are
 unchanged; the revised extractor policy is part of the pinned code.
 

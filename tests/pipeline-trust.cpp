@@ -21,6 +21,13 @@ int wmain(int argc,wchar_t** argv){
     setvbuf(stdout,nullptr,_IONBF,0);
     struct Apartment{HRESULT result=RoInitialize(RO_INIT_MULTITHREADED);~Apartment(){if(SUCCEEDED(result))RoUninitialize();}} apartment;
     Check(SUCCEEDED(apartment.result),"initialize the metadata parser on an MTA");
+    const unsigned char earlyFocus[]={0x48,0x83,0xb9,0xf0,3,0,0,0,0x75,3,0x31,0xc0,0xc3,
+        0x48,0x8b,0x81,0xe8,3,0,0,0x48,0x8b,0x40,0x28,0x83,0x78,0x18,0,0x0f,0x95,0xc0,0xc3};
+    Check(FocusLeafLayout(earlyFocus),"real older compiler focus branch layout is recognized");
+    for(unsigned i=0;i<32;++i)if(!((i>=3&&i<7)||(i>=16&&i<20))){
+        std::array<unsigned char,32> changed{};std::copy(earlyFocus,earlyFocus+32,changed.begin());changed[i]^=1;
+        Check(!FocusLeafLayout(changed.data()),"focus layout does not accept changed opcodes or branch targets");
+    }
     if(argc==3 && !wcscmp(argv[1],L"--live")){
         auto module=LoadLibraryExW(argv[2],nullptr,DONT_RESOLVE_DLL_REFERENCES);
         Check(module!=nullptr,"map installed chrome.dll without executing it");
