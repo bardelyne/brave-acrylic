@@ -18,6 +18,11 @@ Only small analysis reports and candidate text caches left the runners.
 A [second study of six older major releases](https://github.com/bardelyne/brave-acrylic/actions/runs/40776822417)
 found the implementation boundary:
 
+Vertical tabs themselves were introduced in Brave 1.52, as documented in the
+[official announcement](https://brave.com/blog/vertical-tabs/). The failures below
+concern the specific internal constructor required by this mod, not whether the
+browser offers vertical tabs.
+
 | Brave | Chromium | Result |
 | --- | --- | --- |
 | 1.93.138 | 151.0.7922.173 | Pass |
