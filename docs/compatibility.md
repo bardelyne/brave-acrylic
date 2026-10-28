@@ -1,6 +1,6 @@
 # Verified Windhawk symbol-cache compatibility
 
-Brave Acrylic 3.5 retains Windhawk named-symbol resolution and adds an approved-pipeline gate. All thirteen named entries must match data verified against GitHub's immutable artifact and run records before any function is used. No build-specific address table is embedded and no remote PDB fallback is allowed.
+Brave Acrylic 3.6 retains Windhawk named-symbol resolution and the approved-pipeline gate. All thirteen named entries must match data verified against GitHub's immutable artifact and run records before any function is used. No build-specific address table is embedded and no remote PDB fallback is allowed.
 
 See [trusted-pipeline.md](trusted-pipeline.md) for the complete account-compromise threat model, trusted revisions, HTTPS verification sequence, offline behavior, rate/retention limits, and approval procedure.
 
@@ -28,7 +28,7 @@ Legacy binary maps and 3.4's unverified cache-only path are not accepted as proo
 
 The table above lists the producer's exact mangled PDB inputs. The cache and client use their full readable C++ prototypes with Windhawk's default DIA undecoration (without pointer-width markers). Both ordered lists are fixed by the native contract. All thirteen functions are required. Seven are hooked; six are called helpers. Native contracts include x64 string-view returns, an indirectly passed empty background unique pointer, 16-byte float colors and an eight-byte optional ARGB color passed by value in RDX (presence in byte four). The tab-attachment hook supplies the canonical WebContents pointer before native notifications. No guessed object-member offsets or retained tab pointers are used.
 
-The producer resolves exact names from the official matching DLL/PDB, rejects aliases and ambiguous names, checks GUID and DBI age against CodeView, and allows a newer stripped-PDB Info age. It verifies normal function boundaries, direct thunks and the supported short leaf layouts. Missing names, unsupported OMAP remapping or unsupported code shapes fail generation. It never evaluates PDB source-server commands or runs downloaded Brave binaries.
+The producer resolves exact names from the official matching DLL/PDB, rejects unsafe hook aliases and ambiguous names, checks GUID and DBI age against CodeView, and allows a newer stripped-PDB Info age. Callable helpers may use compiler-folded code. One exact same-class background-forwarder alias is allowed only at its validated direct-jump body. All required names, distinct function slots, boundaries, direct thunks and supported short leaf layouts remain checked. Missing names, unsupported OMAP remapping or unsupported code shapes fail generation. It never evaluates PDB source-server commands or runs downloaded Brave binaries. See the [twelve-release study](compiler-resilience.md).
 
 ## Two-hour workflow
 
@@ -37,6 +37,8 @@ The primary cron is `17 */2 * * *`, with a staggered `47 */2 * * *` backup. GitH
 Preparation compares the official stable release and archive/checksum asset IDs, sizes, update times and available digests, plus the text-cache format, extractor, native ABI revision, client version and explicit contract hash. Unchanged releases skip binary downloads, extraction and publication. Source hashes record provenance without making cosmetic documentation changes trigger large downloads.
 
 When needed, a read-only 35-minute job downloads the official ZIP/checksum, verifies sizes, SHA256 and available digests, extracts only chrome.dll to a fixed path, and downloads its exact PDB on the runner. The PDB parser validates all required functions before generating cache.txt and record.json. A raw artifact named for the exact PDB identity records the original payload SHA256 in GitHub metadata; only small files are retained.
+
+If extraction fails, a diagnostic step inspects those existing downloads and retains a small report for fourteen days. It records missing/ambiguous names, aliases, jumps, instruction samples and boundary failures. No unsupported cache is published and no second PDB download is made. The separate manual compiler-research workflow can compare up to twelve selected stable tags; it does not run on the two-hour schedule.
 
 A separate five-minute publisher receives only those two small files. It independently validates their types, sizes, ASCII schema, names, RVAs, identity/provenance metadata, hashes and source contract, then rechecks official release assets. Only `bardelyne/brave-acrylic` on `main` can publish non-forced Git updates to `symbol-cache`. Files are `brave-acrylic/pdb_<GUID-age>.txt`, its `.proof.json` locator, and `releases/<stable-tag>.json`; older caches remain. The publisher checks the raw artifact digest, name, repository, run and head revision before publishing. The mod independently authenticates that run and its approved workflow through GitHub. Actions are pinned and checkout credentials are not persisted. Beta/nightly/custom builds are outside this schedule.
 

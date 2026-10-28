@@ -29,11 +29,15 @@ async function contractMetadata() {
       symbols:SYMBOLS,decoratedInputs:require('./symbol-map-v6.cjs').SYMBOLS,requiredSlots:REQUIRED_SLOTS,normal:{kind:0, minLength:16, minFixed:16, maxLength:32, unwind:true},
       leaf:{kind:1, slot:3, length:13, code:'4883B9????????00740331C0C3', fixed:13, unwind:false},
       focusLeaf:{kind:2,slot:6,length:32,fixed:32,unwind:false,
-        layout:'4883B9????????007413488B81????????488B4028837818000F95C0C331C0C3'},
+        layouts:['4883B9????????007413488B81????????488B4028837818000F95C0C331C0C3',
+          '4883B9????????00750331C0C3488B81????????488B4028837818000F95C0C3']},
       namedThunk:{kind:3,slots:'any',opcode:0xE9,length:5,unwind:false,targetField:'reserved',body:'normal-unwind-or-approved-slot-leaf',
         ranges:'source-and-body-distinct-nonoverlapping-executable'},
       nativeAbi:{color:'float4-indirect',pageBase:'optional-color8-register-present-byte4',attach:'canonical-WebContents-before-native-attach'},
-      aliases:'reject-all-thirteen-and-thunk-bodies'}))}};
+      aliases:{hooks:'reject-unrelated-public-names-and-thunk-bodies',
+        callOnlySlots:[1,2,5,6,7,11],
+        themeForwarder:{slot:8,kind:3,bodyName:'?UpdateBackgroundColor@ContentsWebView@@AEAAXXZ',
+          bodyOnly:true,otherThunks:false}}}))}};
 }
 async function modSourceHash(source) {
   return hash(source ?? await fs.readFile(path.join(__dirname, '..', 'brave-acrylic.wh.cpp')));
