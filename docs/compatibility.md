@@ -1,57 +1,43 @@
-# Verified Windhawk symbol-cache compatibility
+# Verified feature compatibility
 
-Brave Acrylic 3.6 retains Windhawk named-symbol resolution and the approved-pipeline gate. All thirteen named entries must match data verified against GitHub's immutable artifact and run records before any function is used. No build-specific address table is embedded and no remote PDB fallback is allowed.
+Brave Acrylic 3.7 keeps Windhawk's named-symbol resolution and the approved-pipeline gate. The contract contains 27 exact functions and one immutable background-class vtable. All returned addresses must match authenticated data before any native hook is registered. Remote PDB fallback remains disabled.
 
-See [trusted-pipeline.md](trusted-pipeline.md) for the complete account-compromise threat model, trusted revisions, HTTPS verification sequence, offline behavior, rate/retention limits, and approval procedure.
+The cache uses Windhawk's ordinary format: `1#chrome.dll#x86-64_<timestamp>_<size>#<full-symbol-name>#<decimal-RVA>#...`. All 28 names have a fixed order. An empty RVA explicitly marks an unavailable optional target. Orphan targets that do not serve any complete feature are rejected.
 
-The standard cache format remains `1#chrome.dll#x86-64_<timestamp>_<size>#<full-prototype>#<decimal-RVA>#...`, with exactly thirteen entries. The immutable artifact's name binds that payload to the exact PDB GUID/age; the live PE header and executable ranges are independently checked. The author-hosted branch is only a download location, not the trust anchor. Windhawk may return earlier cached entries, but the gate compares each address against the approved data before using it.
+## Independent features
 
-Legacy binary maps and 3.4's unverified cache-only path are not accepted as proof. A new build needs an initial anonymous verification. Successfully verified entries in per-mod storage can be reused offline. Missing/deleted metadata or anonymous rate limits fail closed on a first use; no user token is requested.
-
-## Fixed native ABI
-
-| Slot | Required symbol |
+| Feature | Required slots |
 | --- | --- |
-| 0 | `?OnPaintBackground@View@views@@MEAAXPEAVCanvas@gfx@@@Z` |
-| 1 | `?DrawColor@Canvas@gfx@@QEAAXIW4SkBlendMode@@@Z` |
-| 2 | `?GetClassNameW@View@views@@QEBA?AV?$basic_string_view@DU?$char_traits@D@__Cr@std@@@__Cr@std@@XZ` |
-| 3 | `?ShouldWindowContentsBeTransparent@BrowserDesktopWindowTreeHostWin_ChromiumImpl@@EEBA_NXZ` |
-| 4 | `??0BraveVerticalTabStripContainerView@@QEAA@PEAVBrowserView@@PEAVView@views@@@Z` |
-| 5 | `?SetBackground@View@views@@QEAAXV?$unique_ptr@VBackground@views@@U?$default_delete@VBackground@views@@@__Cr@std@@@__Cr@std@@@Z` |
-| 6 | `?HasFocus@LocationBarView@@UEBA_NXZ` |
-| 7 | `?HasFocus@View@views@@UEBA_NXZ` |
-| 8 | `?OnThemeChanged@ContentsWebView@@UEAAXXZ` |
-| 9 | `?RenderViewReady@ContentsWebView@@UEAAXXZ` |
-| 10 | `?SetColor@LayerAnimator@ui@@UEAAXU?$SkRGBA4f@$02@@@Z` |
-| 11 | `?SetPageBaseBackgroundColor@WebContentsImpl@content@@UEAAXV?$optional@I@__Cr@std@@@Z` |
-| 12 | `?SetWebContents@ContentsWebView@@UEAAXPEAVWebContents@content@@@Z` |
+| verticalTabs | 0, 1, 2, 3, 4, 5 |
+| toolbar | 0, 1, 2, 3, 6, 7 |
+| webpage | 0, 1, 2, 3, 8, 9, 10, 11, 12 |
+| menus | 13, 14, 15, 17 |
+| popups | 13, 14, 16, 17 |
+| suggestions | 5, 13, 14, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27 |
 
-The table above lists the producer's exact mangled PDB inputs. The cache and client use their full readable C++ prototypes with Windhawk's default DIA undecoration (without pointer-width markers). Both ordered lists are fixed by the native contract. All thirteen functions are required. Seven are hooked; six are called helpers. Native contracts include x64 string-view returns, an indirectly passed empty background unique pointer, 16-byte float colors and an eight-byte optional ARGB color passed by value in RDX (presence in byte four). The tab-attachment hook supplies the canonical WebContents pointer before native notifications. No guessed object-member offsets or retained tab pointers are used.
+The full decorated and readable names are defined in [feature-cache.cjs](../tools/feature-cache.cjs). Both producer and native parser are tested against the same contract. Sixteen functions are hooked when every feature is supported; eleven are call-only helpers. The vtable is only used to identify the native solid background, and must be in immutable .rdata with executable method entries.
 
-The producer resolves exact names from the official matching DLL/PDB, rejects unsafe hook aliases and ambiguous names, checks GUID and DBI age against CodeView, and allows a newer stripped-PDB Info age. Callable helpers may use compiler-folded code. One exact same-class background-forwarder alias is allowed only at its validated direct-jump body. All required names, distinct function slots, boundaries, direct thunks and supported short leaf layouts remain checked. Missing names, unsupported OMAP remapping or unsupported code shapes fail generation. It never evaluates PDB source-server commands or runs downloaded Brave binaries. See the [twelve-release study](compiler-resilience.md).
+The original background interfaces retain their validated short-leaf and direct-jump rules. Additional helpers accept only their exact observed leaf instruction layouts or normal unwind-backed entries. Unrelated aliases on patched functions are rejected. A folded background setter may remain usable as a call-only helper for vertical tabs while suggestions are disabled. Global PE/PDB corruption, GUID/DBI-age mismatch and unsupported symbol remapping always abort generation.
 
-## Two-hour workflow
+## Workflow behavior
 
-The primary cron is `17 */2 * * *`, with a staggered `47 */2 * * *` backup. GitHub can delay or drop scheduled runs; these are requested checks, not an exact two-hour timer. A manual dispatch can backfill a stable tag or force regeneration.
+The primary schedule and staggered backup remain every two hours. Official release/asset/contract checks skip large downloads when unchanged. A needed run downloads the official archive and matching PDB once, keeps large inputs on the hosted runner, and never executes downloaded browser code or source-server commands.
 
-Preparation compares the official stable release and archive/checksum asset IDs, sizes, update times and available digests, plus the text-cache format, extractor, native ABI revision, client version and explicit contract hash. Unchanged releases skip binary downloads, extraction and publication. Source hashes record provenance without making cosmetic documentation changes trigger large downloads.
+Each feature gets an availability result and a reason in the run summary and release record. A missing, renamed, aliased or unsupported native target disables its dependent features; the other complete features are still published. Even a build with no supported features produces an explicit diagnostic-only cache with no usable addresses. Such a build installs no native feature hooks. Network failures, corrupt inputs, test failures and publishing failures remain real errors; they are not converted into successful compatibility claims.
 
-When needed, a read-only 35-minute job downloads the official ZIP/checksum, verifies sizes, SHA256 and available digests, extracts only chrome.dll to a fixed path, and downloads its exact PDB on the runner. The PDB parser validates all required functions before generating cache.txt and record.json. A raw artifact named for the exact PDB identity records the original payload SHA256 in GitHub metadata; only small files are retained.
+Publication uses `brave-acrylic-features/pdb_<GUID-age>.txt`, its proof locator, and `feature-releases/<tag>.json` on the symbol-cache branch. The older thirteen-symbol cache files are preserved for installed older mod versions. The independently validated raw artifact binds the exact cache bytes to the approved immutable run/workflow. See [the trust design](trusted-pipeline.md).
 
-If extraction fails, a diagnostic step inspects those existing downloads and retains a small report for fourteen days. It records missing/ambiguous names, aliases, jumps, instruction samples and boundary failures. No unsupported cache is published and no second PDB download is made. The separate manual compiler-research workflow can compare up to twelve selected stable tags; it does not run on the two-hour schedule.
+## Tests
 
-A separate five-minute publisher receives only those two small files. It independently validates their types, sizes, ASCII schema, names, RVAs, identity/provenance metadata, hashes and source contract, then rechecks official release assets. Only `bardelyne/brave-acrylic` on `main` can publish non-forced Git updates to `symbol-cache`. Files are `brave-acrylic/pdb_<GUID-age>.txt`, its `.proof.json` locator, and `releases/<stable-tag>.json`; older caches remain. The publisher checks the raw artifact digest, name, repository, run and head revision before publishing. The mod independently authenticates that run and its approved workflow through GitHub. Actions are pinned and checkout credentials are not persisted. Beta/nightly/custom builds are outside this schedule.
-
-## Local verification
+The combined native targets validate on official Brave 1.98.60 and 1.98.62. The menu/suggestion browser test uses a separate profile; no personal Brave data is copied. Tests cover all 64 feature combinations, removal of every dependency, malformed and ambiguous symbols, native boundary/leaf checks, first-paint menu alpha, sharp input cutouts, native input/styles, composition ownership and unload cleanup.
 
 ```text
 node --test tests/*.test.cjs
 node tests/run-client.cjs
 node tests/run-pipeline-trust.cjs
+node tests/run-native-ui.cjs --material
+node tools/feature-cache.cjs chrome.dll chrome.dll.pdb cache.txt
 node tools/build.cjs
-node tools/symbol-cache.cjs chrome.dll chrome.dll.pdb cache.txt
 ```
 
-The Windows test runner optionally accepts a real DLL and a matching PDB-derived validation fixture. It maps the DLL without running its initialization. Tests cover complete and partial symbol resolution, offline options, missing/invalid addresses, shutdown ordering, caption-style restoration, native background roles, focused address fields and repeated tab selection preserving author CSS. The separate real-engine probe also checks online cache misses, incomplete/wrong-name caches, successful resolution and subsequent offline reuse. It does not execute mapped browser functions or replace visual testing in Brave.
-
-Do not commit browser ZIPs, DLLs or PDBs or pass them to the publishing job. See [advanced.md](advanced.md) for area settings and native ownership, and [webview-background.md](webview-background.md) for the persistent white-fallback investigation.
+The older [twelve-release study](compiler-resilience.md) describes the background-only contract and is not a claim that the new menu/suggestion interfaces were tested on every historical release. Do not commit browser archives, DLLs or PDBs.

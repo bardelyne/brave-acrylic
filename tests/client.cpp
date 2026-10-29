@@ -17,7 +17,7 @@ static std::mutex mutex;
 static std::condition_variable condition;
 static HMODULE fakeModule=nullptr,mockModule=nullptr;
 static CompatibilityMap fixture{},mockMap{},trustedMap{};
-static bool haveVerifiedCache=true;
+static bool haveVerifiedCache=true,featureCache=true;
 static void Check(bool ok,const char* label) {
     ++checks;
     if(!ok){++failures;printf("FAIL: %s\n",label);}
@@ -32,6 +32,7 @@ size_t Wh_GetBinaryValue(PCWSTR name,void* out,size_t maximum) {
     Check(PipelineTrust::StorageKey(id)==name,"verified storage is bound to approved workflow and exact PDB identity");
     std::string text="1#chrome.dll#x86-64_"+std::to_string(id.timestamp)+"_"+std::to_string(id.imageSize);
     for(unsigned i=0;i<kFunctionSlots;++i)text+="#"+std::string(PipelineTrust::kSymbols[i])+"#"+std::to_string(trustedMap.functions[i].rva);
+    if(featureCache)for(unsigned i=13;i<kFeatureSlots;++i)text+="#"+std::string(PipelineTrust::kFeatureSymbols[i])+"#";
     const auto digest=PipelineTrust::Digest(text);
     std::vector<unsigned char> data(digest.begin(),digest.end());data.insert(data.end(),text.begin(),text.end());
     if(maximum<data.size())return 0;memcpy(out,data.data(),data.size());return data.size();
@@ -55,8 +56,8 @@ bool WindhawkUtils::HookSymbols(HMODULE module,const SYMBOL_HOOK* hooks,size_t c
     if(blockLookup){std::unique_lock lock(mutex);entered=true;condition.notify_all();
         condition.wait(lock,[]{return released;});}
     for(unsigned i=0;i<count;++i){
-        Check(hooks[i].symbols.size()==1&&!hooks[i].optional&&!hooks[i].hookFunction,
-              "required named lookups cannot install partial hooks");
+        Check(hooks[i].symbols.size()==1&&hooks[i].optional==featureCache&&!hooks[i].hookFunction,
+              "lookups cannot install hooks and only approved present feature slots are requested");
         *hooks[i].originalFunction=int(i)==badSlot?nullptr:
             reinterpret_cast<unsigned char*>(module)+mockMap.functions[i].rva;
     }
@@ -70,6 +71,8 @@ static void Reset() {
     hookCalls=lookupCalls=0;engineSuccess=applySuccess=true;badSlot=failHook=-1;
     blockLookup=entered=released=false;s_stopping=false;s_chromeAttempted=false;
     s_activateAfterInit=false;s_transparencyReady=false;s_isBrowserProcess=false;
+    s_availableAreas=BraveBackground::All;s_background.areas=BraveBackground::All;NativeUi::supported=0;NativeUi::ready=false;
+    NativeUi::Material::stopping=false;featureCache=true;
     s_useOnlineSymbolCache=true;s_captionStopping=false;s_captionHooksInstalled=false;
     s_captionFixActive=false;s_hideNativeCaptionButtons=false;
     s_background.originalPaint=nullptr;s_background.clear=nullptr;s_background.getClass=nullptr;
@@ -148,6 +151,7 @@ static void TestValidation() {
 }
 static void TestSymbols() {
     Reset();size_t output[13]{};
+    featureCache=false;
     Check(ResolveSymbolAddresses(fakeModule,output)&&output[8]==0x1300,
           "named symbol entry resolves to the validated live body");
     for(int slot=0;slot<13;++slot){
@@ -183,7 +187,10 @@ static void TestSymbols() {
               "local gate publishes no partial addresses");
     }
     for(int failure=0;failure<7;++failure){Reset();failHook=failure;
-        Check(!TryInstallChromeHooks(fakeModule,true)&&!s_transparencyReady,"failed registration never enables transparency");}
+        Check(TryInstallChromeHooks(fakeModule,true),"registration failure is isolated to its feature");
+        const unsigned expected=failure<2?0:failure==2?6:3;
+        Check(s_availableAreas==expected,"failed native registration removes only dependent background features");
+        Check(bool(s_transparencyReady)==bool(expected),"only complete background paths become ready");}
     Reset();applySuccess=false;
     Check(!TryInstallChromeHooks(fakeModule,true)&&!s_transparencyReady,"failed activation leaves original paint path");
     Reset();s_stopping=true;
@@ -239,7 +246,9 @@ int wmain(int argc,wchar_t** argv) {
             memcpy(&real,bytes.data(),sizeof(real));Check(ValidateCompatibilityMap(actual,real,rva),"validate official PDB-derived data against the loaded real DLL");
             Reset();
             mockModule=actual;mockMap=trustedMap=real;
+            featureCache=false;
             Check(ResolveSymbolAddresses(actual,rva),"real named-entry validation, including the live E9 thunk");
+            featureCache=true;
             Check(ResolveNativeBackground(actual)&&hookCalls==7&&lookupCalls==2,
                   "real build always uses Windhawk lookup before installing seven hooks");
             real.functions[2].code[0]^=1;Check(!ValidateCompatibilityMap(actual,real,rva),"reject altered real-build fingerprint");

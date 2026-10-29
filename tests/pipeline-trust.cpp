@@ -34,13 +34,13 @@ int wmain(int argc,wchar_t** argv){
         BuildIdentity id{};Check(GetBuildIdentity(module,&id),"read the installed exact-build identity");
         std::string cache;
         Check(PipelineTrust::Load(id,true,&cache),"anonymous HTTPS verifies the actual GitHub artifact, run and approved workflow");
-        std::array<size_t,kFunctionSlots> entries{},normalized{};
-        Check(PipelineTrust::ParseCache(cache,id,entries.data()),"verified text has all thirteen exact names and installed PE identity");
-        void* addresses[kFunctionSlots]{};
-        for(size_t i=0;i<entries.size();++i)addresses[i]=reinterpret_cast<unsigned char*>(module)+entries[i];
-        Check(ValidateSymbolAddresses(module,addresses,normalized.data()),"all real function boundaries, leaves and thunks pass local validation");
+        std::array<size_t,kFeatureSlots> entries{},normalized{};
+        Check(PipelineTrust::ParseFeatureCache(cache,id,entries.data()),"verified text has exact feature names and installed PE identity");
+        void* addresses[kFeatureSlots]{};
+        for(size_t i=0;i<entries.size();++i)if(entries[i])addresses[i]=reinterpret_cast<unsigned char*>(module)+entries[i];
+        Check(ValidateFeatureAddresses(module,addresses,normalized.data()),"all real feature boundaries, leaves and vtable pass local validation");
         std::string offline;Check(PipelineTrust::Load(id,false,&offline)&&offline==cache,"verified build works offline without more API calls");
-        std::printf("PASS: real published pipeline proof; %zu bytes; 13 native functions; no hooks installed\n",cache.size());
+        std::printf("PASS: real published pipeline proof; %zu bytes; feature mask %u; no hooks installed\n",cache.size(),CompleteFeatures(entries.data()));
         FreeLibrary(module);return 0;
     }
     const std::string cache="fixture bytes";

@@ -9,22 +9,21 @@ project's GitHub account. It is not an assurance that native hooks cannot crash.
 
 - Repository numeric ID: `1428612836` (`bardelyne/brave-acrylic`).
 - Workflow numeric ID: `394997888`, `.github/workflows/compatibility.yml`.
-- Approved workflow Git blob: `a16d43f8f65301a1319f402547f3e82ff02c2c2c`.
+- Approved workflow Git blob: `c8057565c2897f659753f2c268661c33e1cd5aa4`.
 - SHA256 of the committed LF workflow bytes:
-  `26e56946190a12df9c35fcc87d48556e42aaac3da8dec639baa39dbcb43cd108`.
+  `b56a45836113e06588dc02db2313e52f6f045cc8f5b12e86e8e9febf35f88a26`.
 - The approved YAML checks out extractor/tests/tools commit
-  `d0d045ebf7161ca39ef3be6fbc063b30cb688303`, rather than the current main branch.
+  `526df5a5c0fddd16bdbfe4f628d1a6a28266234e`, rather than the current main branch.
 - Checkout and artifact-transfer actions are pinned to complete commit IDs.
 - The runner downloads official stable Brave archives, verifies their checksums,
-  matches PE/PDB GUID and age, and resolves the thirteen exact decorated names.
+  matches PE/PDB GUID and age, and resolves the exact decorated feature names.
   Source-server commands and downloaded browser code are never executed. Python
   ZIP extraction uses isolated mode, so files on main cannot shadow its modules.
 
 The extractor distinguishes callable helpers from patched functions when
 checking compiler folding. Unrelated aliases on hooks remain rejected. See the
 [twelve-release compiler study](compiler-resilience.md) for the exact permitted
-forwarder and regression evidence. The native prototypes and client ABI are
-unchanged; the revised extractor policy is part of the pinned code.
+forwarder and regression evidence. The six feature groups, exact native prototypes and approved helper leaves are part of the pinned contract. The background-only compiler study is historical evidence; menus and suggestions have separate tests.
 
 Changing unrelated README or mod source on main does not change the pinned
 generation code. Editing the workflow, source pin or action pins changes the
@@ -57,7 +56,7 @@ to supply replacement function addresses.
 6. GET the workflow file at the run's immutable head commit. Require the approved
    Git blob and SHA256 of its decoded contents. Neither the mutable main branch
    nor a hash written into the downloaded locator is authoritative.
-7. Parse exactly thirteen names and canonical RVAs, checking the live PE identity.
+7. Parse all 28 fixed feature names and canonical RVAs, checking the live PE identity. Empty optional slots disable their dependent features. Reject orphan entries.
    Ask Windhawk for the same named symbols, but compare every returned address
    with the verified entry before using it. Prior unverified Windhawk cache entries
    and a payload changed between downloads cannot bypass this comparison.

@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {createHash} = require('node:crypto');
 const {prepare, verify, contractMetadata, releaseIdentity, BRANCH} = require('../tools/update-compatibility.cjs');
-const {SYMBOLS, encodeCache} = require('../tools/symbol-cache.cjs');
+const {SYMBOLS, encodeCache, validateMap} = require('../tools/feature-cache.cjs');
 const {fixtureMapV6} = require('./fixtures-v6.cjs');
 const SOURCE = '// @version 3.4\n// The client contract is independent of comments.\n';
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -27,12 +27,14 @@ async function temp(t) {
 }
 async function recordFor(official = release()) {
   const {pe,map:internal} = fixtureMapV6(), {tag,assets} = releaseIdentity(official);
-  const map=encodeCache(pe,SYMBOLS.map((_,i)=>({rva:internal.readUInt32LE(40+i*80)})));
+  const map=encodeCache(pe,SYMBOLS.map((_,i)=>i<13?{rva:internal.readUInt32LE(40+i*80)}:null));
+  const parsed=validateMap(map);
   return {map, record:{...await contractMetadata(), tag, assets, key:pe.identity.key,
     modSourceSha256:hash(SOURCE), sha256:hash(map), machine:pe.machine, timestamp:pe.timestamp,
     pipelineProof:{schema:1,artifactId:123,artifactName:`pdb_${pe.identity.key}.txt`,runId:456,sha256:hash(map)},
     imageSize:pe.imageSize, records:SYMBOLS.length, infoAge:2, dbiAge:1,
-    functions:SYMBOLS.map((name,i) => ({name,rva:internal.readUInt32LE(40+i*80)})),
+    features:parsed.features,
+    functions:SYMBOLS.flatMap((name,i) => parsed.entries[i]?[{name,rva:parsed.entries[i].rva}]:[]),
     source:{release:`https://github.com/brave/brave-browser/releases/download/${tag}/brave-${tag}-win32-x64.zip`,
       archiveSha256:'1'.repeat(64), dllSha256:'2'.repeat(64),
       symbols:`https://brave-symbols.s3.brave.com/chrome.dll.pdb/${pe.identity.key}/chrome.dll.pdb`}}};
@@ -46,7 +48,7 @@ async function planned(t, {official = release(), record = null, env = {}, modSou
   const request = async (route, method = 'GET', body, missing) => {
     calls.push({route, method}); assert.equal(method,'GET'); assert.equal(body,undefined);
     if (route.startsWith('/repos/brave/brave-browser/releases/')) return official;
-    assert.equal(route,`/repos/bardelyne/brave-acrylic/contents/releases/${official.tag_name}.json?ref=symbol-cache`);
+    assert.equal(route,`/repos/bardelyne/brave-acrylic/contents/feature-releases/${official.tag_name}.json?ref=symbol-cache`);
     assert.equal(missing,true); return record && content(record);
   };
   const plan = await prepare({work,request,env,modSource,emit:async (name,value) => {emitted[name] = value;}});
@@ -125,9 +127,9 @@ async function artifact(t, mutate = () => {}) {
   await fs.writeFile(path.join(work,'record.json'),JSON.stringify(fixture.record));
   return work;
 }
-test('publisher independently verifies standard cache metadata, hashes and thirteen exact ABI slots', async t => {
+test('publisher independently verifies feature metadata, hashes and every present exact ABI slot', async t => {
   const work = await artifact(t);
-  assert.ok((await verify(work,{modSource:SOURCE})).map.length<2048);
+  assert.ok((await verify(work,{modSource:SOURCE})).map.length<4096);
   for (const mutate of [f => {f.record.sha256='0'.repeat(64);},
  f => {f.record.functions[4].name='wrong';},
     f => {f.record.functions[5].rva++;},
@@ -155,7 +157,7 @@ test('publisher rejects legacy payloads, extra files, nonfiles and oversized rec
   await assert.rejects(() => verify(dir,{allowLegacy:false,modSource:SOURCE}), /ASCII/);
   dir = await artifact(t); await fs.writeFile(path.join(dir,'unexpected.bin'),Buffer.alloc(1));
   await assert.rejects(() => verify(dir,{allowLegacy:false,modSource:SOURCE}), /Unexpected/);
-  dir = await artifact(t); await fs.writeFile(path.join(dir,'record.json'),' '.repeat(16385));
+  dir = await artifact(t); await fs.writeFile(path.join(dir,'record.json'),' '.repeat(65537));
   await assert.rejects(() => verify(dir,{allowLegacy:false,modSource:SOURCE}), /size/);
   // Directory entries cannot impersonate files, on Windows as well as Linux.
   dir = await artifact(t); await fs.unlink(path.join(dir,'record.json'));
