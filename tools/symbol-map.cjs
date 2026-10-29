@@ -205,7 +205,7 @@ class Pdb {
     return b;
   }
   async symbols(pe, {names = SYMBOLS, fingerprint = rva => pe.fingerprint(rva), rejectAliases = false,
-    aliasPolicy = null, partial = false} = {}) {
+    aliasPolicy = null, allowedAliases = {}, partial = false} = {}) {
     const info = await this.stream(1, 0, 28), dbi = await this.stream(3, 0, 64);
     // Public/stripped PDB processing can increment the Info age without changing
     // the image's DBI age. Validate the GUID plus DBI age against CodeView.
@@ -299,7 +299,7 @@ class Pdb {
           const p=section.raw+within;
           if(pe.bytes[p]===0xE9){target=thunkBodies.get(rva+5+pe.bytes.readInt32LE(p+1));viaThunk=!!target;}
         }
-        if (target && name !== target && !(typeof aliasPolicy === 'function' &&
+        if (target && name !== target && !(Array.isArray(allowedAliases[target]) && allowedAliases[target].includes(name)) && !(typeof aliasPolicy === 'function' &&
           aliasPolicy({name,target,rva,viaThunk,slot:slots.get(target),entry:entries[slots.get(target)]})))
           reject(slots.get(target), 'Public symbol alias at target: ' + name);
       });

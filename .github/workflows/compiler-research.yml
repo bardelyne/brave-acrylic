@@ -6,7 +6,7 @@ on:
       tags:
         description: JSON array of 1-12 official stable Brave tags
         type: string
-        default: '["v1.98.62","v1.98.60","v1.97.59","v1.96.61","v1.95.104","v1.94.121"]'
+        default: '["v1.88.138","v1.89.145","v1.90.128","v1.91.180","v1.92.144","v1.93.138","v1.94.121","v1.95.104","v1.96.61","v1.97.59","v1.98.60","v1.98.62"]'
 
 permissions:
   contents: read
@@ -29,7 +29,7 @@ jobs:
   analyze:
     needs: plan
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -38,14 +38,17 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Download matching official inputs and inspect compiler output
+      - name: Test the official-input reader
+        run: node --test tests/research-compiler.test.cjs
+      - name: Download matching official inputs and validate all six feature groups
         env:
           GH_TOKEN: ${{ github.token }}
           BRAVE_TAG: ${{ matrix.tag }}
-        run: node tools/research-compiler.cjs "$BRAVE_TAG" "$RUNNER_TEMP/compiler-research"
-      - name: Require the candidate extractor to validate all native functions
-        run: node -e 'const r=require(process.env.RUNNER_TEMP+"/compiler-research/report/compiler-report.json"); if(!r.candidate.accepted) throw Error(r.candidate.error)'
+        run: node tools/research-native-features.cjs "$BRAVE_TAG" "$RUNNER_TEMP/compiler-research"
+      - name: Require a complete deterministic study, preserving unsupported-feature reports
+        run: node -e 'const r=require(process.env.RUNNER_TEMP+"/compiler-research/report/feature-report.json"); if(!r.completed || !r.deterministic || r.published || r.clientVersion!=="3.8" || r.abiRevision!==4) throw Error("Incomplete or wrong-version feature study")'
       - name: Save small analysis evidence only
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -53,4 +56,27 @@ jobs:
           name: compiler-${{ matrix.tag }}
           path: ${{ runner.temp }}/compiler-research/report/
           if-no-files-found: warn
+          retention-days: 14
+
+  summary:
+    needs: [plan, analyze]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: compiler-v*
+          path: ${{ runner.temp }}/feature-results
+      - name: Summarize available and unsupported native features
+        run: node tools/summarize-feature-research.cjs "$RUNNER_TEMP/feature-results"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: native-feature-matrix
+          path: ${{ runner.temp }}/feature-results/matrix.md
+          if-no-files-found: error
           retention-days: 14

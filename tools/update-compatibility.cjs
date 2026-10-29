@@ -7,7 +7,7 @@ const crypto = require('node:crypto');
 const {Readable, Transform} = require('node:stream');
 const {pipeline} = require('node:stream/promises');
 const {spawnSync} = require('node:child_process');
-const {FORMAT, MAP_SIZE, EXTRACTOR, ABI_REVISION, CLIENT_VERSION,
+const {FORMAT, MAP_SIZE, EXTRACTOR, ABI_REVISION, CLIENT_VERSION, CACHE_ROOT, RELEASE_ROOT,
   SYMBOLS, REQUIRED_SLOTS, FEATURES, DECORATED, HOOK_SLOTS, generate, validateMap} = require('./feature-cache.cjs');
 const REPOSITORY = 'bardelyne/brave-acrylic';
 const BRANCH = 'symbol-cache';
@@ -90,7 +90,7 @@ async function prepare({work = WORK, env = process.env, request = api, modSource
   const official = releaseIdentity(release), {tag} = official;
   check(!requested || tag === requested, 'Official release tag mismatch');
   const metadata = await contractMetadata();
-  const existing = await request(`/repos/${REPOSITORY}/contents/feature-releases/${tag}.json?ref=${BRANCH}`, 'GET', undefined, true);
+  const existing = await request(`/repos/${REPOSITORY}/contents/${RELEASE_ROOT}/${tag}.json?ref=${BRANCH}`, 'GET', undefined, true);
   let known = false;
   if (existing) {
     check(existing.encoding === 'base64' && existing.size > 0 && existing.size <= 65536 &&
@@ -257,9 +257,9 @@ async function publish() {
   const ref = await api(`/repos/${REPOSITORY}/git/ref/heads/${BRANCH}`, 'GET', undefined, true);
   const commit = ref ? await api(`/repos/${REPOSITORY}/git/commits/${ref.object.sha}`) : null;
   const files = [
-    [`brave-acrylic-features/pdb_${record.key}.txt`, map, 'base64'],
-    [`brave-acrylic-features/pdb_${record.key}.proof.json`, Buffer.from(JSON.stringify(proof) + '\n'), 'utf-8'],
-    [`feature-releases/${record.tag}.json`, Buffer.from(JSON.stringify(record, null, 2) + '\n'), 'utf-8'],
+    [`${CACHE_ROOT}/pdb_${record.key}.txt`, map, 'base64'],
+    [`${CACHE_ROOT}/pdb_${record.key}.proof.json`, Buffer.from(JSON.stringify(proof) + '\n'), 'utf-8'],
+    [`${RELEASE_ROOT}/${record.tag}.json`, Buffer.from(JSON.stringify(record, null, 2) + '\n'), 'utf-8'],
   ];
   // Older releases remain on the branch; source code and contributor history
   // stay on main. This branch contains generated data, never executable updates.
@@ -278,9 +278,9 @@ async function publish() {
       author:{name:'github-actions[bot]', email:'41898282+github-actions[bot]@users.noreply.github.com'}});
   if (ref) await api(`/repos/${REPOSITORY}/git/refs/heads/${BRANCH}`, 'PATCH', {sha:next.sha, force:false});
   else await api(`/repos/${REPOSITORY}/git/refs`, 'POST', {ref:'refs/heads/' + BRANCH, sha:next.sha});
-  console.log(`Published brave-acrylic-features/pdb_${record.key}.txt on ${BRANCH}`);
+  console.log(`Published ${CACHE_ROOT}/pdb_${record.key}.txt on ${BRANCH}`);
 }
-module.exports = {tagName, verify, prepare, build, publish, contractMetadata, assetIdentity, releaseIdentity, BRANCH};
+module.exports = {tagName, verify, prepare, build, publish, contractMetadata, assetIdentity, releaseIdentity, BRANCH,CACHE_ROOT,RELEASE_ROOT};
 if (require.main === module) {
   const mode = process.argv[2];
   const action = {prepare, build, publish, verify:() => verify(path.join(WORK, 'out'), {allowLegacy:false})}[mode];

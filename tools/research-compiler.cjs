@@ -92,7 +92,7 @@ async function disassemble(report,output){
   await fs.unlink(filename);
  }
 }
-async function collect(tag,work){
+async function collect(tag,work,{afterAnalyze=null}={}){
  tagName(tag);work=path.resolve(work);await fs.mkdir(work,{recursive:true});
  const output=path.join(work,'report');await fs.mkdir(output,{recursive:true});
  const official=await json('https://api.github.com/repos/brave/brave-browser/releases/tags/'+tag),identity=releaseIdentity(official);
@@ -120,6 +120,7 @@ async function collect(tag,work){
  const report={schema:1,tag,chromium:official.body.match(/Chromium\s+(\d+\.\d+\.\d+\.\d+)/)?.[1]||null,
   release:official.html_url,archiveSha256,...await analyze(dll,pdb)};
  await disassemble(report,output);
+ if(afterAnalyze)await afterAnalyze({tag,dll,pdb,output,report});
  await fs.writeFile(path.join(output,'compiler-report.json'),JSON.stringify(report,null,2)+'\n');
  const lines=[`# ${tag} compiler analysis`,``, `PDB: ${report.key}`,`Chromium: ${report.chromium}`,
   `Original strict extractor: ${report.strict.accepted?'PASS':report.strict.error}`,
