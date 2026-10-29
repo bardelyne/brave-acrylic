@@ -18,9 +18,12 @@ const DECORATED = Object.freeze([...native.SYMBOLS,
   '?SetBackgroundBlur@Layer@ui@@QEAAXM@Z',
   '?GetLocalBounds@View@views@@QEBA?AVRect@gfx@@XZ',
   '?GetNonResultSectionHeight@RoundedOmniboxResultsFrame@@SAH_N@Z',
-  '??0RRectF@gfx@@QEAA@MMMMMM@Z',
-  '?SetBackdropFilterBounds@Layer@ui@@QEAAXAEBVRRectF@gfx@@@Z',
-  '??_7SolidBackground@views@@6B@'
+  '?SetClipRectFromAnimation@Layer@ui@@EEAAXAEBVRect@gfx@@W4PropertyChangeReason@2@@Z',
+  '?SetClipRect@Layer@ui@@QEAAXAEBVRect@gfx@@@Z',
+  '??_7SolidBackground@views@@6B@',
+  "?OnThemeChanged@BubbleFrameView@views@@UEAAXXZ",
+  "?SetFillsBoundsOpaquely@Layer@ui@@QEAAX_N@Z",
+  "?OnPaintBackground@FadeLabel@@UEAAXPEAVCanvas@gfx@@@Z"
 ]);
 const SYMBOLS = Object.freeze([...legacy.SYMBOLS,
   'struct HWND__ * __cdecl views::HWNDForView(class views::View const *)',
@@ -35,21 +38,26 @@ const SYMBOLS = Object.freeze([...legacy.SYMBOLS,
   'public: void __cdecl ui::Layer::SetBackgroundBlur(float)',
   'public: class gfx::Rect __cdecl views::View::GetLocalBounds(void)const',
   'public: static int __cdecl RoundedOmniboxResultsFrame::GetNonResultSectionHeight(bool)',
-  'public: __cdecl gfx::RRectF::RRectF(float,float,float,float,float,float)',
-  'public: void __cdecl ui::Layer::SetBackdropFilterBounds(class gfx::RRectF const &)',
-  "const views::SolidBackground::`vftable'"
+  'private: virtual void __cdecl ui::Layer::SetClipRectFromAnimation(class gfx::Rect const &,enum ui::PropertyChangeReason)',
+  'public: void __cdecl ui::Layer::SetClipRect(class gfx::Rect const &)',
+  "const views::SolidBackground::`vftable'",
+  "public: virtual void __cdecl views::BubbleFrameView::OnThemeChanged(void)",
+  "public: void __cdecl ui::Layer::SetFillsBoundsOpaquely(bool)",
+  "public: virtual void __cdecl FadeLabel::OnPaintBackground(class gfx::Canvas *)"
 ]);
 const FEATURES = Object.freeze({
   verticalTabs: [0,1,2,3,4,5],
   toolbar: [0,1,2,3,6,7],
   webpage: [0,1,2,3,8,9,10,11,12],
   menus: [13,14,15,17],
-  popups: [13,14,16,17],
+  popups: [0,1,2,13,14,16,17,28,29,30],
   suggestions: [5,13,14,18,19,20,21,22,23,24,25,26,27]
 });
-const HOOK_SLOTS = Object.freeze([...native.HOOK_SLOTS,5,14,15,16,17,18,19,20,21]);
-const FORMAT = 'windhawk-feature-cache-v1', EXTRACTOR = 1, ABI_REVISION = 3;
-const CLIENT_VERSION = '3.7', MAP_SIZE = 16384;
+const HOOK_SLOTS = Object.freeze([...native.HOOK_SLOTS,5,14,15,16,17,18,19,20,21,25,28,29,30]);
+const FORMAT = 'windhawk-feature-cache-v1', EXTRACTOR = 1, ABI_REVISION = 4;
+const CLIENT_VERSION = '3.8', MAP_SIZE = 16384;
+const CACHE_ROOT = 'brave-acrylic-features-v' + ABI_REVISION;
+const RELEASE_ROOT = 'feature-releases-v' + ABI_REVISION;
 const REQUIRED_SLOTS = Object.freeze([]); // Required per feature, never guessed.
 function check(ok, message) { if (!ok) throw Error(message); }
 function executable(pe, rva, length) {
@@ -175,7 +183,7 @@ async function generate(dll,pdbPath,output) {
       functions:SYMBOLS.flatMap((name,i) => parsed.entries[i] ? [{name,rva:parsed.entries[i].rva}] : [])};
   } finally { await pdb.close(); }
 }
-module.exports = {FORMAT,EXTRACTOR,ABI_REVISION,CLIENT_VERSION,MAP_SIZE,REQUIRED_SLOTS,FEATURES,
+module.exports = {FORMAT,EXTRACTOR,ABI_REVISION,CLIENT_VERSION,CACHE_ROOT,RELEASE_ROOT,MAP_SIZE,REQUIRED_SLOTS,FEATURES,
   DECORATED,SYMBOLS,HOOK_SLOTS,aliasPolicy,fingerprint,helperLeaf,featureStatus,completeSlots,validateMap,encodeCache,generate};
 if (require.main === module) generate(...process.argv.slice(2)).then(record => console.log(JSON.stringify(record,null,2)))
   .catch(error => {console.error(error.message);process.exitCode=1;});

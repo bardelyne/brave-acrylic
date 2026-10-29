@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.8
+
+- Add consistent acrylic to tab and tab-group hover cards and native dialogs such as Restore pages.
+- Keep native text and icons clear, including their cross-fade transitions, without black background flashes.
+- Derive popup tint from Brave's theme and keep menu tint separate; suppress Windows-drawn popup borders where supported.
+- Verify the additional native helpers for each build and publish the revised compatibility format separately from older caches.
+
 ## 3.7
 
 - Add rounded acrylic native menus and browser popups, with separate controls.

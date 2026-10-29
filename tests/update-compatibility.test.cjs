@@ -5,7 +5,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const {createHash} = require('node:crypto');
-const {prepare, verify, contractMetadata, releaseIdentity, BRANCH} = require('../tools/update-compatibility.cjs');
+const {prepare, verify, contractMetadata, releaseIdentity, BRANCH,RELEASE_ROOT} = require('../tools/update-compatibility.cjs');
 const {SYMBOLS, encodeCache, validateMap} = require('../tools/feature-cache.cjs');
 const {fixtureMapV6} = require('./fixtures-v6.cjs');
 const SOURCE = '// @version 3.4\n// The client contract is independent of comments.\n';
@@ -48,7 +48,7 @@ async function planned(t, {official = release(), record = null, env = {}, modSou
   const request = async (route, method = 'GET', body, missing) => {
     calls.push({route, method}); assert.equal(method,'GET'); assert.equal(body,undefined);
     if (route.startsWith('/repos/brave/brave-browser/releases/')) return official;
-    assert.equal(route,`/repos/bardelyne/brave-acrylic/contents/feature-releases/${official.tag_name}.json?ref=symbol-cache`);
+    assert.equal(route,`/repos/bardelyne/brave-acrylic/contents/${RELEASE_ROOT}/${official.tag_name}.json?ref=symbol-cache`);
     assert.equal(missing,true); return record && content(record);
   };
   const plan = await prepare({work,request,env,modSource,emit:async (name,value) => {emitted[name] = value;}});

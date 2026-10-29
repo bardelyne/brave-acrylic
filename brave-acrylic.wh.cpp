@@ -2,7 +2,7 @@
 // @id              brave-acrylic
 // @name            Brave Acrylic
 // @description     Alpha: Native Brave background transparency; requires Translucent Windows
-// @version         3.7
+// @version         3.8
 // @author          bardelyne
 // @github          https://github.com/bardelyne
 // @homepage        https://github.com/bardelyne/brave-acrylic
@@ -21,6 +21,8 @@ Reveal the Windows backdrop through Brave's vertical tab area, frame, toolbar, a
 
 > **Alpha software.** **[Translucent Windows](https://windhawk.net/mods/translucent-windows) is required**, configured for `brave.exe`. Brave Acrylic exposes the background; Translucent Windows supplies the effect.
 
+An experimental [standalone prototype](standalone/README.md) is also being developed in this repository. It uses a separate test profile, supplies its own Windows backdrop, and has no Windhawk runtime dependency. It is not a replacement release for the mod.
+
 ## Requirements
 
 - x64 version of Brave.
@@ -34,7 +36,7 @@ Windows 11 is the tested environment. Windows 10 is unverified; the backdrop pro
 
 The combined menu/suggestion build is tested with Brave 1.98.60; all native targets also validate on Brave 1.98.62 / Chromium 156. Other builds need valid compatibility data for their exact `chrome.dll`. Native interfaces and rendering behavior can change and may require a mod update.
 
-The earlier background-only native contract was validated on seven official releases from Brave 1.93.138 through 1.98.62 (Chromium 151–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compiler-resilience.md).
+The earlier background-only native contract was validated on seven official releases from Brave 1.93.138 through 1.98.62 (Chromium 151–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](docs/compiler-resilience.md).
 
 ## Fast setup
 
@@ -84,11 +86,13 @@ Brave's existing transparent-host path enables its compositor to preserve transp
 
 The webpage option clears the native backing during content-view updates and sets Chromium's persistent page-base color when a tab is attached. That value is also used by future renderers, so switching or restoring tabs does not bring the default white background back. Explicit website backgrounds remain visible unless a website-styling extension changes them.
 
-The full native path uses **27 functions**, of which **16 are private hooks**, and one immutable background-class vtable. Each feature has its own dependency set; unavailable features keep their native appearance. The implementation uses no sampled colors, private object-member offsets, guessed screen rectangles, screenshot polling, extra backing windows, or GPU hooks. Normal DirectComposition stays enabled, with no special browser launch flag. Windows supplies one backdrop. Acrylic can turn gray when inactive; choose a suitable blur mode in Translucent Windows if you prefer a persistent effect.
+The full native path uses **30 functions**, of which **20 are private hooks**, and one immutable background-class vtable. Each feature has its own dependency set; unavailable features keep their native appearance. The implementation uses no sampled colors, private object-member offsets, guessed screen rectangles, screenshot polling, extra backing windows, or GPU hooks. Normal DirectComposition stays enabled, with no special browser launch flag. Windows supplies one backdrop. Acrylic can turn gray when inactive; choose a suitable blur mode in Translucent Windows if you prefer a persistent effect.
 
 ## Menus, popups and suggestions
 
 Native menus and bubbles keep their own theme colors with reduced background alpha. A Windows host-backdrop visual sits underneath Chromium in the same popup window and follows its actual rounded background geometry. There are no extra overlay windows or input forwarding. A private composition worker owns its own dispatcher; disabling the mod closes its targets and joins that worker without changing Brave's dispatcher. If Windows cannot read the host-backdrop capability flag, cleanup removes the visual effect without guessing a prior flag value.
+
+Tab and group hover cards, including their fading text and memory icons, keep their foreground painting. Their separate client and footer backgrounds are removed, while a tint derived from Brave’s own background color sits beneath Chromium’s content. This keeps the tint consistent during transitions and avoids black fade masks. The same native-popup path covers dialogs such as **Restore pages?**. Windows-drawn popup borders are suppressed where supported and their previous value is restored on unload.
 
 Suggestions use Chromium's existing rounded compositor layer. Blur is restricted to results below the native input cutout, so typed text stays sharp. Native layer changes are restored on their owning UI thread when the mod unloads. These options affect native browser surfaces; they do not turn website dialogs or extension HTML into acrylic. Windows high contrast and the transparency preference are respected.
 
@@ -96,7 +100,7 @@ Suggestions use Chromium's existing rounded compositor layer. Blur is restricted
 
 Brave Acrylic resolves the exact C++ prototypes and background-class identity with Windhawk's supported `HookSymbols` / `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` mechanism. Before accepting any returned address, the mod requires compatibility data authenticated against its approved generation pipeline. No build-specific addresses are embedded and remote PDB downloads remain disabled.
 
-The small feature cache and proof locator are published under `brave-acrylic-features/` on this repository's [`symbol-cache` branch](https://github.com/bardelyne/brave-acrylic/tree/symbol-cache). Branch contents alone are not trusted. On first use of a build, the mod checks GitHub's HTTPS API for the immutable artifact's SHA256, exact PDB identity, original repository, successful run and GitHub-hosted job attempts. It fetches the workflow at that run's immutable commit and checks its complete bytes against a SHA256 compiled into the mod. The approved workflow checks out fixed extractor and action revisions. Every Windhawk-resolved address must then match the verified named entry and pass local executable-boundary, leaf, thunk and overlap checks.
+The small feature cache and proof locator are published under `brave-acrylic-features-v4/` on this repository's [`symbol-cache` branch](https://github.com/bardelyne/brave-acrylic/tree/symbol-cache). Older compatibility namespaces remain intact for existing mod versions. Branch contents alone are not trusted. On first use of a build, the mod checks GitHub's HTTPS API for the immutable artifact's SHA256, exact PDB identity, original repository, successful run and GitHub-hosted job attempts. It fetches the workflow at that run's immutable commit and checks its complete bytes against a SHA256 compiled into the mod. The approved workflow checks out fixed extractor and action revisions. Every Windhawk-resolved address must then match the verified named entry and pass local executable-boundary, leaf, thunk and overlap checks.
 
 **Cache ownership:** this service is operated by bardelyne, the mod's author. It is not an official Windhawk cache. The approved workflow and its dependencies remain part of the trust boundary.
 
@@ -118,7 +122,7 @@ If two sets of minimize/maximize/close buttons appear, first enable **Use compac
 
 Reopen Brave normally after installation or native-area changes. Enable Windhawk debug logging to check the availability messages for each native feature or a Windhawk symbol-cache message. For website styling, check Zen Internet's transparency setting and whether that site has a supported style, or check the CSS and site scope of your Stylus style.
 
-For reports, include Windows/Brave versions, window type, enabled areas, backdrop configuration, and reproduction steps. See the [advanced reference](https://github.com/bardelyne/brave-acrylic/blob/main/docs/advanced.md), [compatibility data](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compatibility.md), [webview investigation](https://github.com/bardelyne/brave-acrylic/blob/main/docs/webview-background.md), and [changelog](CHANGELOG.md).
+For reports, include Windows/Brave versions, window type, enabled areas, backdrop configuration, and reproduction steps. See the [advanced reference](docs/advanced.md), [compatibility data](docs/compatibility.md), [webview investigation](docs/webview-background.md), and [changelog](CHANGELOG.md).
 */
 // ==/WindhawkModReadme==
 // ==WindhawkModSettings==
@@ -358,7 +362,13 @@ static bool HasCompleteTransparencyPath() {
         (!(areas&BraveBackground::Toolbar)||(s_locationFocus&&s_viewFocus)) &&
         (!(areas&BraveBackground::Page)||(s_originalTheme&&s_originalReady&&s_originalLayerColor&&s_setPageBase&&s_originalAttachContents));
 }
+namespace NativeUi { static bool SuppressPopupBackground(void* view); }
 static void ViewOnPaintBackground_Hook(void* view, void* canvas) {
+    if (canvas && NativeUi::SuppressPopupBackground(view)) {
+        BraveBackground::ClassName role{};s_background.getClass(view,&role);
+        if(role.data&&(std::string_view(role.data,role.length)=="DialogClientView"||std::string_view(role.data,role.length)=="ImageView"))s_background.clear(canvas,0,0);
+        return;
+    }
     if (canvas && AddressShouldClear(view)) {
         s_background.clear(canvas, 0, 0);
         return;
@@ -816,7 +826,7 @@ static bool ValidateCompatibilityMap(HMODULE module, const CompatibilityMap& map
 // The separate gate authenticates downloaded bytes and compares every result.
 // No executable updates, retry worker, telemetry, or remote PDB fallback.
 static constexpr wchar_t kOnlineSymbolCache[] =
-    L"https://raw.githubusercontent.com/bardelyne/brave-acrylic/symbol-cache/brave-acrylic-features";
+    L"https://raw.githubusercontent.com/bardelyne/brave-acrylic/symbol-cache/brave-acrylic-features-v4";
 
 static bool ValidateSymbolAddresses(HMODULE module, void* const* addresses, size_t* rva) {
     BuildIdentity id{};
@@ -1159,7 +1169,7 @@ static bool Load(const BuildIdentity& id, bool online, std::string* cache) try {
         return false;
     Http http;
     const std::wstring stem =
-        L"/bardelyne/brave-acrylic/symbol-cache/brave-acrylic-features/pdb_" + BuildKey(id);
+        L"/bardelyne/brave-acrylic/symbol-cache/brave-acrylic-features-v4/pdb_" + BuildKey(id);
     // A shared policy query prevents an older policy's CDN entry from being
     // reused immediately after a publisher/mod update. No per-user identifier.
     const std::wstring policy = L"?policy=" + std::wstring(kWorkflowBlob);
@@ -1292,13 +1302,13 @@ static bool ResolveSymbolAddresses(HMODULE module, size_t* rva) {
 }
 
 // <feature-kernel>
-static constexpr unsigned kFeatureSlots=28;
+static constexpr unsigned kFeatureSlots=31;
 static constexpr unsigned kVertical=1,kToolbar=2,kWebpage=4,kMenus=8,kPopups=16,kSuggestions=32;
 static unsigned CompleteFeatures(const size_t* entries) {
     const auto all=[&](std::initializer_list<unsigned> slots){for(unsigned i:slots)if(!entries[i])return false;return true;};
     return (all({0,1,2,3,4,5})?kVertical:0)|(all({0,1,2,3,6,7})?kToolbar:0)|
         (all({0,1,2,3,8,9,10,11,12})?kWebpage:0)|(all({13,14,15,17})?kMenus:0)|
-        (all({13,14,16,17})?kPopups:0)|(all({5,13,14,18,19,20,21,22,23,24,25,26,27})?kSuggestions:0);
+        (all({0,1,2,13,14,16,17,28,29,30})?kPopups:0)|(all({5,13,14,18,19,20,21,22,23,24,25,26,27})?kSuggestions:0);
 }
 static bool FeatureHelperLeaf(const unsigned char* code,unsigned slot,unsigned* length) {
     const unsigned char blur[]={0xF3,0x0F,0x11,0x89,0,0,0,0,0xE9,0,0,0,0};
@@ -1402,9 +1412,12 @@ static constexpr const char* kFeatureSymbols[]={
     "public: void __cdecl ui::Layer::SetBackgroundBlur(float)",
     "public: class gfx::Rect __cdecl views::View::GetLocalBounds(void)const",
     "public: static int __cdecl RoundedOmniboxResultsFrame::GetNonResultSectionHeight(bool)",
-    "public: __cdecl gfx::RRectF::RRectF(float,float,float,float,float,float)",
-    "public: void __cdecl ui::Layer::SetBackdropFilterBounds(class gfx::RRectF const &)",
+    "private: virtual void __cdecl ui::Layer::SetClipRectFromAnimation(class gfx::Rect const &,enum ui::PropertyChangeReason)",
+    "public: void __cdecl ui::Layer::SetClipRect(class gfx::Rect const &)",
     "const views::SolidBackground::`vftable'",
+    "public: virtual void __cdecl views::BubbleFrameView::OnThemeChanged(void)",
+    "public: void __cdecl ui::Layer::SetFillsBoundsOpaquely(bool)",
+    "public: virtual void __cdecl FadeLabel::OnPaintBackground(class gfx::Canvas *)",
 };
 static bool ParseFeatureCache(const std::string& bytes,const BuildIdentity& id,size_t* result) {
     if(bytes.empty()||bytes.size()>kMaxCache||!std::all_of(bytes.begin(),bytes.end(),
@@ -1469,9 +1482,12 @@ static bool ResolveFeatureAddresses(HMODULE module,size_t* result) {
         {{L"public: void __cdecl ui::Layer::SetBackgroundBlur(float)"},&addresses[22],nullptr,true},
         {{L"public: class gfx::Rect __cdecl views::View::GetLocalBounds(void)const"},&addresses[23],nullptr,true},
         {{L"public: static int __cdecl RoundedOmniboxResultsFrame::GetNonResultSectionHeight(bool)"},&addresses[24],nullptr,true},
-        {{L"public: __cdecl gfx::RRectF::RRectF(float,float,float,float,float,float)"},&addresses[25],nullptr,true},
-        {{L"public: void __cdecl ui::Layer::SetBackdropFilterBounds(class gfx::RRectF const &)"},&addresses[26],nullptr,true},
+        {{L"private: virtual void __cdecl ui::Layer::SetClipRectFromAnimation(class gfx::Rect const &,enum ui::PropertyChangeReason)"},&addresses[25],nullptr,true},
+        {{L"public: void __cdecl ui::Layer::SetClipRect(class gfx::Rect const &)"},&addresses[26],nullptr,true},
         {{L"const views::SolidBackground::`vftable'"},&addresses[27],nullptr,true},
+        {{L"public: virtual void __cdecl views::BubbleFrameView::OnThemeChanged(void)"},&addresses[28],nullptr,true},
+        {{L"public: void __cdecl ui::Layer::SetFillsBoundsOpaquely(bool)"},&addresses[29],nullptr,true},
+        {{L"public: virtual void __cdecl FadeLabel::OnPaintBackground(class gfx::Canvas *)"},&addresses[30],nullptr,true},
     };
     std::vector<WindhawkUtils::SYMBOL_HOOK> selected;
     for(unsigned i=0;i<kFeatureSlots;++i)if(trusted[i])selected.push_back(std::move(lookups[i]));
@@ -1538,21 +1554,24 @@ static unsigned Tint(unsigned color,bool scoped) {
     return !scoped ? color : (color&0x00ffffffu)|((((color>>24)*62u+50u)/100u)<<24);
 }
 
+static thread_local unsigned popupTint=0;
+static thread_local bool popupTintKnown=false;
 namespace Material {
 namespace composition=winrt::Windows::UI::Composition;
-constexpr wchar_t kProperty[]=L"BraveAcrylic.PopupMaterial.3.7";
+constexpr wchar_t kProperty[]=L"BraveAcrylic.PopupMaterial.3.8";
 MIDL_INTERFACE("29E691FA-4567-4DCA-B319-D0F207EB6807") DesktopInterop : IUnknown {
     virtual HRESULT STDMETHODCALLTYPE CreateDesktopWindowTarget(HWND,BOOL,void**)=0;
     virtual HRESULT STDMETHODCALLTYPE EnsureOnThread(DWORD)=0;
 };
 struct Shape { float left,top,width,height,rx,ry,scale; };
 static bool Equal(const Shape& a,const Shape& b){return !memcmp(&a,&b,sizeof(Shape));}
-struct Request { Shape shape{}; bool valid=false,applied=false,pending=false; unsigned feature=0; };
+struct Request { Shape shape{}; bool valid=false,applied=false,pending=false; unsigned feature=0; bool hoverCard=false; unsigned tint=0; };
 struct State {
     composition::Desktop::DesktopWindowTarget target{nullptr};
-    composition::SpriteVisual sprite{nullptr};
+    composition::SpriteVisual sprite{nullptr}, shade{nullptr};
+    composition::CompositionColorBrush shadeBrush{nullptr};
     composition::CompositionRoundedRectangleGeometry geometry{nullptr};
-    BOOL previous=FALSE; bool changed=false,previousKnown=false;
+    BOOL previous=FALSE; bool changed=false,previousKnown=false; DWORD previousBorder=0; bool borderKnown=false,borderChanged=false;
 };
 static SRWLOCK lock=SRWLOCK_INIT;
 static std::unordered_map<HWND,Request> requests;
@@ -1571,6 +1590,7 @@ static void Destroy(HWND hwnd) {
     if(GetPropW(hwnd,kProperty)==reinterpret_cast<HANDLE>(&state)) {
         RemovePropW(hwnd,kProperty);
         if(state.changed&&state.previousKnown) DwmSetWindowAttribute(hwnd,17,&state.previous,sizeof(BOOL));
+        if(state.borderKnown&&state.borderChanged)DwmSetWindowAttribute(hwnd,34,&state.previousBorder,sizeof(DWORD));
     }
     try{if(state.target)state.target.Close();}catch(...){}
     live->erase(found);
@@ -1626,6 +1646,9 @@ static DWORD WINAPI Run(void*) {
                             // Closing our target removes its visual effect. Do
                             // not invent/restore a prior flag when it cannot be read.
                             state.previousKnown=SUCCEEDED(DwmGetWindowAttribute(hwnd,17,&state.previous,sizeof(BOOL)));
+                            state.borderKnown=SUCCEEDED(DwmGetWindowAttribute(hwnd,34,&state.previousBorder,sizeof(DWORD)));
+                            const DWORD noBorder=0xfffffffeu; // DWMWA_COLOR_NONE
+                            if(state.borderKnown)state.borderChanged=SUCCEEDED(DwmSetWindowAttribute(hwnd,34,&noBorder,sizeof(noBorder)));
                             BOOL enable=TRUE;
                             stage=2;
                             winrt::check_hresult(DwmSetWindowAttribute(hwnd,17,&enable,sizeof(enable)));state.changed=true;
@@ -1639,12 +1662,20 @@ static DWORD WINAPI Run(void*) {
                             stage=5;
                             state.sprite.Brush(compositor.CreateHostBackdropBrush());
                             state.sprite.Clip(compositor.CreateGeometricClip(state.geometry));
-                            root.Children().InsertAtBottom(state.sprite);state.target.Root(root);
+                            root.Children().InsertAtBottom(state.sprite);
+                            state.shade=compositor.CreateSpriteVisual();state.shade.Clip(compositor.CreateGeometricClip(state.geometry));
+                            state.shadeBrush=compositor.CreateColorBrush();state.shade.Brush(state.shadeBrush);
+                            root.Children().InsertAtTop(state.shade);state.target.Root(root);
                             found=slot;
                         }
                         auto& state=found->second;const auto& shape=request.shape;
                         state.sprite.Offset({shape.left*shape.scale,shape.top*shape.scale,0});
                         state.sprite.Size({shape.width*shape.scale,shape.height*shape.scale});
+                        state.shade.Offset({shape.left*shape.scale,shape.top*shape.scale,0});
+                        state.shade.Size({shape.width*shape.scale,shape.height*shape.scale});
+                        const unsigned tint=request.tint;
+                        state.shadeBrush.Color(winrt::Windows::UI::Color{
+                            static_cast<BYTE>(tint>>24),static_cast<BYTE>(tint>>16),static_cast<BYTE>(tint>>8),static_cast<BYTE>(tint)});
                         state.geometry.Size({shape.width*shape.scale,shape.height*shape.scale});
                         state.geometry.CornerRadius({shape.rx*shape.scale,shape.ry*shape.scale});
                         applied=true;
@@ -1653,7 +1684,7 @@ static DWORD WINAPI Run(void*) {
                     AcquireSRWLockExclusive(&lock);
                     const auto current=requests.find(hwnd);
                     bool repaint=false;
-                    if(current!=requests.end() && Equal(current->second.shape,request.shape)){
+                    if(current!=requests.end() && Equal(current->second.shape,request.shape)&&current->second.tint==request.tint){
                         repaint=current->second.applied!=applied;current->second.applied=applied;
                     }
                     ReleaseSRWLockExclusive(&lock);
@@ -1723,8 +1754,9 @@ static void Update(HWND hwnd,const RoundRect& input,unsigned feature) {
     AcquireSRWLockExclusive(&lock);
     if(!stopping.load()){
         auto& request=requests[hwnd];
-        if(!request.valid||!Equal(request.shape,shape)||request.feature!=feature){
-            request.shape=shape;request.feature=feature;request.valid=true;request.pending=true;notify=true;
+        const unsigned tint=feature==Popups&&popupTintKnown?Tint(popupTint,true):0;
+        if(!request.valid||!Equal(request.shape,shape)||request.feature!=feature||request.tint!=tint){
+            request.shape=shape;request.feature=feature;request.tint=tint;request.valid=true;request.pending=true;notify=true;
         }
     }
     ReleaseSRWLockExclusive(&lock);
@@ -1743,15 +1775,56 @@ static void Stop() {
 static thread_local unsigned paintFeature=0;
 static void RoundRectHook(void* canvas,const RoundRect& shape,const void* flags) {
     if(backgroundWindow && Active(paintFeature))Material::Update(backgroundWindow,shape,paintFeature);
+    Material::Shape bounds{};
+    if(paintFeature==Popups&&backgroundWindow&&popupTintKnown&&Active(Popups)&&Material::Geometry(shape,backgroundWindow,&bounds))return;
     originalRoundRect(canvas,shape,flags);
 }
 static unsigned ColorHook(const void* provider,int id) {
-    return Tint(originalColor(provider,id),ready.load(std::memory_order_relaxed)&&backgroundScope!=0);
+    const auto color=originalColor(provider,id);
+    if(backgroundScope&&paintFeature==Popups){popupTint=color;popupTintKnown=true;}
+    return Tint(color,ready.load(std::memory_order_relaxed)&&backgroundScope!=0);
 }
 static HWND Candidate(const void* view,unsigned feature) {
     if(!view||!Active(feature)||!UserAllowsTransparency())return nullptr;
     HWND hwnd=windowForView(view);return PopupWindow(hwnd)?hwnd:nullptr;
 }
+// Suppress only known native backing roles inside a shaped popup. Foreground
+// paint remains native, including cross-fading text and fading icon layers.
+static bool SuppressPopupBackground(void* view) {
+ if(!view||!Active(Popups)||!s_background.getClass)return false;
+ BraveBackground::ClassName name{};s_background.getClass(view,&name);
+ if(!name.data||name.length>127)return false;
+ const std::string_view cls(name.data,name.length);
+ const bool hover=cls=="TabHoverCardBubbleView";
+ if(!hover&&cls!="DialogClientView"&&cls!="FooterView"&&cls!="ImageView"&&cls!="FadeLabel")return false;
+ const auto hwnd=NativeUi::Candidate(view,NativeUi::Popups);
+ if(!hwnd)return false;
+ AcquireSRWLockExclusive(&NativeUi::Material::lock);
+ const auto found=NativeUi::Material::requests.find(hwnd);
+ const bool shaped=found!=NativeUi::Material::requests.end()&&found->second.valid&&found->second.feature==NativeUi::Popups;
+ if(shaped&&hover)found->second.hoverCard=true;
+ const bool clear=shaped&&!hover&&((cls!="ImageView"&&cls!="FadeLabel")||found->second.hoverCard);
+ ReleaseSRWLockExclusive(&NativeUi::Material::lock);
+ return clear;
+}
+static void (*originalBubbleTheme)(void*)=nullptr;
+static void (*originalLayerOpaque)(void*,bool)=nullptr;
+static void (*originalFadeBackground)(void*,void*)=nullptr;
+static void FadeBackgroundHook(void* view,void* canvas) {
+ if(canvas&&SuppressPopupBackground(view))return;
+ originalFadeBackground(view,canvas);
+}
+static thread_local bool bubbleThemeUpdating=false;
+static void LayerOpaqueHook(void* layer,bool opaque) {
+ originalLayerOpaque(layer,bubbleThemeUpdating?false:opaque);
+}
+static void BubbleThemeHook(void* view) {
+ const auto hwnd=NativeUi::Candidate(view,NativeUi::Popups);
+ const bool previous=bubbleThemeUpdating;bubbleThemeUpdating=hwnd!=nullptr;
+ originalBubbleTheme(view);
+ bubbleThemeUpdating=previous;
+}
+
 static void MenuHook(void* view,void* canvas) {
     HWND hwnd=Candidate(view,Menus);const auto previous=paintFeature;paintFeature=Menus;
     // Chromium retains the first display list and later repaints only damaged
@@ -1760,8 +1833,12 @@ static void MenuHook(void* view,void* canvas) {
     Scope scope(hwnd!=nullptr,hwnd);originalMenu(view,canvas);paintFeature=previous;
 }
 static void BubbleHook(const void* background,void* canvas,void* view) {
+    BraveBackground::ClassName role{};s_background.getClass(view,&role);
+    if(!role.data||std::string_view(role.data,role.length)!="BubbleFrameView"){originalBubble(background,canvas,view);return;}
     HWND hwnd=Candidate(view,Popups);const auto previous=paintFeature;paintFeature=Popups;
+    const auto previousTint=popupTint;const bool previousKnown=popupTintKnown;popupTintKnown=false;
     Scope scope(hwnd!=nullptr,hwnd);originalBubble(background,canvas,view);paintFeature=previous;
+    popupTint=previousTint;popupTintKnown=previousKnown;
 }
 
 namespace Omnibox {
@@ -1773,8 +1850,8 @@ using SetBlur=void (*)(void*,float);
 struct Rect{int x,y,width,height;};
 using LocalBounds=Rect* (*)(const void*,Rect*);
 using HeaderHeight=int (*)(bool);
-using ConstructBounds=void* (*)(void*,float,float,float,float,float,float);
-using FilterBounds=void (*)(void*,const void*);
+using SetClip=void (*)(void*,const Rect*);
+using AnimatedClip=void (*)(void*,const Rect*,int);
 static Constructor originalConstructor=nullptr;
 static Destructor originalDestructor=nullptr;
 static SetBackground originalBackground=nullptr;
@@ -1783,17 +1860,53 @@ static BackgroundPaint originalSolid=nullptr;
 static SetBlur setBlur=nullptr;
 static LocalBounds getBounds=nullptr;
 static HeaderHeight getHeader=nullptr;
-static ConstructBounds constructBounds=nullptr;
-static FilterBounds filterBounds=nullptr;
+static SetClip setClip=nullptr;
+static AnimatedClip originalClip=nullptr;
 static const void* solidVtable=nullptr;
-struct Capture{void* frame;const void* background=nullptr;void* layer=nullptr;unsigned backgrounds=0,layers=0;};
+struct Capture{void* frame;const void* background=nullptr;void* layer=nullptr;unsigned backgrounds=0,layers=0;
+    std::unordered_map<void*,Rect> clips;};
 static thread_local Capture* constructing=nullptr;
-struct Record{void* frame;void* layer;HWND window;bool painted=false;int width=0,height=0,header=-1;};
+static thread_local unsigned clipWrites=0;
+struct Record{void* frame;void* layer;HWND window;bool painted=false;int width=0,height=0,header=-1;Rect nativeClip{};};
 static SRWLOCK lock=SRWLOCK_INIT;
 static std::unordered_map<const void*,Record> backgrounds;
 static std::vector<HWND> subclassedWindows;
-static constexpr UINT_PTR kSubclass=0xBA3701;
+static constexpr UINT_PTR kSubclass=0xBA3801;
 static UINT cleanupMessage=0;
+static bool ResultsClip(int width,int height,int header,const Rect& native,Rect* result) {
+    if(width<=0||width>32768||height<=header||height>32768||header<0)return false;
+    // An empty native clip means "unclipped". Clip the final output, leaving
+    // Chromium free to sample the full backdrop for its blur filter.
+    int64_t left=0,top=header,right=width,bottom=height;
+    if(native.width>0&&native.height>0){
+        left=std::max(left,int64_t(native.x));top=std::max(top,int64_t(native.y));
+        right=std::min(right,int64_t(native.x)+native.width);
+        bottom=std::min(bottom,int64_t(native.y)+native.height);
+    }
+    // Do not set an empty result: Chromium would interpret it as no clip.
+    if(right<=left||bottom<=top)return false;
+    *result={int(left),int(top),int(right-left),int(bottom-top)};return true;
+}
+static void WriteClip(void* layer,const Rect& clip) {
+    ++clipWrites;setClip(layer,&clip);--clipWrites;
+}
+static void ClipHook(void* layer,const Rect* clip,int reason) {
+    Rect output=*clip;bool disable=false;
+    if(!clipWrites){
+        if(constructing)constructing->clips[layer]=*clip;
+        AcquireSRWLockExclusive(&lock);
+        for(auto& [_,record]:backgrounds)if(record.layer==layer){
+            record.nativeClip=*clip;
+            if(record.painted&&!ResultsClip(record.width,record.height,record.header,*clip,&output)){
+                record.painted=false;disable=true;
+            }
+            break;
+        }
+        ReleaseSRWLockExclusive(&lock);
+    }
+    if(disable)setBlur(layer,0.f);
+    originalClip(layer,&output,reason);
+}
 static void RestoreWindow(HWND hwnd) {
     std::vector<Record> records;
     AcquireSRWLockExclusive(&lock);
@@ -1801,7 +1914,7 @@ static void RestoreWindow(HWND hwnd) {
         records.push_back(it->second);it=backgrounds.erase(it);
     }else ++it;
     ReleaseSRWLockExclusive(&lock);
-    for(const auto& record:records)if(record.painted)setBlur(record.layer,0.f);
+    for(const auto& record:records)if(record.painted){setBlur(record.layer,0.f);WriteClip(record.layer,record.nativeClip);}
 }
 static LRESULT CALLBACK WindowProc(HWND hwnd,UINT message,WPARAM wParam,LPARAM lParam,UINT_PTR,DWORD_PTR) {
     if(message==cleanupMessage || message==WM_NCDESTROY){
@@ -1838,7 +1951,12 @@ static void* ConstructorHook(void* self,void* contents,void* location,bool forwa
         // The view is not necessarily attached to a Widget until after its
         // constructor returns. Find/subclass the real HWND on its first paint.
         AcquireSRWLockExclusive(&lock);
-        if(Active(Suggestions))backgrounds[capture.background]={self,capture.layer,nullptr};
+        // This is a newly created native layer, whose initial clip is empty.
+        // Also retain any clip Chromium set during construction or animation.
+        if(Active(Suggestions)){
+            auto& record=backgrounds[capture.background];record={self,capture.layer,nullptr};
+            if(const auto clip=capture.clips.find(capture.layer);clip!=capture.clips.end())record.nativeClip=clip->second;
+        }
         ReleaseSRWLockExclusive(&lock);
     }
     return result;
@@ -1872,14 +1990,13 @@ static bool Blur(const void* background,void* view) {
         if(!keep){if(!existing)RemoveWindowSubclass(hwnd,WindowProc,kSubclass);return false;}
     }
     Rect bounds{};getBounds(view,&bounds);const int header=getHeader(true);
-    const bool allowed=Active(Suggestions)&&UserAllowsTransparency()&&bounds.width>0&&bounds.width<=32768&&
-        bounds.height>header&&bounds.height<=32768&&header>=0;
+    Rect clip{};
+    const bool allowed=Active(Suggestions)&&UserAllowsTransparency()&&
+        ResultsClip(bounds.width,bounds.height,header,record.nativeClip,&clip);
     if(!allowed){
-        if(record.painted)setBlur(record.layer,0.f);
+        if(record.painted){setBlur(record.layer,0.f);WriteClip(record.layer,record.nativeClip);}
     }else if(!record.painted||record.width!=bounds.width||record.height!=bounds.height||record.header!=header){
-        alignas(16) unsigned char area[64]{};
-        constructBounds(area,0.f,float(header),float(bounds.width),float(bounds.height-header),0.f,0.f);
-        filterBounds(record.layer,area);setBlur(record.layer,24.f);
+        WriteClip(record.layer,clip);setBlur(record.layer,24.f);
     }
     AcquireSRWLockExclusive(&lock);const auto live=backgrounds.find(background);
     if(live!=backgrounds.end()&&live->second.frame==record.frame){
@@ -1917,8 +2034,8 @@ static bool ResolveNativeBackground(HMODULE module) {
     s_background.setBackground=reinterpret_cast<BraveBackground::SetBackground>(address(5));
     s_locationFocus=reinterpret_cast<NativeFocus>(address(6));s_viewFocus=reinterpret_cast<NativeFocus>(address(7));
     s_setPageBase=reinterpret_cast<NativeSetPageBase>(address(11));
-    if((features&7)&&(!hook(0,ViewOnPaintBackground_Hook,&s_background.originalPaint)||
-        !hook(3,WindowContentsTransparent_Hook,&s_background.originalTransparent)))features&=~7u;
+    if((features&(7|kPopups))&&!hook(0,ViewOnPaintBackground_Hook,&s_background.originalPaint))features&=~(7|kPopups);
+    if((features&7)&&!hook(3,WindowContentsTransparent_Hook,&s_background.originalTransparent))features&=~7u;
     if((features&kVertical)&&!hook(4,SidebarConstructor_Hook,&s_background.originalConstruct))features&=~kVertical;
     if((features&kWebpage)&&(!hook(8,PageThemeHook,&s_originalTheme)||!hook(9,PageReadyHook,&s_originalReady)||
         !hook(10,PageLayerColorHook,&s_originalLayerColor)||!hook(12,AttachContentsHook,&s_originalAttachContents)))features&=~kWebpage;
@@ -1926,15 +2043,18 @@ static bool ResolveNativeBackground(HMODULE module) {
     if((features&(kMenus|kPopups|kSuggestions))&&!hook(14,NativeUi::ColorHook,&NativeUi::originalColor))features&=~(kMenus|kPopups|kSuggestions);
     if((features&(kMenus|kPopups))&&!hook(17,NativeUi::RoundRectHook,&NativeUi::originalRoundRect))features&=~(kMenus|kPopups);
     if((features&kMenus)&&!hook(15,NativeUi::MenuHook,&NativeUi::originalMenu))features&=~kMenus;
-    if((features&kPopups)&&!hook(16,NativeUi::BubbleHook,&NativeUi::originalBubble))features&=~kPopups;
+    if((features&kPopups)&&(!hook(16,NativeUi::BubbleHook,&NativeUi::originalBubble)||
+        !hook(28,NativeUi::BubbleThemeHook,&NativeUi::originalBubbleTheme)||
+        !hook(29,NativeUi::LayerOpaqueHook,&NativeUi::originalLayerOpaque)||
+        !hook(30,NativeUi::FadeBackgroundHook,&NativeUi::originalFadeBackground)))features&=~kPopups;
     if(features&kSuggestions){
         using namespace NativeUi::Omnibox;
         setBlur=reinterpret_cast<SetBlur>(address(22));getBounds=reinterpret_cast<LocalBounds>(address(23));
-        getHeader=reinterpret_cast<HeaderHeight>(address(24));constructBounds=reinterpret_cast<ConstructBounds>(address(25));
-        filterBounds=reinterpret_cast<FilterBounds>(address(26));solidVtable=address(27);
-        cleanupMessage=RegisterWindowMessageW(L"BraveAcrylic.OmniboxCleanup.3.7");
+        getHeader=reinterpret_cast<HeaderHeight>(address(24));setClip=reinterpret_cast<SetClip>(address(26));solidVtable=address(27);
+        cleanupMessage=RegisterWindowMessageW(L"BraveAcrylic.OmniboxCleanup.3.8");
         if(!cleanupMessage||!hook(5,BackgroundHook,&originalBackground)||!hook(18,ConstructorHook,&originalConstructor)||
-            !hook(19,DestructorHook,&originalDestructor)||!hook(20,RoundedHook,&originalRounded)||!hook(21,SolidHook,&originalSolid))features&=~kSuggestions;
+            !hook(19,DestructorHook,&originalDestructor)||!hook(20,RoundedHook,&originalRounded)||!hook(21,SolidHook,&originalSolid)||
+            !hook(25,ClipHook,&originalClip))features&=~kSuggestions;
     }
     NativeUi::supported=features;NativeUi::enabled=s_requestedUi.load();
     s_availableAreas=features&7;s_background.areas.fetch_and(features&7);

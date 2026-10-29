@@ -18,7 +18,7 @@ test('all 64 feature combinations round-trip without exposing orphan addresses',
     for(const i of cache.completeSlots(entries))assert.equal(parsed.entries[i].rva,all[i].rva);
   }
 });
-test('losing each one of the 28 targets disables only its dependent features',()=>{
+test('losing each one of the 31 targets disables only its dependent features',()=>{
   for(let slot=0;slot<all.length;++slot){
     const entries=all.map((e,i)=>i===slot?null:e);
     const parsed=cache.validateMap(cache.encodeCache(fake,entries));
@@ -33,7 +33,7 @@ test('missing optional entries use Windhawk empty values; bad names, zeros, alia
     const fields=bytes.toString().split('#');mutate(fields);
     assert.throws(()=>cache.validateMap(Buffer.from(fields.join('#'))));
   }
-  const empty=cache.validateMap(cache.encodeCache(fake,Array(28).fill(null)));
+  const empty=cache.validateMap(cache.encodeCache(fake,Array(31).fill(null)));
   assert.ok(Object.values(empty.features).every(f=>!f.available));
   assert.ok(empty.entries.every(e=>e===null));
 });
