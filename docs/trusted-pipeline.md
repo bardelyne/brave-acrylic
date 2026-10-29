@@ -16,7 +16,7 @@ project's GitHub account. It is not an assurance that native hooks cannot crash.
   `d0d045ebf7161ca39ef3be6fbc063b30cb688303`, rather than the current main branch.
 - Checkout and artifact-transfer actions are pinned to complete commit IDs.
 - The runner downloads official stable Brave archives, verifies their checksums,
-  matches PE/PDB GUID and age, and resolves the thirteen exact decorated names.
+  matches PE/PDB GUID and age, and resolves the exact decorated feature names.
   Source-server commands and downloaded browser code are never executed. Python
   ZIP extraction uses isolated mode, so files on main cannot shadow its modules.
 
@@ -57,7 +57,7 @@ to supply replacement function addresses.
 6. GET the workflow file at the run's immutable head commit. Require the approved
    Git blob and SHA256 of its decoded contents. Neither the mutable main branch
    nor a hash written into the downloaded locator is authoritative.
-7. Parse exactly thirteen names and canonical RVAs, checking the live PE identity.
+7. Parse all 28 fixed feature names and canonical RVAs, checking the live PE identity. Empty optional slots disable their dependent features. Reject orphan entries.
    Ask Windhawk for the same named symbols, but compare every returned address
    with the verified entry before using it. Prior unverified Windhawk cache entries
    and a payload changed between downloads cannot bypass this comparison.

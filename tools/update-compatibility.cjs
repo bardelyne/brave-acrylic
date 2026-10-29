@@ -8,7 +8,7 @@ const {Readable, Transform} = require('node:stream');
 const {pipeline} = require('node:stream/promises');
 const {spawnSync} = require('node:child_process');
 const {FORMAT, MAP_SIZE, EXTRACTOR, ABI_REVISION, CLIENT_VERSION,
-  SYMBOLS, REQUIRED_SLOTS, generate, validateMap} = require('./symbol-cache.cjs');
+  SYMBOLS, REQUIRED_SLOTS, FEATURES, DECORATED, HOOK_SLOTS, generate, validateMap} = require('./feature-cache.cjs');
 const REPOSITORY = 'bardelyne/brave-acrylic';
 const BRANCH = 'symbol-cache';
 const WORK = path.resolve(process.env.COMPATIBILITY_WORK_DIR ||
@@ -26,16 +26,20 @@ async function contractMetadata() {
   return {format:FORMAT, extractor:EXTRACTOR, abiRevision:ABI_REVISION, clientVersion:CLIENT_VERSION,
     modContract:{abiSha256:hash(JSON.stringify({format:FORMAT, abiRevision:ABI_REVISION,
       clientVersion:CLIENT_VERSION, maxCacheSize:MAP_SIZE, encoding:"Windhawk named-symbol cache v1",
-      symbols:SYMBOLS,decoratedInputs:require('./symbol-map-v6.cjs').SYMBOLS,requiredSlots:REQUIRED_SLOTS,normal:{kind:0, minLength:16, minFixed:16, maxLength:32, unwind:true},
+      symbols:SYMBOLS,decoratedInputs:DECORATED,requiredSlots:REQUIRED_SLOTS,features:FEATURES,hookSlots:HOOK_SLOTS,
+      partialFeatures:'only-complete-feature-dependencies; explicit-empty-optional-slots; reject-corrupt-inputs',
+      normal:{kind:0, minLength:16, minFixed:16, maxLength:32, unwind:true},
       leaf:{kind:1, slot:3, length:13, code:'4883B9????????00740331C0C3', fixed:13, unwind:false},
       focusLeaf:{kind:2,slot:6,length:32,fixed:32,unwind:false,
         layouts:['4883B9????????007413488B81????????488B4028837818000F95C0C331C0C3',
           '4883B9????????00750331C0C3488B81????????488B4028837818000F95C0C3']},
       namedThunk:{kind:3,slots:'any',opcode:0xE9,length:5,unwind:false,targetField:'reserved',body:'normal-unwind-or-approved-slot-leaf',
         ranges:'source-and-body-distinct-nonoverlapping-executable'},
-      nativeAbi:{color:'float4-indirect',pageBase:'optional-color8-register-present-byte4',attach:'canonical-WebContents-before-native-attach'},
+      nativeAbi:{color:'float4-indirect',pageBase:'optional-color8-register-present-byte4',attach:'canonical-WebContents-before-native-attach',
+        vtable:'named-readonly-rdata-two-executable-methods',helperLeaves:'exact-background-blur-tail-setter-and-local-rect',
+        menus:'scoped-native-paint-alpha-and-rounded-host-backdrop',suggestions:'native-layer-filter-below-input-cutout'},
       aliases:{hooks:'reject-unrelated-public-names-and-thunk-bodies',
-        callOnlySlots:[1,2,5,6,7,11],
+        callOnlySlots:[1,2,6,7,11,13,22,23,24,25,26],
         themeForwarder:{slot:8,kind:3,bodyName:'?UpdateBackgroundColor@ContentsWebView@@AEAAXXZ',
           bodyOnly:true,otherThunks:false}}}))}};
 }
@@ -86,11 +90,11 @@ async function prepare({work = WORK, env = process.env, request = api, modSource
   const official = releaseIdentity(release), {tag} = official;
   check(!requested || tag === requested, 'Official release tag mismatch');
   const metadata = await contractMetadata();
-  const existing = await request(`/repos/${REPOSITORY}/contents/releases/${tag}.json?ref=${BRANCH}`, 'GET', undefined, true);
+  const existing = await request(`/repos/${REPOSITORY}/contents/feature-releases/${tag}.json?ref=${BRANCH}`, 'GET', undefined, true);
   let known = false;
   if (existing) {
-    check(existing.encoding === 'base64' && existing.size > 0 && existing.size <= 16384 &&
-      typeof existing.content === 'string' && existing.content.length <= 24000, 'Invalid published release record');
+    check(existing.encoding === 'base64' && existing.size > 0 && existing.size <= 65536 &&
+      typeof existing.content === 'string' && existing.content.length <= 90000, 'Invalid published release record');
     try {
       const record = JSON.parse(Buffer.from(existing.content, 'base64').toString('utf8'));
       known = record.tag === tag && hexHash(record.sha256) &&
@@ -178,6 +182,15 @@ async function build() {
   console.log('Downloading symbols for exact build ' + pe.identity.key);
   await download(url, pdb, 12 * 1024 ** 3);
   const result = await generate(dll, pdb, path.join(out, 'cache.txt'));
+  const featureLines = Object.entries(result.features).map(([name,status]) =>
+    `${status.available ? 'Available' : 'Unavailable'}: ${name}${status.available ? '' : ' — ' + status.reasons.join('; ')}`);
+  console.log(featureLines.join('\n'));
+  if (process.env.GITHUB_STEP_SUMMARY)
+    await fs.appendFile(process.env.GITHUB_STEP_SUMMARY,
+      `## Brave ${plan.tag}: feature compatibility\n\n` + featureLines.map(line => '- ' + line).join('\n') +
+      '\n\nOnly complete, validated features are published. Missing or changed functions disable their dependent features.\n');
+  for (const [name,status] of Object.entries(result.features))
+    if (!status.available) console.log(`::warning title=Brave feature unavailable::${name}: ${status.reasons.join('; ')}`);
   const record = {...result, ...metadata, tag:plan.tag, assets:plan.assets,
     modSourceSha256:await modSourceHash(),
     createdUtc:new Date().toISOString(), source:{release:base, archiveSha256:checksum[1].toLowerCase(),
@@ -192,7 +205,7 @@ async function build() {
 async function verify(directory, {modSource} = {}) {
   const names = (await fs.readdir(directory)).sort();
   check(same(names, ['cache.txt', 'record.json']), 'Unexpected generated artifact files');
-  for (const [name, max] of [['cache.txt', MAP_SIZE], ['record.json', 16384]]) {
+  for (const [name, max] of [['cache.txt', MAP_SIZE], ['record.json', 65536]]) {
     const stat = await fs.lstat(path.join(directory, name));
     check(stat.isFile() && !stat.isSymbolicLink() && stat.size > 0 && stat.size <= max, 'Invalid generated artifact size or type');
   }
@@ -218,8 +231,12 @@ async function verify(directory, {modSource} = {}) {
   check(record.source.release === `https://github.com/brave/brave-browser/releases/download/${record.tag}/brave-${record.tag}-win32-x64.zip` &&
     hexHash(record.source.archiveSha256) && hexHash(record.source.dllSha256) &&
     (!record.assets.archive.digest || record.assets.archive.digest === 'sha256:' + record.source.archiveSha256) &&
-    record.functions?.length === SYMBOLS.length && record.functions.every((f,i) =>
-      f.name === SYMBOLS[i] && f.rva === identity.entries[i].rva),
+    same(record.functions,SYMBOLS.flatMap((name,i) => identity.entries[i] ? [{name,rva:identity.entries[i].rva}] : [])) &&
+    record.features && same(Object.keys(record.features),Object.keys(FEATURES)) &&
+    Object.entries(record.features).every(([name,status]) =>
+      status.available === identity.features[name].available && Array.isArray(status.missing) && Array.isArray(status.reasons) &&
+      status.missing.length === status.reasons.length && status.missing.length <= SYMBOLS.length &&
+      [...status.missing,...status.reasons].every(text => typeof text === 'string' && text.length <= 1024)),
   'Invalid generated provenance or ABI slots');
   return {map, record};
 }
@@ -240,9 +257,9 @@ async function publish() {
   const ref = await api(`/repos/${REPOSITORY}/git/ref/heads/${BRANCH}`, 'GET', undefined, true);
   const commit = ref ? await api(`/repos/${REPOSITORY}/git/commits/${ref.object.sha}`) : null;
   const files = [
-    [`brave-acrylic/pdb_${record.key}.txt`, map, 'base64'],
-    [`brave-acrylic/pdb_${record.key}.proof.json`, Buffer.from(JSON.stringify(proof) + '\n'), 'utf-8'],
-    [`releases/${record.tag}.json`, Buffer.from(JSON.stringify(record, null, 2) + '\n'), 'utf-8'],
+    [`brave-acrylic-features/pdb_${record.key}.txt`, map, 'base64'],
+    [`brave-acrylic-features/pdb_${record.key}.proof.json`, Buffer.from(JSON.stringify(proof) + '\n'), 'utf-8'],
+    [`feature-releases/${record.tag}.json`, Buffer.from(JSON.stringify(record, null, 2) + '\n'), 'utf-8'],
   ];
   // Older releases remain on the branch; source code and contributor history
   // stay on main. This branch contains generated data, never executable updates.
@@ -261,7 +278,7 @@ async function publish() {
       author:{name:'github-actions[bot]', email:'41898282+github-actions[bot]@users.noreply.github.com'}});
   if (ref) await api(`/repos/${REPOSITORY}/git/refs/heads/${BRANCH}`, 'PATCH', {sha:next.sha, force:false});
   else await api(`/repos/${REPOSITORY}/git/refs`, 'POST', {ref:'refs/heads/' + BRANCH, sha:next.sha});
-  console.log(`Published brave-acrylic/pdb_${record.key}.txt on ${BRANCH}`);
+  console.log(`Published brave-acrylic-features/pdb_${record.key}.txt on ${BRANCH}`);
 }
 module.exports = {tagName, verify, prepare, build, publish, contractMetadata, assetIdentity, releaseIdentity, BRANCH};
 if (require.main === module) {

@@ -49,7 +49,8 @@ test('client, trusted parser and producer agree on names; all Windhawk targets a
   const code=source.slice(source.indexOf('#include <windhawk_api.h>'));
   const trusted=code.slice(code.indexOf('static constexpr const char* kSymbols[]'),code.indexOf('static_assert(ARRAYSIZE(kSymbols)'));
   assert.deepEqual([...trusted.matchAll(/"([^"]+)"/g)].map(m=>m[1]),SYMBOLS);
-  assert.doesNotMatch(code,/Wh_GetUrlContent|CreateThread|CompatibilityWorker|compatibilityMapV6/);
+  assert.doesNotMatch(code,/Wh_GetUrlContent|CompatibilityWorker|compatibilityMapV6/);
+  assert.equal([...code.matchAll(/CreateThread\(/g)].length,1); // Owned popup compositor, never networking/polling.
   assert.ok(code.indexOf('PipelineTrust::Load(identity')<code.indexOf('WindhawkUtils::HookSymbols(module'));
   assert.match(code,/addresses\[i\]\) != base \+ trusted\[i\]/);
   assert.match(code,/options\.symbolServer = L""/);

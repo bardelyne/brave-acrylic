@@ -36,6 +36,7 @@ class PeImage {
     requireThat(optionalSize >= 240 && optional.readUInt16LE() === 0x20b &&
       optional.readUInt32LE(108) >= 7, 'Unsupported PE optional header');
     this.imageSize = optional.readUInt32LE(56);
+    this.imageBase = optional.readBigUInt64LE(24);
     requireThat(this.imageSize > 0, 'Empty PE image');
     this.directories = Array.from({length: Math.min(16, optional.readUInt32LE(108))},
       (_, i) => ({rva: optional.readUInt32LE(112 + i * 8), size: optional.readUInt32LE(116 + i * 8)}));
@@ -204,7 +205,7 @@ class Pdb {
     return b;
   }
   async symbols(pe, {names = SYMBOLS, fingerprint = rva => pe.fingerprint(rva), rejectAliases = false,
-    aliasPolicy = null} = {}) {
+    aliasPolicy = null, partial = false} = {}) {
     const info = await this.stream(1, 0, 28), dbi = await this.stream(3, 0, 64);
     // Public/stripped PDB processing can increment the Info age without changing
     // the image's DBI age. Validate the GUID plus DBI age against CodeView.
@@ -251,19 +252,41 @@ class Pdb {
         addresses.add(section.rva + within);
       }
     });
-    const rvas = names.map(name => {
-      requireThat(found.get(name).size === 1, 'Missing or ambiguous ABI: ' + name);
+    // Optional feature discovery still validates the entire PDB/record stream.
+    // Only a missing/changed individual native target may be isolated. Corrupt
+    // files, identity mismatches and unsupported remapping always abort.
+    const errors = Array(names.length).fill(null);
+    const reject = (slot, message) => {
+      if (!partial) throw Error(message);
+      errors[slot] = message;
+    };
+    const rvas = names.map((name, slot) => {
+      if (found.get(name).size !== 1) { reject(slot, 'Missing or ambiguous ABI: ' + name); return 0; }
       return [...found.get(name)][0];
     });
-    requireThat(new Set(rvas).size === names.length, 'Aliased required functions');
-    const entries = rvas.map((rva, slot) => fingerprint(rva, slot));
+    const owners = new Map();
+    rvas.forEach((rva, slot) => {
+      if (!rva) return;
+      if (owners.has(rva)) {
+        reject(slot, 'Aliased required functions');
+        reject(owners.get(rva), 'Aliased required functions');
+      } else owners.set(rva, slot);
+    });
+    const entries = rvas.map((rva, slot) => {
+      if (!rva || errors[slot]) return null;
+      try { return fingerprint(rva, slot); }
+      catch (error) { reject(slot, error.message); return null; }
+    });
     if (rejectAliases) {
-      const targets = new Map(rvas.map((rva, i) => [rva, names[i]]));
+      const targets = new Map(rvas.flatMap((rva, i) => rva && entries[i] ? [[rva, names[i]]] : []));
       const slots = new Map(names.map((name,i) => [name,i]));
       const thunkBodies = new Map();
       entries.forEach((entry,i) => {
-        for (const rva of entry.aliasRvas || []) {
-          requireThat(!targets.has(rva) || targets.get(rva) === names[i], 'Aliased thunk body');
+        for (const rva of entry?.aliasRvas || []) {
+          if (targets.has(rva) && targets.get(rva) !== names[i]) {
+            reject(i, 'Aliased thunk body');
+            reject(slots.get(targets.get(rva)), 'Aliased thunk body');
+          }
           targets.set(rva,names[i]);thunkBodies.set(rva,names[i]);
         }
       });
@@ -276,12 +299,13 @@ class Pdb {
           const p=section.raw+within;
           if(pe.bytes[p]===0xE9){target=thunkBodies.get(rva+5+pe.bytes.readInt32LE(p+1));viaThunk=!!target;}
         }
-        requireThat(!target || name === target || (typeof aliasPolicy === 'function' &&
-          aliasPolicy({name,target,rva,viaThunk,slot:slots.get(target),entry:entries[slots.get(target)]})),
-        'Public symbol alias at target: ' + name);
+        if (target && name !== target && !(typeof aliasPolicy === 'function' &&
+          aliasPolicy({name,target,rva,viaThunk,slot:slots.get(target),entry:entries[slots.get(target)]})))
+          reject(slots.get(target), 'Public symbol alias at target: ' + name);
       });
     }
-    return {entries, records, infoAge: info.readUInt32LE(8), dbiAge: dbi.readUInt32LE(8)};
+    if (partial) errors.forEach((error, slot) => { if (error) entries[slot] = null; });
+    return {entries, ...(partial ? {errors} : {}), records, infoAge: info.readUInt32LE(8), dbiAge: dbi.readUInt32LE(8)};
   }
 }
 function encodeMap(pe, entries) {

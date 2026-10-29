@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.7
+
+- Add rounded acrylic native menus and browser popups, with separate controls.
+- Add native blur behind address-bar suggestions while keeping typed text clear.
+- Report compatibility per feature and publish validated features when another feature is unsupported.
+- Own popup composition resources and restore suggestion-layer effects when the mod unloads.
+
 ## 3.6 — Alpha
 
 - Study twelve official Brave releases spanning Chromium 146–156. Validate the current native contract on seven releases from Brave 1.93.138 through 1.98.62; reject older builds with a different vertical-tab architecture. Accept compiler-folded callable helpers while retaining rejection of unrelated hook aliases and all native identity/boundary checks.
