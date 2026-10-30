@@ -89,12 +89,12 @@ test('partial discovery cannot hide malformed public records or unsupported symb
 });
 test('the compiled feature names and dependency groups match the producer contract',async()=>{
   const source=await fs.readFile(path.join(__dirname,'../brave-acrylic.wh.cpp'),'utf8');
-  const names=source.slice(source.indexOf('static constexpr const char* kFeatureSymbols[]'),source.indexOf('static bool ParseFeatureCache'));
-  assert.deepEqual([...names.matchAll(/"([^"\n]+)"/g)].map(m=>m[1]),cache.SYMBOLS);
   const resolve=source.slice(source.indexOf('static bool ResolveFeatureAddresses'),source.indexOf('// </feature-kernel>'));
+  const names=resolve.slice(resolve.indexOf('WindhawkUtils::SYMBOL_HOOK'),resolve.indexOf('static_assert'));
+  assert.deepEqual([...names.matchAll(/L"([^"\n]+)"/g)].map(m=>m[1]),cache.SYMBOLS);
   assert.match(resolve,/WindhawkUtils::HookSymbols/);
   assert.ok(resolve.indexOf('WindhawkUtils::HookSymbols(')<resolve.indexOf('ValidateFeatureAddresses('));
   assert.doesNotMatch(source,/namespace PipelineTrust|WinHttp|kWorkflowSha256|kWorkflowBlob/);
-  assert.match(resolve,/options.symbolServer=L""/);
+  assert.match(resolve,/options\.symbolServer\s*=\s*L""/);
   assert.doesNotMatch(source,/PopupProbe|OmniboxProbe|ProbeSymbols::|OmniboxSymbols::/);
 });

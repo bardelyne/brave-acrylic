@@ -1,5 +1,25 @@
 #define NOMINMAX
+#include <windows.h>
+#include <atomic>
+static std::atomic<unsigned> settingsReads{0},contrastReads{0};
+static std::atomic<bool> allowTransparency{true},highContrast{false};
+static std::atomic<DWORD> settingsReaderThread{0};
+static LSTATUS WINAPI TestRegGetValueW(HKEY,LPCWSTR,LPCWSTR,DWORD,LPDWORD,void* data,LPDWORD size) {
+    ++settingsReads;settingsReaderThread=GetCurrentThreadId();
+    if(!data||!size||*size<sizeof(DWORD))return ERROR_MORE_DATA;
+    *static_cast<DWORD*>(data)=allowTransparency?1:0;*size=sizeof(DWORD);return ERROR_SUCCESS;
+}
+static BOOL WINAPI TestSystemParametersInfoW(UINT action,UINT,PVOID data,UINT) {
+    if(action!=SPI_GETHIGHCONTRAST||!data)return FALSE;
+    ++contrastReads;settingsReaderThread=GetCurrentThreadId();
+    static_cast<HIGHCONTRASTW*>(data)->dwFlags=highContrast?HCF_HIGHCONTRASTON:0;return TRUE;
+}
+#define RegGetValueW TestRegGetValueW
+#define SystemParametersInfoW TestSystemParametersInfoW
 #include "../brave-acrylic.wh.cpp"
+#undef RegGetValueW
+#undef SystemParametersInfoW
+#include "cache-contract.h"
 #include <cstdio>
 #include <cstdlib>
 static unsigned checks=0;
@@ -61,6 +81,7 @@ int wmain(int argc,wchar_t** argv){
         FreeLibrary(module);printf("PASS: %u exact-build native checks; six features; no hooks installed\n",checks);RoUninitialize();return 0;
     }
     using namespace NativeUi;
+    RefreshTransparencyAllowed();
     ready=true;supported=63;enabled=Menus|Popups|Suggestions;
     for(unsigned alpha=0;alpha<256;++alpha){
         unsigned color=(alpha<<24)|0x345678;
@@ -104,8 +125,32 @@ int wmain(int argc,wchar_t** argv){
         Material::Update(hwnd,shape,Menus);
         const auto deadline=GetTickCount64()+5000;
         while(!Material::Applied(hwnd)&&GetTickCount64()<deadline){Pump();Sleep(10);}
-        if(!Material::Applied(hwnd))fprintf(stderr,"Material HRESULT: %08lx, stage %u\n",static_cast<unsigned long>(Material::error.load()),Material::stage.load());
         Check(Material::Applied(hwnd),"owned worker attaches clipped host backdrop on another window thread");
+        const HWND settingsWindow=FindWindowW(Material::kSettingsClass,L"");
+        Check(settingsWindow&&!IsWindowVisible(settingsWindow),"worker owns an invisible setting-broadcast listener");
+        HWND frameWindow=CreateWindowExW(0,cls.lpszClassName,L"Hidden main-frame test",WS_OVERLAPPEDWINDOW,
+            0,0,400,240,nullptr,nullptr,cls.hInstance,nullptr);
+        Check(frameWindow&&!PopupWindow(frameWindow),"main browser frames are not popup candidates");
+        const auto registryBefore=settingsReads.load(),contrastBefore=contrastReads.load();
+        testPopup=frameWindow;
+        for(unsigned i=0;i<1000;++i)Check(!Candidate(&view,Popups),"main-frame paints reject popup effects cheaply");
+        testPopup=hwnd;
+        for(unsigned i=0;i<1000;++i)Check(Candidate(&view,Popups)==hwnd,"popup paints use cached Windows preferences");
+        Check(settingsReads==registryBefore&&contrastReads==contrastBefore,"two thousand paint candidates perform no registry or SPI reads");
+        DestroyWindow(frameWindow);
+        const auto waitApplied=[&](bool expected){
+            const auto until=GetTickCount64()+5000;
+            while(Material::Applied(hwnd)!=expected&&GetTickCount64()<until){Pump();Sleep(10);}
+            Check(Material::Applied(hwnd)==expected,"Windows preference changes recheck existing materials");
+        };
+        allowTransparency=false;SendMessageW(settingsWindow,WM_SETTINGCHANGE,0,0);
+        Check(!UserAllowsTransparency()&&!Candidate(&view,Popups),"turning transparency off updates the cached paint decision");
+        Check(settingsReaderThread==Material::threadId&&settingsReaderThread!=GetCurrentThreadId(),"preference reads run on the worker, not the browser paint thread");
+        waitApplied(false);
+        allowTransparency=true;SendMessageW(settingsWindow,WM_SETTINGCHANGE,0,0);waitApplied(true);
+        highContrast=true;SendMessageW(settingsWindow,WM_SETTINGCHANGE,SPI_SETHIGHCONTRAST,0);
+        Check(!UserAllowsTransparency(),"high contrast also disables cached popup transparency");waitApplied(false);
+        highContrast=false;SendMessageW(settingsWindow,WM_THEMECHANGED,0,0);waitApplied(true);
         if(borderKnown){DWORD border=0;Check(SUCCEEDED(DwmGetWindowAttribute(hwnd,34,&border,sizeof(border)))&&border==0xfffffffeu,
             "owned popup material suppresses the Windows-drawn border where supported");}
         Check(GetWindowLongPtrW(hwnd,GWL_STYLE)==style&&GetWindowLongPtrW(hwnd,GWL_EXSTYLE)==extended,"popup input/window styles unchanged");
@@ -196,6 +241,7 @@ int wmain(int argc,wchar_t** argv){
         ready=false;fakeClass="FadeLabel";FadeBackgroundHook(&view,&canvas);
         Check(fadePaints==1,"disabled popup feature restores the native fade background");
         Material::Stop();
+        Check(!IsWindow(settingsWindow),"setting-broadcast listener is destroyed before unload");
         Check(!GetPropW(hwnd,Material::kProperty),"owned popup property removed before DLL unload");
         if(borderKnown){DWORD border=0;Check(SUCCEEDED(DwmGetWindowAttribute(hwnd,34,&border,sizeof(border)))&&border==previousBorder,
             "popup cleanup restores the actual previous Windows border color");}

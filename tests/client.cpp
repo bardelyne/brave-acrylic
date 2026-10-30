@@ -8,7 +8,13 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+static unsigned captionPropertyReads=0;
+static HANDLE WINAPI TestGetPropW(HWND window,LPCWSTR name);
+#define GetPropW TestGetPropW
 #include "../brave-acrylic.wh.cpp"
+#undef GetPropW
+#include "cache-contract.h"
+static HANDLE WINAPI TestGetPropW(HWND window,LPCWSTR name){++captionPropertyReads;return GetPropW(window,name);}
 
 static int checks=0,failures=0,hookCalls=0,lookupCalls=0;
 static bool engineSuccess=true,applySuccess=true,blockLookup=false,entered=false,released=false;
@@ -65,6 +71,7 @@ static void Reset() {
     NativeUi::Material::stopping=false;featureCache=true;
     s_useOnlineSymbolCache=true;s_captionStopping=false;s_captionHooksInstalled=false;
     s_captionFixActive=false;s_hideNativeCaptionButtons=false;
+    s_captionPropertyUsed=false;
     s_background.originalPaint=nullptr;s_background.clear=nullptr;s_background.getClass=nullptr;
     s_background.originalTransparent=nullptr;s_background.originalConstruct=nullptr;s_background.setBackground=nullptr;
     s_locationFocus=s_viewFocus=nullptr;s_originalTheme=s_originalReady=nullptr;
@@ -206,6 +213,12 @@ static void TestCaptionRestore() {
     HWND window=CreateWindowExW(0,wc.lpszClassName,L"Hidden caption fixture",WS_OVERLAPPEDWINDOW,
                               0,0,320,240,nullptr,nullptr,wc.hInstance,nullptr);
     Check(window!=nullptr,"create an owned hidden native frame fixture");
+    captionPropertyReads=0;
+    for(unsigned i=0;i<1000;++i){
+        Check(GetWindowLongPtrW_Hook(window,GWL_STYLE)&WS_SYSMENU,"disabled caption getter returns the actual style");
+        Check(SetWindowLongPtrW_Hook(window,GWL_STYLE,GetWindowLongPtrW(window,GWL_STYLE))!=0,"disabled caption setter forwards native style updates");
+    }
+    Check(captionPropertyReads==0,"default-off caption hooks perform no property lookups");
     s_isBrowserProcess=true;s_captionHooksInstalled=true;s_transparencyReady=true;
     SyncNativeCaptions();Check(GetWindowLongPtrW(window,GWL_STYLE)&WS_SYSMENU,"default-off option preserves actual system-menu style");
     s_hideNativeCaptionButtons=true;SyncNativeCaptions();

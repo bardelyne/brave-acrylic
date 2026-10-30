@@ -2,6 +2,8 @@
 
 ## 3.9 — Alpha
 
+- Cache Windows transparency/high-contrast preferences outside paint hooks and update existing popup effects from system notifications. Skip default-off caption property lookups, keep type-checked hooks, and move historical cache fixtures out of the shipped mod.
+
 - Use Chromium's native desktop suggestions popup with Windows backdrop blur, including the tested YouTube and Zen Internet transparency combination. Preserve sharp input/results, native navigation, rounded clipping, DPI changes and the original window region on cleanup.
 - Remove the custom workflow/artifact verification gate and its extra GitHub API requests. Keep Windhawk's standard named-symbol cache, optional downloads, local address checks and disabled remote PDB fallback.
 - Publish a smaller native contract with 29 functions and one background vtable. Remove the superseded Chromium blur/filter helpers while preserving independent feature availability.

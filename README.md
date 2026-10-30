@@ -4,7 +4,7 @@
 
 ![Brave Acrylic](https://raw.githubusercontent.com/bardelyne/brave-acrylic/main/assets/brave-acrylic-v3.3.png)
 
-Reveal the Windows backdrop through Brave's vertical tab area, frame, toolbar, address field, and webpage area. Add rounded acrylic menus and native popups, plus blur behind address-bar suggestions. Native background targeting replaces the old color list. Use a website-styling extension for backgrounds painted by websites.
+Reveal the Windows backdrop through Brave's vertical tab area, frame, toolbar, address field, and webpage area. Add rounded acrylic menus and native popups, plus blur behind address-bar suggestions. Native background targeting works across theme colors. Use a website-styling extension for backgrounds painted by websites.
 
 > **Alpha software.** **[Translucent Windows](https://windhawk.net/mods/translucent-windows) is required**, configured for `brave.exe`. Brave Acrylic exposes the background; Translucent Windows supplies the effect.
 
@@ -32,7 +32,7 @@ The earlier background-only native contract was validated on seven official rele
 3. Close all Brave windows normally and reopen Brave. Exit its background instance too if it stays running.
 4. Optionally use Zen Internet or Stylus to remove backgrounds inside websites, as explained below. Stylus requires custom CSS.
 
-No theme-color setup is required. Old saved color-list and website-code settings are ignored by this version.
+No theme-color setup is required.
 
 ## Controls
 
@@ -83,13 +83,13 @@ Tab and group hover cards, including their fading text and memory icons, keep th
 
 The native **Extensions** manager also clears its repeated scroll-container backgrounds so they cannot cover the blur. Extension names, icons, pin buttons, menus and the Manage extensions button keep their native painting and input. This does not alter HTML content inside an extension's own popup.
 
-Suggestions use Chromium's normal desktop-popup factory instead of its in-window Aura override. Windows supplies the blur behind that native results popup, which also works with the tested Zen Internet transparency setup. Chromium still owns its contents, layout, keyboard navigation and mouse input. Native view bounds and header height define a rounded window region below the address field; there is no input catcher or separate overlay. Resizing and DPI changes update the region, and cleanup restores the actual prior region on the owning UI thread. Restart Brave after applying this option so existing results widgets are rebuilt. These options do not turn website dialogs or extension HTML into acrylic. Windows high contrast and the transparency preference are respected.
+Suggestions use Chromium's normal desktop-popup factory instead of its in-window Aura override. Windows supplies the blur behind that native results popup, which also works with the tested Zen Internet transparency setup. Chromium still owns its contents, layout, keyboard navigation and mouse input. Native view bounds and header height define a rounded window region below the address field; there is no input catcher or separate overlay. Resizing and DPI changes update the region, and cleanup restores the actual prior region on the owning UI thread. Restart Brave after applying this option so existing results widgets are rebuilt. These options do not turn website dialogs or extension HTML into acrylic. Windows high contrast and transparency preferences are cached and updated from Windows notifications off Brave’s paint path.
 
 ## Symbol resolution, privacy and updates
 
 Brave Acrylic resolves exact C++ prototypes and the background-class identity with Windhawk's supported `HookSymbols` / `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` mechanism. Windhawk handles its ordinary local cache and optional online download. No build-specific addresses are embedded and remote PDB downloads remain disabled. The mod retains local executable-range, unwind-boundary, approved-leaf, thunk and overlap checks before registering hooks.
 
-Small named-symbol files are published under `brave-acrylic-features-v7/` on our [`symbol-cache` branch](https://github.com/bardelyne/brave-acrylic/tree/symbol-cache). They contain the native function locations needed for each Brave build. The service and publishing workflow are controlled and maintained by bardelyne. Older namespaces remain available for older mod versions.
+Small named-symbol files are published under `brave-acrylic-features-v7/` on our [`symbol-cache` branch](https://github.com/bardelyne/brave-acrylic/tree/symbol-cache). They contain the native function locations needed for each Brave build. The service and publishing workflow are controlled and maintained by bardelyne.
 
 Windhawk handles compatibility downloads and local caching through its standard mechanism. Our workflow uses pinned actions and checks the official Brave archive and matching symbols before publishing. See [cache hosting](https://github.com/bardelyne/brave-acrylic/blob/main/docs/trusted-pipeline.md) for the technical details.
 
@@ -101,7 +101,7 @@ The extractor handles verified compiler folding according to each function's rol
 
 ## Duplicate corner buttons
 
-If two sets of minimize/maximize/close buttons appear, first enable **Use compact mode** in Brave **Settings → Appearance**. The optional **Hide duplicate Windows buttons** workaround is off on a fresh install because it removes the window's actual `WS_SYSMENU` style. Windows system menus, taskbar interactions, accessibility tools or other window managers may be affected. Previously saved preferences are preserved. Disabling the option or unloading the mod restores its recorded style changes.
+If two sets of minimize/maximize/close buttons appear, first enable **Use compact mode** in Brave **Settings → Appearance**. The optional **Hide duplicate Windows buttons** workaround is off on a fresh install because it removes the window's actual `WS_SYSMENU` style. Windows system menus, taskbar interactions, accessibility tools or other window managers may be affected. Disabling the option or unloading the mod restores its recorded style changes.
 
 ## Troubleshooting
 

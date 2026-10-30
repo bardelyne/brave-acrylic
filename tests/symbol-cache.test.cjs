@@ -49,7 +49,7 @@ test('standard Windhawk fetching keeps local structural checks without a pipelin
   assert.equal([...code.matchAll(/CreateThread\(/g)].length,1);
   assert.match(code,/options\.symbolServer\s*=\s*L""/);
   assert.match(code,/options\.onlineCacheUrl\s*=\s*s_useOnlineSymbolCache/);
-  assert.match(code,/ValidateFeatureAddresses\(module,addresses,result\)/);
+  assert.match(code,/ValidateFeatureAddresses\(module,\s*addresses,\s*result\)/);
   assert.doesNotMatch(code,/kBuiltinMap|knownBuild|builtIn/);
   assert.match(source,/- hideNativeCaptionButtons: false/);
 });
