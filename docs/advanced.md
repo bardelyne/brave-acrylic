@@ -1,29 +1,25 @@
 # Advanced reference
 
-Brave Acrylic 3.7 is alpha software. Translucent Windows supplies the backdrop for the main browser window. Native menus and supported bubbles use their own clipped Windows host backdrop; suggestions use Chromium's existing layer filter.
+Brave Acrylic 3.9 is alpha software. Translucent Windows supplies the main window's backdrop. Native menus, bubbles and the desktop suggestions popup use a clipped Windows host backdrop in their own Chromium-owned popup windows.
 
-## Areas and controls
-
-Vertical tabs background, Toolbar and Webpage background independently control native browser backing. Focused address fields retain their theme. Some backing objects are created with their windows, so reopen Brave after changing the first two areas. Webpage backing applies on tab attachment; selecting a tab does not refresh its contents. Reopen Brave after disabling webpage backing to restore existing renderer defaults.
-
-Acrylic menus, Acrylic popups and Blur search suggestions are separate options. Apply menu changes by closing and reopening the menu. Website dialogs and extension HTML retain their own styling. Typed text, result text, icons, selection and native input remain Chromium's responsibility. High contrast and Windows' transparency preference are respected.
+**Restart Brave after installing, updating or applying settings.** Close every Brave window normally and exit any background instance before reopening it. Existing widgets and cached native brushes need rebuilding even when some changes appear immediately.
 
 ## Geometry and ownership
 
-Popup clipping comes from the actual Skia rounded background, scaled by its window DPI. A composition worker owns its own dispatcher and targets in the same popup HWND, behind Chromium. It changes no window styles, opacity, focus, mouse capture or hit tests, and creates no overlay window. Native background alpha is set on the first paint because Chromium retains display lists and later repaints only damaged rows.
+Menu and bubble clipping comes from their actual Skia rounded background, scaled by window DPI. The composition worker owns its own dispatcher and targets behind Chromium in the same popup HWND. It creates no overlay window or input catcher and leaves Chromium's focus, capture and controls native. Background alpha is set on the first paint because Chromium retains display lists.
 
-The worker closes targets and shuts down only its own queue before DLL unload. Where Windows cannot read the host-backdrop capability flag, cleanup removes the visual effect without guessing that flag's prior state.
+Suggestions leave Chromium's normal desktop-popup factory selected instead of its in-window Aura override. A validated solid-background vtable and construction callbacks identify their own backing. Native local/screen bounds and header height define the rounded results region below the real input field. The OS region routes address-field clicks directly to the existing field and follows result resizing and DPI changes. The actual prior region is restored on its owning UI thread; no private member offsets or screenshot rectangles are used.
 
-Suggestion construction captures exactly one solid background and rounded layer, using a validated immutable class vtable. The real HWND is discovered on first paint after Widget attachment. Native bounds and input-header height restrict blur below the input cutout. Normal repaints reuse the filter; resized results update it. Frame destruction removes registrations, and unload restores layer blur and removes window subclasses on their owning UI thread.
+The worker closes its targets and shuts down only its own queue before DLL unload. Where Windows cannot read a host-backdrop capability flag, cleanup removes the effect without guessing its previous flag value. High contrast and Windows' transparency preference are respected. Website dialogs and extension HTML retain their own styling.
 
 ## Compatibility and privacy
 
-The six feature groups are validated independently. Missing or changed native functions leave dependent features native; they do not disable unrelated working features. All addresses still require the approved GitHub pipeline proof and independent local range, unwind, leaf and overlap checks. No downloaded native code or multi-GB PDB is loaded by users. See [compatibility](compatibility.md) and [trusted pipeline](trusted-pipeline.md).
+The six feature groups are independent. Missing native dependencies leave their features native while working features remain available. Windhawk performs ordinary symbol-cache fetching and local caching; the mod retains local range, unwind-entry, helper-leaf, thunk and overlap checks. It does not query workflow/artifact APIs or independently authenticate the author-controlled cache. See [compatibility](compatibility.md) and [hosting and trust](trusted-pipeline.md).
 
-Online requests are download-only GETs to GitHub. GitHub sees the requester IP and requested exact-build URLs. No history, website content, accounts, settings, analytics or tokens are uploaded. Offline mode requires data previously verified under the same approved workflow. There is no periodic downloader or networking worker; the composition worker is only for local graphics.
+The mod downloads compatibility data only. It uploads no browsing content, credentials, settings or telemetry and requests no user login/token. GitHub sees the public IP and requested build URL. Turn off Use online symbol cache and restart for local-cache-only operation; suitable cached symbols must already exist. Remote PDB downloads and custom retry/polling workers are disabled.
 
 ## Website backgrounds
 
-The webpage option removes Chromium's backing and white fallback, without editing website HTML/CSS. Use Zen Internet with Disable Transparency off, or write site-scoped CSS in Stylus, for backgrounds painted by sites. Complex sites need specific styling.
+Webpage background removes Chromium's backing and white fallback without editing HTML/CSS. Use Zen Internet with Disable Transparency off, or write site-scoped Stylus rules, for website backgrounds. The native-popup suggestion method was tested with YouTube and Zen Internet enabled.
 
-The optional native-caption workaround retains the earlier default-off behavior and may affect system menus and window tools. Existing preferences are preserved. See the main README for setup and limitations.
+The optional caption-button workaround remains off by default and may affect Windows system menus or other window tools. Existing preferences are preserved.

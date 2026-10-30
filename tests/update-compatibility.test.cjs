@@ -31,7 +31,6 @@ async function recordFor(official = release()) {
   const parsed=validateMap(map);
   return {map, record:{...await contractMetadata(), tag, assets, key:pe.identity.key,
     modSourceSha256:hash(SOURCE), sha256:hash(map), machine:pe.machine, timestamp:pe.timestamp,
-    pipelineProof:{schema:1,artifactId:123,artifactName:`pdb_${pe.identity.key}.txt`,runId:456,sha256:hash(map)},
     imageSize:pe.imageSize, records:SYMBOLS.length, infoAge:2, dbiAge:1,
     features:parsed.features,
     functions:SYMBOLS.flatMap((name,i) => parsed.entries[i]?[{name,rva:parsed.entries[i].rva}]:[]),
@@ -67,10 +66,9 @@ test('prepare checks latest stable metadata repeatedly without another heavy bui
   }
   assert.equal(heavyBuilds,1); assert.equal(BRANCH,'symbol-cache');
 });
-test('unproven legacy cache is regenerated instead of being trusted by the new pipeline', async t => {
-  const {record} = await recordFor();
-  delete record.pipelineProof;
-  assert.equal((await planned(t,{record})).plan.needed,true);
+test('matching records need no separate workflow proof', async t => {
+  const {record}=await recordFor();assert.equal(record.pipelineProof,undefined);
+  assert.equal((await planned(t,{record})).plan.needed,false);
 });
 test('new stable tag or replaced archive/checksum metadata requires generation', async t => {
   const original = (await recordFor()).record;

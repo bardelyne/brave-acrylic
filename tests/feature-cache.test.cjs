@@ -18,7 +18,7 @@ test('all 64 feature combinations round-trip without exposing orphan addresses',
     for(const i of cache.completeSlots(entries))assert.equal(parsed.entries[i].rva,all[i].rva);
   }
 });
-test('losing each one of the 31 targets disables only its dependent features',()=>{
+test('losing each native target disables only its dependent features',()=>{
   for(let slot=0;slot<all.length;++slot){
     const entries=all.map((e,i)=>i===slot?null:e);
     const parsed=cache.validateMap(cache.encodeCache(fake,entries));
@@ -33,16 +33,16 @@ test('missing optional entries use Windhawk empty values; bad names, zeros, alia
     const fields=bytes.toString().split('#');mutate(fields);
     assert.throws(()=>cache.validateMap(Buffer.from(fields.join('#'))));
   }
-  const empty=cache.validateMap(cache.encodeCache(fake,Array(31).fill(null)));
+  const empty=cache.validateMap(cache.encodeCache(fake,Array(cache.SYMBOLS.length).fill(null)));
   assert.ok(Object.values(empty.features).every(f=>!f.available));
   assert.ok(empty.entries.every(e=>e===null));
 });
 test('exact helper leaves preserve every opcode while allowing native member displacements',()=>{
-  const patterns=[['f30f1189b0000000e9a3b364f4',22,13],['4889d048c70200000000488b89d001000048894a08c3',23,22]];
+  const patterns=[['4889d048c70200000000488b89d001000048894a08c3',22,22]];
   for(const [hex,slot,length]of patterns){
     const bytes=Buffer.from(hex,'hex');assert.equal(cache.helperLeaf(bytes,slot),length);
     for(let i=0;i<length;++i){
-      const variable=slot===22?((i>=4&&i<8)||(i>=9&&i<13)):(i>=13&&i<17);
+      const variable=(i>=13&&i<17);
       const copy=Buffer.from(bytes);copy[i]^=1;
       assert.equal(cache.helperLeaf(copy,slot),variable?length:0,`${slot}:${i}`);
     }
@@ -92,8 +92,9 @@ test('the compiled feature names and dependency groups match the producer contra
   const names=source.slice(source.indexOf('static constexpr const char* kFeatureSymbols[]'),source.indexOf('static bool ParseFeatureCache'));
   assert.deepEqual([...names.matchAll(/"([^"\n]+)"/g)].map(m=>m[1]),cache.SYMBOLS);
   const resolve=source.slice(source.indexOf('static bool ResolveFeatureAddresses'),source.indexOf('// </feature-kernel>'));
-  assert.ok(resolve.indexOf('PipelineTrust::Load(')<resolve.indexOf('WindhawkUtils::HookSymbols('));
-  assert.match(resolve,/trusted\[i\].*addresses\[i\].*base\+trusted\[i\]/);
+  assert.match(resolve,/WindhawkUtils::HookSymbols/);
+  assert.ok(resolve.indexOf('WindhawkUtils::HookSymbols(')<resolve.indexOf('ValidateFeatureAddresses('));
+  assert.doesNotMatch(source,/namespace PipelineTrust|WinHttp|kWorkflowSha256|kWorkflowBlob/);
   assert.match(resolve,/options.symbolServer=L""/);
   assert.doesNotMatch(source,/PopupProbe|OmniboxProbe|ProbeSymbols::|OmniboxSymbols::/);
 });

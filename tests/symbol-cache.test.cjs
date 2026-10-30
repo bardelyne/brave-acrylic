@@ -42,34 +42,20 @@ test('the producer actually resolves a matching PDB and emits a standard text ca
   await fs.writeFile(pdb,fixturePdbV6(pe,[{name:'DifferentAliasedName',within:RVAS[0]-0x1000}]));
   await assert.rejects(()=>generate(dll,pdb,out),/alias/i);
 });
-test('client, trusted parser and producer agree on names; all Windhawk targets are gated before use', async () => {
+test('standard Windhawk fetching keeps local structural checks without a pipeline API gate', async () => {
   const source=await fs.readFile(path.join(__dirname,'../brave-acrylic.wh.cpp'),'utf8');
-  const lookups=source.slice(source.indexOf('WindhawkUtils::SYMBOL_HOOK chromeHooks[]'),source.indexOf('static_assert(ARRAYSIZE(chromeHooks)'));
-  assert.deepEqual([...lookups.matchAll(/\{\{L"([^"]+)"\}/g)].map(m=>m[1]),SYMBOLS);
   const code=source.slice(source.indexOf('#include <windhawk_api.h>'));
-  const trusted=code.slice(code.indexOf('static constexpr const char* kSymbols[]'),code.indexOf('static_assert(ARRAYSIZE(kSymbols)'));
-  assert.deepEqual([...trusted.matchAll(/"([^"]+)"/g)].map(m=>m[1]),SYMBOLS);
-  assert.doesNotMatch(code,/Wh_GetUrlContent|CompatibilityWorker|compatibilityMapV6/);
-  assert.equal([...code.matchAll(/CreateThread\(/g)].length,1); // Owned popup compositor, never networking/polling.
-  assert.ok(code.indexOf('PipelineTrust::Load(identity')<code.indexOf('WindhawkUtils::HookSymbols(module'));
-  assert.match(code,/addresses\[i\]\) != base \+ trusted\[i\]/);
-  assert.match(code,/options\.symbolServer = L""/);
-  assert.doesNotMatch(code,/noUndecoratedSymbols/);
-  assert.doesNotMatch(code,/kBuiltinMap|knownBuild|builtIn/);
+  assert.doesNotMatch(code,/PipelineTrust|WinHttp|kWorkflowBlob|kWorkflowSha256|api.github.com|proof.json/);
+  assert.equal([...code.matchAll(/CreateThread\(/g)].length,1);
+  assert.match(code,/options\.symbolServer\s*=\s*L""/);
   assert.match(code,/options\.onlineCacheUrl\s*=\s*s_useOnlineSymbolCache/);
+  assert.match(code,/ValidateFeatureAddresses\(module,addresses,result\)/);
+  assert.doesNotMatch(code,/kBuiltinMap|knownBuild|builtIn/);
   assert.match(source,/- hideNativeCaptionButtons: false/);
 });
-test('compiled workflow approval matches canonical repository bytes and fixed source/action pins',async()=>{
-  const crypto=require('node:crypto');
-  const yaml=Buffer.from((await fs.readFile(path.join(__dirname,'../.github/workflows/compatibility.yml'),'utf8')).replaceAll('\r\n','\n'));
-  const source=await fs.readFile(path.join(__dirname,'../brave-acrylic.wh.cpp'),'utf8');
-  const blob=crypto.createHash('sha1').update('blob '+yaml.length+'\0').update(yaml).digest('hex');
-  const sha=crypto.createHash('sha256').update(yaml).digest('hex');
-  const flat=source.replace(/\s+/g,' ');
-  assert.ok(flat.includes(`kWorkflowBlob[] = L"${blob}"`));
-  assert.ok(flat.includes(`kWorkflowSha256[] = L"${sha}"`));
-  const pins=[...yaml.toString().matchAll(/ref: ([a-f0-9]{40})/g)].map(m=>m[1]);
-  assert.equal(pins.length,2);assert.equal(pins[0],pins[1]);
-  assert.ok(!yaml.toString().includes('ref: ${{ github.sha }}'));
-  assert.equal([...yaml.toString().matchAll(/uses: [^\s]+@[a-f0-9]{40}/g)].length,6);
+test('workflow uses the same source revision in both jobs and pinned actions',async()=>{
+  const yaml=(await fs.readFile(path.join(__dirname,'../.github/workflows/compatibility.yml'),'utf8')).replaceAll('\r\n','\n');
+  assert.equal([...yaml.matchAll(/ref: \$\{\{ github.sha \}\}/g)].length,2);
+  assert.equal([...yaml.matchAll(/uses: [^\s]+@[a-f0-9]{40}/g)].length,5);
+  assert.doesNotMatch(yaml,/TRUSTED_ARTIFACT_ID|steps.trusted|archive: false/);
 });

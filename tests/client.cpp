@@ -16,8 +16,8 @@ static int badSlot=-1,failHook=-1;
 static std::mutex mutex;
 static std::condition_variable condition;
 static HMODULE fakeModule=nullptr,mockModule=nullptr;
-static CompatibilityMap fixture{},mockMap{},trustedMap{};
-static bool haveVerifiedCache=true,featureCache=true;
+static CompatibilityMap fixture{},mockMap{};
+static bool featureCache=true;
 static void Check(bool ok,const char* label) {
     ++checks;
     if(!ok){++failures;printf("FAIL: %s\n",label);}
@@ -26,17 +26,7 @@ void TestLog(PCWSTR, ...) {}
 PCWSTR Wh_GetStringSetting(PCWSTR, ...) {return L"";}
 void Wh_FreeStringSetting(PCWSTR) {}
 int Wh_GetIntSetting(PCWSTR) {return 0;}
-size_t Wh_GetBinaryValue(PCWSTR name,void* out,size_t maximum) {
-    if(!haveVerifiedCache)return 0;
-    BuildIdentity id{};if(!GetBuildIdentity(mockModule,&id))return 0;
-    Check(PipelineTrust::StorageKey(id)==name,"verified storage is bound to approved workflow and exact PDB identity");
-    std::string text="1#chrome.dll#x86-64_"+std::to_string(id.timestamp)+"_"+std::to_string(id.imageSize);
-    for(unsigned i=0;i<kFunctionSlots;++i)text+="#"+std::string(PipelineTrust::kSymbols[i])+"#"+std::to_string(trustedMap.functions[i].rva);
-    if(featureCache)for(unsigned i=13;i<kFeatureSlots;++i)text+="#"+std::string(PipelineTrust::kFeatureSymbols[i])+"#";
-    const auto digest=PipelineTrust::Digest(text);
-    std::vector<unsigned char> data(digest.begin(),digest.end());data.insert(data.end(),text.begin(),text.end());
-    if(maximum<data.size())return 0;memcpy(out,data.data(),data.size());return data.size();
-}
+size_t Wh_GetBinaryValue(PCWSTR,void*,size_t){return 0;}
 BOOL Wh_SetBinaryValue(PCWSTR,const void*,size_t) {Check(false,"unit fixtures never fetch or save remote data");return FALSE;}
 BOOL Wh_SetFunctionHook(void* target,void*,void** original) {
     const int index=hookCalls++;
@@ -48,7 +38,7 @@ BOOL Wh_ApplyHookOperations() {return applySuccess;}
 bool WindhawkUtils::HookSymbols(HMODULE module,const SYMBOL_HOOK* hooks,size_t count,
                                const WH_HOOK_SYMBOLS_OPTIONS* options) {
     ++lookupCalls;
-    Check(module==mockModule&&count==13,"resolve all required symbols for the loaded DLL");
+    Check(module==mockModule&&count==(featureCache?kFeatureSlots:kFunctionSlots),"resolve all required symbols for the loaded DLL");
     Check(options&&options->optionsSize==sizeof(*options)&&options->symbolServer&&
           !*options->symbolServer&&!options->noUndecoratedSymbols,"never download remote PDBs; standard C++ prototypes");
     Check(options->onlineCacheUrl&&!wcscmp(options->onlineCacheUrl,
@@ -58,7 +48,7 @@ bool WindhawkUtils::HookSymbols(HMODULE module,const SYMBOL_HOOK* hooks,size_t c
     for(unsigned i=0;i<count;++i){
         Check(hooks[i].symbols.size()==1&&hooks[i].optional==featureCache&&!hooks[i].hookFunction,
               "lookups cannot install hooks and only approved present feature slots are requested");
-        *hooks[i].originalFunction=int(i)==badSlot?nullptr:
+        *hooks[i].originalFunction=int(i)==badSlot||i>=kFunctionSlots?nullptr:
             reinterpret_cast<unsigned char*>(module)+mockMap.functions[i].rva;
     }
     return engineSuccess;
@@ -79,7 +69,7 @@ static void Reset() {
     s_background.originalTransparent=nullptr;s_background.originalConstruct=nullptr;s_background.setBackground=nullptr;
     s_locationFocus=s_viewFocus=nullptr;s_originalTheme=s_originalReady=nullptr;
     s_originalLayerColor=nullptr;s_setPageBase=nullptr;s_originalAttachContents=nullptr;
-    mockModule=fakeModule;mockMap=trustedMap=fixture;haveVerifiedCache=true;PipelineTrust::stopping=false;
+    mockModule=fakeModule;mockMap=fixture;
 }
 static void TestValidation() {
     BuildIdentity identity{};Check(GetBuildIdentity(fakeModule,&identity),"read bounded CodeView identity");
@@ -155,15 +145,15 @@ static void TestSymbols() {
     Check(ResolveSymbolAddresses(fakeModule,output)&&output[8]==0x1300,
           "named symbol entry resolves to the validated live body");
     for(int slot=0;slot<13;++slot){
-        Reset();badSlot=slot;std::fill(std::begin(output),std::end(output),0xdeadbeef);
-        Check(!ResolveNativeBackground(fakeModule)&&hookCalls==0,
-              "every incomplete native group leaves all hooks unregistered");
+        Reset();featureCache=false;badSlot=slot;std::fill(std::begin(output),std::end(output),0xdeadbeef);
+        Check(!ResolveSymbolAddresses(fakeModule,output)&&hookCalls==0,
+              "a missing required legacy symbol leaves all hooks unregistered");
         Check(!s_transparencyReady&&!HasCompleteTransparencyPath(),"incomplete lookup publishes no callable helpers");
     }
-    Reset();haveVerifiedCache=false;s_useOnlineSymbolCache=false;
-    Check(!ResolveNativeBackground(fakeModule)&&lookupCalls==0&&hookCalls==0,"offline Windhawk cache alone cannot bypass missing pipeline proof");
+    Reset();s_useOnlineSymbolCache=false;
+    Check(ResolveNativeBackground(fakeModule)&&lookupCalls==1&&hookCalls==7,"ordinary offline Windhawk cache needs no workflow proof");
     Reset();mockMap.functions[0].rva=fixture.functions[1].rva;
-    Check(!ResolveNativeBackground(fakeModule)&&hookCalls==0,"a valid function boundary with the wrong approved name is rejected before hooks");
+    Check(!ResolveNativeBackground(fakeModule)&&hookCalls==0,"duplicate native function entries are rejected before hooks");
     Reset();engineSuccess=false;
     Check(!ResolveNativeBackground(fakeModule)&&hookCalls==0,"even thirteen outputs cannot override a failed engine lookup");
     for(bool online:{false,true}){
@@ -245,7 +235,7 @@ int wmain(int argc,wchar_t** argv) {
         if(actual&&bytes.size()==sizeof(real)) {
             memcpy(&real,bytes.data(),sizeof(real));Check(ValidateCompatibilityMap(actual,real,rva),"validate official PDB-derived data against the loaded real DLL");
             Reset();
-            mockModule=actual;mockMap=trustedMap=real;
+            mockModule=actual;mockMap=real;
             featureCache=false;
             Check(ResolveSymbolAddresses(actual,rva),"real named-entry validation, including the live E9 thunk");
             featureCache=true;

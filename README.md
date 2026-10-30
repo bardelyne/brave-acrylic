@@ -1,12 +1,14 @@
 # Brave Acrylic
 
+> **Very important — Symbol cache:** Controlled and maintained by **bardelyne**, the author of Brave Acrylic. This is an author-hosted cache, not an official Windhawk service. Our GitHub Actions workflow checks for new Brave releases and prepares small compatibility files from Brave’s official symbols. Windhawk downloads the matching file for your installed Brave build and caches it locally. The large symbol files are processed by the workflow; your PC receives only the small compatibility data.
+
 ![Brave Acrylic](https://raw.githubusercontent.com/bardelyne/brave-acrylic/main/assets/brave-acrylic-v3.3.png)
 
 Reveal the Windows backdrop through Brave's vertical tab area, frame, toolbar, address field, and webpage area. Add rounded acrylic menus and native popups, plus blur behind address-bar suggestions. Native background targeting replaces the old color list. Use a website-styling extension for backgrounds painted by websites.
 
 > **Alpha software.** **[Translucent Windows](https://windhawk.net/mods/translucent-windows) is required**, configured for `brave.exe`. Brave Acrylic exposes the background; Translucent Windows supplies the effect.
 
-An experimental [standalone prototype](standalone/README.md) is also being developed in this repository. It uses a separate test profile, supplies its own Windows backdrop, and has no Windhawk runtime dependency. It is not a replacement release for the mod.
+**Restart Brave after applying the mod, updating it, or changing its settings.** Close all Brave windows normally and exit any remaining background Brave instance, then reopen it. This rebuilds native windows and their cached backgrounds.
 
 ## Requirements
 
@@ -19,9 +21,9 @@ An experimental [standalone prototype](standalone/README.md) is also being devel
 
 Windows 11 is the tested environment. Windows 10 is unverified; the backdrop provider and selected effect must support that Windows version. Native ARM64 Brave is unsupported.
 
-The combined menu/suggestion build is tested with Brave 1.98.60; all native targets also validate on Brave 1.98.62 / Chromium 156. Other builds need valid compatibility data for their exact `chrome.dll`. Native interfaces and rendering behavior can change and may require a mod update.
+The native-popup suggestion method was tested with Brave 1.98.60 and with regular Brave 1.98.62 / Chromium 156, including YouTube with Zen Internet transparency enabled. The current native contract is validated separately against those two official DLL/PDB pairs. Other builds need valid compatibility data for their exact `chrome.dll`. Native interfaces and rendering behavior can change and may require a mod update.
 
-The earlier background-only native contract was validated on seven official releases from Brave 1.93.138 through 1.98.62 (Chromium 151–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](docs/compiler-resilience.md).
+The earlier background-only native contract was validated on seven official releases from Brave 1.93.138 through 1.98.62 (Chromium 151–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compiler-resilience.md).
 
 ## Fast setup
 
@@ -40,12 +42,12 @@ No theme-color setup is required. Old saved color-list and website-code settings
 | **Toolbar** | On | Clear the toolbar, bookmarks bar, and unfocused address-field backgrounds. Focused address fields keep their native theme. |
 | **Webpage background** | On | Clear only Chromium's background behind the webpage area, including its default white fallback. Website HTML, CSS, and content are unchanged. Use Zen Internet or Stylus for website backgrounds; Stylus requires custom CSS. |
 | **Acrylic menus** | On | Blur native context menus, the main menu, and submenus. Text, icons, selection, and input stay native. |
-| **Acrylic popups** | On | Blur supported native browser bubbles. Extension and website HTML overlays keep their own styling. |
-| **Blur search suggestions** | On | Blur the address-bar results below the input cutout, keeping typed text and result text sharp. |
+| **Acrylic popups** | On | Blur supported native browser bubbles and the native Extensions manager. Extension and website HTML overlays keep their own styling. |
+| **Blur search suggestions** | On | Use a native results popup with Windows blur below the input cutout. Typed text, result text and input remain native and sharp. |
 | **Hide duplicate Windows buttons** | Off | Optional workaround that removes the real Windows system-menu style. It can affect Alt+Space, taskbar menus and other window tools. Prefer Brave's **Use compact mode** option in Appearance. |
-| **Use verified online symbol cache** | On | Download and verify exact-build data against the approved GitHub pipeline before accepting any Windhawk symbol addresses. Turn off for previously verified builds only. |
+| **Use online symbol cache** | On | Let Windhawk download small exact-build files from the author-controlled cache. Turn off to use existing local cached symbols only, then restart Brave. |
 
-Some backing views and compositor properties are created with the window, so changing Vertical tabs background or Toolbar may require reopening Brave. Enabling Webpage background applies when a tab is selected, without refreshing the page. Reopening Brave after disabling it restores existing renderer defaults. The caption-button option applies immediately.
+Restart Brave after applying settings, even when a change appears immediately. Some backing views and native popup choices are created with their windows. Webpage backing can apply on tab selection without refreshing the page; restarting after disabling it restores existing renderer defaults. The caption-button option can apply immediately.
 
 ## Website backgrounds with extensions
 
@@ -71,7 +73,7 @@ Brave's existing transparent-host path enables its compositor to preserve transp
 
 The webpage option clears the native backing during content-view updates and sets Chromium's persistent page-base color when a tab is attached. That value is also used by future renderers, so switching or restoring tabs does not bring the default white background back. Explicit website backgrounds remain visible unless a website-styling extension changes them.
 
-The full native path uses **30 functions**, of which **20 are private hooks**, and one immutable background-class vtable. Each feature has its own dependency set; unavailable features keep their native appearance. The implementation uses no sampled colors, private object-member offsets, guessed screen rectangles, screenshot polling, extra backing windows, or GPU hooks. Normal DirectComposition stays enabled, with no special browser launch flag. Windows supplies one backdrop. Acrylic can turn gray when inactive; choose a suitable blur mode in Translucent Windows if you prefer a persistent effect.
+The full native path uses **29 functions**, of which **20 are private hooks**, and one immutable background-class vtable. Each feature has its own dependency set; unavailable features keep their native appearance. The implementation uses no sampled colors, private object-member offsets, guessed screen rectangles, screenshot polling, input forwarding, or GPU hooks. Normal DirectComposition stays enabled, with no special browser launch flag. Windows supplies the backdrop. Acrylic can turn gray when inactive; choose a suitable blur mode in Translucent Windows for the main window if you prefer a persistent effect.
 
 ## Menus, popups and suggestions
 
@@ -79,23 +81,21 @@ Native menus and bubbles keep their own theme colors with reduced background alp
 
 Tab and group hover cards, including their fading text and memory icons, keep their foreground painting. Their separate client and footer backgrounds are removed, while a tint derived from Brave’s own background color sits beneath Chromium’s content. This keeps the tint consistent during transitions and avoids black fade masks. The same native-popup path covers dialogs such as **Restore pages?**. Windows-drawn popup borders are suppressed where supported and their previous value is restored on unload.
 
-Suggestions use Chromium's existing rounded compositor layer. Blur is restricted to results below the native input cutout, so typed text stays sharp. Native layer changes are restored on their owning UI thread when the mod unloads. These options affect native browser surfaces; they do not turn website dialogs or extension HTML into acrylic. Windows high contrast and the transparency preference are respected.
+The native **Extensions** manager also clears its repeated scroll-container backgrounds so they cannot cover the blur. Extension names, icons, pin buttons, menus and the Manage extensions button keep their native painting and input. This does not alter HTML content inside an extension's own popup.
+
+Suggestions use Chromium's normal desktop-popup factory instead of its in-window Aura override. Windows supplies the blur behind that native results popup, which also works with the tested Zen Internet transparency setup. Chromium still owns its contents, layout, keyboard navigation and mouse input. Native view bounds and header height define a rounded window region below the address field; there is no input catcher or separate overlay. Resizing and DPI changes update the region, and cleanup restores the actual prior region on the owning UI thread. Restart Brave after applying this option so existing results widgets are rebuilt. These options do not turn website dialogs or extension HTML into acrylic. Windows high contrast and the transparency preference are respected.
 
 ## Symbol resolution, privacy and updates
 
-Brave Acrylic resolves the exact C++ prototypes and background-class identity with Windhawk's supported `HookSymbols` / `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` mechanism. Before accepting any returned address, the mod requires compatibility data authenticated against its approved generation pipeline. No build-specific addresses are embedded and remote PDB downloads remain disabled.
+Brave Acrylic resolves exact C++ prototypes and the background-class identity with Windhawk's supported `HookSymbols` / `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` mechanism. Windhawk handles its ordinary local cache and optional online download. No build-specific addresses are embedded and remote PDB downloads remain disabled. The mod retains local executable-range, unwind-boundary, approved-leaf, thunk and overlap checks before registering hooks.
 
-The small feature cache and proof locator are published under `brave-acrylic-features-v4/` on this repository's [`symbol-cache` branch](https://github.com/bardelyne/brave-acrylic/tree/symbol-cache). Older compatibility namespaces remain intact for existing mod versions. Branch contents alone are not trusted. On first use of a build, the mod checks GitHub's HTTPS API for the immutable artifact's SHA256, exact PDB identity, original repository, successful run and GitHub-hosted job attempts. It fetches the workflow at that run's immutable commit and checks its complete bytes against a SHA256 compiled into the mod. The approved workflow checks out fixed extractor and action revisions. Every Windhawk-resolved address must then match the verified named entry and pass local executable-boundary, leaf, thunk and overlap checks.
+Small named-symbol files are published under `brave-acrylic-features-v7/` on our [`symbol-cache` branch](https://github.com/bardelyne/brave-acrylic/tree/symbol-cache). They contain the native function locations needed for each Brave build. The service and publishing workflow are controlled and maintained by bardelyne. Older namespaces remain available for older mod versions.
 
-**Cache ownership:** this service is operated by bardelyne, the mod's author. It is not an official Windhawk cache. The approved workflow and its dependencies remain part of the trust boundary.
+Windhawk handles compatibility downloads and local caching through its standard mechanism. Our workflow uses pinned actions and checks the official Brave archive and matching symbols before publishing. See [cache hosting](https://github.com/bardelyne/brave-acrylic/blob/main/docs/trusted-pipeline.md) for the technical details.
 
-Editing the cache branch, replacing the locator, changing the workflow, or changing tools on main cannot silently authorize different functions. A pipeline change requires a reviewed mod update approving the new policy. This trusts GitHub's API/TLS and hosted infrastructure plus the approved extractor and official Brave inputs; it is not a proof that a native ABI can never change. The data is author-hosted, not the official Windhawk cache, and maintainer acceptance remains a separate decision. See the [trust design](https://github.com/bardelyne/brave-acrylic/blob/main/docs/trusted-pipeline.md).
+**No telemetry, uploads or login:** the mod only downloads compatibility data through Windhawk. Browser cookies, history, page content, settings and account details stay on your PC. Turn **Use online symbol cache** off and restart Brave to use suitable existing local cached symbols only.
 
-Successfully verified data is retained in Windhawk's per-mod storage, scoped to the exact PDB identity and approved workflow. Warm launches reuse it offline. Old Windhawk entries without this proof cannot bypass the gate. If proof, rate limits, networking or function validation prevent a first-time verification, transparency stays off rather than using unverified addresses. There is no polling or retry thread in the mod.
-
-**No telemetry, uploads or login:** requests are download-only GETs to GitHub. No token, browser cookies, history, page content, settings, account details or analytics are sent. GitHub necessarily sees the requester's IP and requested URLs, including the build identity. Turn **Use verified online symbol cache** off and re-enable the mod for offline-only operation; a build must have been verified previously. Initial verification adds several small API requests at startup and can be affected by GitHub's anonymous rate limits. Existing requests cannot be withdrawn by changing the setting.
-
-The workflow requests a check **every two hours, with a backup 30 minutes later**. GitHub can delay or drop scheduled starts, so this is not an exact timer. Unchanged releases skip all browser and PDB downloads. Large official files stay on the GitHub runner. The raw exact-PDB artifact is retained for 90 days; local verified entries continue working if upstream metadata later becomes unavailable. Re-enable the mod or reopen Brave normally after new data becomes available.
+The workflow requests a check **every two hours, with a backup 30 minutes later**. GitHub can delay or drop scheduled starts, so this is not an exact timer. It checks the stable release, asset identities and native contract before downloading large files. Unchanged releases skip browser and PDB downloads. Both generation and publication use the run's same source revision; large official files stay on the GitHub runner. Restart Brave after newly required compatibility data becomes available.
 
 The extractor handles verified compiler folding according to each function's role, while rejecting unrelated sharing on patched functions. The workflow reports compatibility separately for vertical tabs, the toolbar, webpage backing, menus, popups, and suggestions. A missing or changed function disables only its dependent features. Validated features are still published, and the workflow summary lists unavailable features with their reasons. Invalid files, mismatched symbols, failed downloads, and publishing errors still stop publication.
 
@@ -105,6 +105,6 @@ If two sets of minimize/maximize/close buttons appear, first enable **Use compac
 
 ## Troubleshooting
 
-Reopen Brave normally after installation or native-area changes. Enable Windhawk debug logging to check the availability messages for each native feature or a Windhawk symbol-cache message. For website styling, check Zen Internet's transparency setting and whether that site has a supported style, or check the CSS and site scope of your Stylus style.
+Restart Brave after installing or applying changes: close all windows and its background instance, then reopen normally. Enable Windhawk debug logging to check each feature's availability or a symbol-cache message. For website styling, check Zen Internet's transparency setting and whether that site has a supported style, or check the CSS and site scope of your Stylus style.
 
-For reports, include Windows/Brave versions, window type, enabled areas, backdrop configuration, and reproduction steps. See the [advanced reference](docs/advanced.md), [compatibility data](docs/compatibility.md), [webview investigation](docs/webview-background.md), and [changelog](CHANGELOG.md).
+For reports, include Windows/Brave versions, window type, enabled areas, backdrop configuration, and reproduction steps. See the [advanced reference](https://github.com/bardelyne/brave-acrylic/blob/main/docs/advanced.md), [compatibility data](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compatibility.md), [webview investigation](https://github.com/bardelyne/brave-acrylic/blob/main/docs/webview-background.md), and [changelog](https://github.com/bardelyne/brave-acrylic/blob/main/CHANGELOG.md).

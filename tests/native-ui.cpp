@@ -14,19 +14,19 @@ BOOL Wh_SetFunctionHook(void*,void*,void**){return FALSE;}
 BOOL Wh_ApplyHookOperations(){return FALSE;}
 bool WindhawkUtils::HookSymbols(HMODULE,const SYMBOL_HOOK*,size_t,const WH_HOOK_SYMBOLS_OPTIONS*){return false;}
 static NativeUi::Omnibox::Rect rect{0,0,600,350};
-static int header=52,blurCalls=0,clipCalls=0;
-static float blur=0;
-static NativeUi::Omnibox::Rect appliedClip{};
+static int header=52;
 static HWND testPopup=nullptr;
+static const void* mockFrame=nullptr;
+static int hostShift=16;
 static unsigned initialMenuColor=0;
 static HWND PopupForView(const void*){return testPopup;}
 static unsigned NativeColorValue(const void*,int){return 0xff345678;}
 static void InitialMenuPaint(void*,void*){initialMenuColor=NativeUi::ColorHook(nullptr,0);}
-static NativeUi::Omnibox::Rect* Bounds(const void*,NativeUi::Omnibox::Rect* result){*result=rect;return result;}
+static NativeUi::Omnibox::Rect* Bounds(const void* view,NativeUi::Omnibox::Rect* result){*result=rect;
+    if(view==mockFrame){result->width+=32;result->height+=28;}return result;}
+static NativeUi::Omnibox::Rect* ScreenBounds(const void* view,NativeUi::Omnibox::Rect* result){Bounds(view,result);
+    result->x=100+(view==mockFrame?0:hostShift);result->y=100;return result;}
 static int Header(bool){return header;}
-static void SetBlur(void*,float value){++blurCalls;blur=value;}
-static void ClipAnimation(void*,const NativeUi::Omnibox::Rect* value,int){appliedClip=*value;++clipCalls;}
-static void SetClip(void* layer,const NativeUi::Omnibox::Rect* value){NativeUi::Omnibox::ClipHook(layer,value,0);}
 static void Pump(){MSG message{};while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)){TranslateMessage(&message);DispatchMessageW(&message);}}
 static std::string fakeClass;
 static int originalPaints=0,clears=0,fadePaints=0;
@@ -48,7 +48,7 @@ int wmain(int argc,wchar_t** argv){
         FILE* file=_wfopen(argv[3],L"rb");Check(file!=nullptr,"open generated feature cache");
         std::string cache;char block[4096];size_t got;while((got=fread(block,1,sizeof(block),file)))cache.append(block,got);fclose(file);
         size_t entries[kFeatureSlots]{},normalized[kFeatureSlots]{};
-        Check(PipelineTrust::ParseFeatureCache(cache,id,entries),"native parser accepts exact producer feature contract");
+        Check(SymbolCache::ParseFeatureCache(cache,id,entries),"native parser accepts exact producer feature contract");
         void* addresses[kFeatureSlots]{};auto* base=reinterpret_cast<unsigned char*>(module);
         for(unsigned i=0;i<kFeatureSlots;++i)if(entries[i])addresses[i]=base+entries[i];
         Check(ValidateFeatureAddresses(module,addresses,normalized),"all live functions, helpers and immutable vtable validate");
@@ -81,35 +81,11 @@ int wmain(int argc,wchar_t** argv){
         if(i==0||i==1||i==2)Check(!(mask&Popups),"missing shared popup painting helpers disable only their dependent popup feature");
         entries[i]=1;
     }
-    Omnibox::getBounds=Bounds;Omnibox::getHeader=Header;Omnibox::setBlur=SetBlur;
-    Omnibox::setClip=SetClip;Omnibox::originalClip=ClipAnimation;
-    int background=0,frame=0,layer=0,view=0;
-    Omnibox::backgrounds[&background]={&frame,&layer,reinterpret_cast<HWND>(1)};
-    Check(Omnibox::Blur(&background,&view),"tracked suggestion background enables blur");
-    Check(blur==24&&clipCalls==1,"native layer blur enabled once");
-    Check(appliedClip.y==52&&appliedClip.height==298,"final output excludes typed input without restricting blur sampling");
-    for(unsigned n=0;n<100;++n)Check(Omnibox::Blur(&background,&view),"repeated native suggestion paints remain active");
-    Check(blurCalls==1&&clipCalls==1,"normal repaints do not rebuild the filter");
-    rect.height=400;Check(Omnibox::Blur(&background,&view)&&clipCalls==2&&appliedClip.height==348,"native result resizing updates output clip");
-    Omnibox::Rect nativeClip{20,10,300,200};Omnibox::ClipHook(&layer,&nativeClip,0);
-    Check(appliedClip.x==20&&appliedClip.y==52&&appliedClip.width==300&&appliedClip.height==158,"native clip animations are intersected with the results area");
-    Check(Omnibox::backgrounds[&background].nativeClip.y==10,"native clipping remains separately recorded");
-    enabled=Menus|Popups;Check(!Omnibox::Blur(&background,&view)&&blur==0,"turning off suggestions restores native layer blur");
-    Check(appliedClip.x==20&&appliedClip.y==10&&appliedClip.width==300&&appliedClip.height==200,"turning off suggestions restores Chromium's original clip");
-    enabled=Menus|Popups|Suggestions;header=500;
-    Check(!Omnibox::Blur(&background,&view),"no results/invalid header cannot blur typed text");
-    header=52;Check(Omnibox::Blur(&background,&view),"native results recover without a new window");
-    Omnibox::Rect outside{0,0,600,20};Omnibox::ClipHook(&layer,&outside,0);
-    Check(blur==0&&!Omnibox::backgrounds[&background].painted&&appliedClip.height==20,"non-overlapping native clipping disables blur rather than removing all clipping");
-    Omnibox::Rect empty{};Omnibox::ClipHook(&layer,&empty,0);
-    Check(Omnibox::Blur(&background,&view)&&appliedClip.y==52,"unclipped native state safely recovers");
-    Omnibox::Rect result{};
-    Check(!Omnibox::ResultsClip(600,400,52,{INT_MAX,0,INT_MAX,400},&result),"clip intersection avoids integer overflow");
-    Check(!Omnibox::ResultsClip(600,400,500,{},&result),"empty results cannot affect the input field");
-    Omnibox::RestoreWindow(reinterpret_cast<HWND>(1));
-    Check(blur==0&&appliedClip.width==0&&appliedClip.height==0&&Omnibox::backgrounds.empty(),"window cleanup restores original unclipped layer and releases tracking");
-    Omnibox::backgrounds[&background]={&frame,&layer,reinterpret_cast<HWND>(1)};
-    Omnibox::Forget(&frame);Check(!Omnibox::Blur(&background,&view),"destroyed frame removed before native object destruction");
+    Omnibox::Rect region{};
+    Check(Omnibox::SamplingBounds({100,100,800,450},{116,100,700,350},52,&region)&&region.y==52&&region.height==298,"results exclude the actual typed input");
+    Check(!Omnibox::SamplingBounds({INT_MIN,0,600,400},{INT_MAX,0,600,400},52,&region),"screen-coordinate conversion cannot overflow");
+    Check(!Omnibox::SamplingBounds({0,0,600,400},{0,0,600,400},500,&region),"empty results cannot cover typed text");
+    int view=0;
     if(argc==2&&!wcscmp(argv[1],L"--material")){
         const auto queueBefore=winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
         WNDCLASSW cls{};cls.lpfnWndProc=DefWindowProcW;cls.hInstance=GetModuleHandleW(nullptr);cls.lpszClassName=L"Chrome_WidgetWin_1";
@@ -160,6 +136,32 @@ int wmain(int argc,wchar_t** argv){
         Check(bubbleFeature==Popups&&bubbleForeground==Tint(0xff345678,true),"popup outer fill retains its native theme tint");
         Check(ColorHook(nullptr,0)==0xff345678,"foreground remains opaque after popup painting");
         Check(!popupTintKnown,"native popup color capture does not leak into another view");
+        // ScrollView repeats the solid background on its viewport and contents.
+        // Clear every native backing only inside an identified Extensions menu.
+        const auto beforeExtensions=Material::requests.at(hwnd);
+        const char* extensionContainers[]={"ScrollView","ScrollView::Viewport","View","BoxLayoutView","FlexLayoutView","SectionContainer"};
+        for(const char* name:extensionContainers){fakeClass=name;Check(!SuppressPopupBackground(&view),"generic backing in another popup stays native");}
+        for(const char* root:{"ExtensionsMenuView","ExtensionsMenuMainPageView","ExtensionsMenuSitePermissionsPageView"}){
+            Material::requests[hwnd]=beforeExtensions;fakeClass=root;
+            Check(SuppressPopupBackground(&view),"native Extensions root identifies its own popup");
+            const int previousClears=clears,previousPaints=originalPaints;
+            ViewOnPaintBackground_Hook(&view,&canvas);
+            Check(clears==previousClears+1&&originalPaints==previousPaints,"native Extensions root clears only its backing paint");
+            for(const char* name:extensionContainers){
+                fakeClass=name;const int count=clears;
+                ViewOnPaintBackground_Hook(&view,&canvas);
+                Check(clears==count+1&&originalPaints==previousPaints,"all repeated Extensions scroll backgrounds clear transparently");
+            }
+            for(const char* name:{"Label","ImageView","BraveExtensionMenuItemView","ExtensionsMenuButton","HoverButton","BubbleMenuItemButton","ExtensionPopup"}){
+                fakeClass=name;
+                // Hover-card state belongs to a different popup in real use.
+                Material::requests[hwnd].hoverCard=false;
+                Check(!SuppressPopupBackground(&view),"extension controls, icons and HTML popup views remain native");
+            }
+            Material::requests[hwnd].feature=Menus;fakeClass="ScrollView";
+            Check(!SuppressPopupBackground(&view),"Extensions identification cannot affect a menu feature window");
+        }
+        Material::requests[hwnd]=beforeExtensions;
         originalRoundRect=NativeRectangle;backgroundWindow=hwnd;paintFeature=Popups;
         popupTint=0xff345678;popupTintKnown=true;RoundRectHook(&canvas,shape,nullptr);
         AcquireSRWLockShared(&Material::lock);const unsigned capturedTint=Material::requests.at(hwnd).tint;ReleaseSRWLockShared(&Material::lock);
@@ -169,6 +171,28 @@ int wmain(int argc,wchar_t** argv){
         paintFeature=Popups;popupTintKnown=false;RoundRectHook(&canvas,shape,nullptr);
         Check(nativeRoundRects==2,"an unknown literal palette retains its native background fill");
         paintFeature=0;backgroundWindow=nullptr;
+        // The suggestions popup uses a native HWND, with its own input region.
+        enabled=Menus|Popups|Suggestions;rect={0,0,340,180};header=52;
+        int frame=0,layer=0,background=0;mockFrame=&frame;
+        Omnibox::getBounds=Bounds;Omnibox::getScreenBounds=ScreenBounds;Omnibox::getHeader=Header;
+        Omnibox::cleanupMessage=RegisterWindowMessageW(L"BraveAcrylic.NativeSuggestionTestCleanup");
+        Omnibox::backgrounds[&background]={&frame,&layer};Omnibox::backgrounds[&background].radius=8;
+        Check(Omnibox::Blur(&background,&view),"native suggestions request Windows blur");
+        HRGN inputRegion=CreateRectRgn(0,0,0,0);Check(GetWindowRgn(hwnd,inputRegion)!=ERROR,"results use a rounded native region");
+        Check(!PtInRegion(inputRegion,80,20)&&PtInRegion(inputRegion,80,80),"typed input stays outside the popup while result rows keep native mouse input");
+        DeleteObject(inputRegion);
+        rect.height=200;Check(Omnibox::Blur(&background,&view),"resizing results updates native geometry");
+        inputRegion=CreateRectRgn(0,0,0,0);GetWindowRgn(hwnd,inputRegion);
+        Check(PtInRegion(inputRegion,80,195)&&!PtInRegion(inputRegion,80,210),"resized region follows native results bounds");DeleteObject(inputRegion);
+        Omnibox::RestoreWindow(hwnd);inputRegion=CreateRectRgn(0,0,0,0);
+        Check(GetWindowRgn(hwnd,inputRegion)==ERROR,"cleanup restores the original unrestricted native region");DeleteObject(inputRegion);
+        HRGN expected=CreateRoundRectRgn(10,15,200,200,12,12),saved=CreateRectRgn(0,0,0,0);
+        CombineRgn(saved,expected,nullptr,RGN_COPY);SetWindowRgn(hwnd,CreateRectRgn(50,50,90,90),TRUE);
+        Omnibox::Record previous{&frame,&layer,hwnd};previous.originalRegion=saved;Omnibox::Restore(previous);
+        inputRegion=CreateRectRgn(0,0,0,0);GetWindowRgn(hwnd,inputRegion);
+        Check(EqualRgn(inputRegion,expected),"cleanup also restores a real custom original region");DeleteObject(inputRegion);DeleteObject(expected);
+        Check(GetWindowLongPtrW(hwnd,GWL_STYLE)==style&&GetWindowLongPtrW(hwnd,GWL_EXSTYLE)==extended,"native suggestion blur does not replace focus or activation styles");
+        Omnibox::Stop();
         ready=false;fakeClass="FadeLabel";FadeBackgroundHook(&view,&canvas);
         Check(fadePaints==1,"disabled popup feature restores the native fade background");
         Material::Stop();

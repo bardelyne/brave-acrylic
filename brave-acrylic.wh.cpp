@@ -2,18 +2,20 @@
 // @id              brave-acrylic
 // @name            Brave Acrylic
 // @description     Alpha: Native Brave background transparency; requires Translucent Windows
-// @version         3.8
+// @version         3.9
 // @author          bardelyne
 // @github          https://github.com/bardelyne
 // @homepage        https://github.com/bardelyne/brave-acrylic
 // @license         MIT
 // @architecture    x86-64
 // @include         brave.exe
-// @compilerOptions -ldwmapi -ladvapi32 -lcomctl32 -lshell32 -luser32 -lwinhttp -lbcrypt -lcrypt32 -lole32 -loleaut32 -lruntimeobject
+// @compilerOptions -ldwmapi -ladvapi32 -lcomctl32 -lshell32 -luser32 -lgdi32 -lole32 -loleaut32 -lruntimeobject
 // ==/WindhawkMod==
 // ==WindhawkModReadme==
 /*
 # Brave Acrylic
+
+> **Very important — Symbol cache:** Controlled and maintained by **bardelyne**, the author of Brave Acrylic. This is an author-hosted cache, not an official Windhawk service. Our GitHub Actions workflow checks for new Brave releases and prepares small compatibility files from Brave’s official symbols. Windhawk downloads the matching file for your installed Brave build and caches it locally. The large symbol files are processed by the workflow; your PC receives only the small compatibility data.
 
 ![Brave Acrylic](https://raw.githubusercontent.com/bardelyne/brave-acrylic/main/assets/brave-acrylic-v3.3.png)
 
@@ -21,7 +23,7 @@ Reveal the Windows backdrop through Brave's vertical tab area, frame, toolbar, a
 
 > **Alpha software.** **[Translucent Windows](https://windhawk.net/mods/translucent-windows) is required**, configured for `brave.exe`. Brave Acrylic exposes the background; Translucent Windows supplies the effect.
 
-An experimental [standalone prototype](standalone/README.md) is also being developed in this repository. It uses a separate test profile, supplies its own Windows backdrop, and has no Windhawk runtime dependency. It is not a replacement release for the mod.
+**Restart Brave after applying the mod, updating it, or changing its settings.** Close all Brave windows normally and exit any remaining background Brave instance, then reopen it. This rebuilds native windows and their cached backgrounds.
 
 ## Requirements
 
@@ -34,9 +36,9 @@ An experimental [standalone prototype](standalone/README.md) is also being devel
 
 Windows 11 is the tested environment. Windows 10 is unverified; the backdrop provider and selected effect must support that Windows version. Native ARM64 Brave is unsupported.
 
-The combined menu/suggestion build is tested with Brave 1.98.60; all native targets also validate on Brave 1.98.62 / Chromium 156. Other builds need valid compatibility data for their exact `chrome.dll`. Native interfaces and rendering behavior can change and may require a mod update.
+The native-popup suggestion method was tested with Brave 1.98.60 and with regular Brave 1.98.62 / Chromium 156, including YouTube with Zen Internet transparency enabled. The current native contract is validated separately against those two official DLL/PDB pairs. Other builds need valid compatibility data for their exact `chrome.dll`. Native interfaces and rendering behavior can change and may require a mod update.
 
-The earlier background-only native contract was validated on seven official releases from Brave 1.93.138 through 1.98.62 (Chromium 151–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](docs/compiler-resilience.md).
+The earlier background-only native contract was validated on seven official releases from Brave 1.93.138 through 1.98.62 (Chromium 151–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compiler-resilience.md).
 
 ## Fast setup
 
@@ -55,12 +57,12 @@ No theme-color setup is required. Old saved color-list and website-code settings
 | **Toolbar** | On | Clear the toolbar, bookmarks bar, and unfocused address-field backgrounds. Focused address fields keep their native theme. |
 | **Webpage background** | On | Clear only Chromium's background behind the webpage area, including its default white fallback. Website HTML, CSS, and content are unchanged. Use Zen Internet or Stylus for website backgrounds; Stylus requires custom CSS. |
 | **Acrylic menus** | On | Blur native context menus, the main menu, and submenus. Text, icons, selection, and input stay native. |
-| **Acrylic popups** | On | Blur supported native browser bubbles. Extension and website HTML overlays keep their own styling. |
-| **Blur search suggestions** | On | Blur the address-bar results below the input cutout, keeping typed text and result text sharp. |
+| **Acrylic popups** | On | Blur supported native browser bubbles and the native Extensions manager. Extension and website HTML overlays keep their own styling. |
+| **Blur search suggestions** | On | Use a native results popup with Windows blur below the input cutout. Typed text, result text and input remain native and sharp. |
 | **Hide duplicate Windows buttons** | Off | Optional workaround that removes the real Windows system-menu style. It can affect Alt+Space, taskbar menus and other window tools. Prefer Brave's **Use compact mode** option in Appearance. |
-| **Use verified online symbol cache** | On | Download and verify exact-build data against the approved GitHub pipeline before accepting any Windhawk symbol addresses. Turn off for previously verified builds only. |
+| **Use online symbol cache** | On | Let Windhawk download small exact-build files from the author-controlled cache. Turn off to use existing local cached symbols only, then restart Brave. |
 
-Some backing views and compositor properties are created with the window, so changing Vertical tabs background or Toolbar may require reopening Brave. Enabling Webpage background applies when a tab is selected, without refreshing the page. Reopening Brave after disabling it restores existing renderer defaults. The caption-button option applies immediately.
+Restart Brave after applying settings, even when a change appears immediately. Some backing views and native popup choices are created with their windows. Webpage backing can apply on tab selection without refreshing the page; restarting after disabling it restores existing renderer defaults. The caption-button option can apply immediately.
 
 ## Website backgrounds with extensions
 
@@ -86,7 +88,7 @@ Brave's existing transparent-host path enables its compositor to preserve transp
 
 The webpage option clears the native backing during content-view updates and sets Chromium's persistent page-base color when a tab is attached. That value is also used by future renderers, so switching or restoring tabs does not bring the default white background back. Explicit website backgrounds remain visible unless a website-styling extension changes them.
 
-The full native path uses **30 functions**, of which **20 are private hooks**, and one immutable background-class vtable. Each feature has its own dependency set; unavailable features keep their native appearance. The implementation uses no sampled colors, private object-member offsets, guessed screen rectangles, screenshot polling, extra backing windows, or GPU hooks. Normal DirectComposition stays enabled, with no special browser launch flag. Windows supplies one backdrop. Acrylic can turn gray when inactive; choose a suitable blur mode in Translucent Windows if you prefer a persistent effect.
+The full native path uses **29 functions**, of which **20 are private hooks**, and one immutable background-class vtable. Each feature has its own dependency set; unavailable features keep their native appearance. The implementation uses no sampled colors, private object-member offsets, guessed screen rectangles, screenshot polling, input forwarding, or GPU hooks. Normal DirectComposition stays enabled, with no special browser launch flag. Windows supplies the backdrop. Acrylic can turn gray when inactive; choose a suitable blur mode in Translucent Windows for the main window if you prefer a persistent effect.
 
 ## Menus, popups and suggestions
 
@@ -94,23 +96,21 @@ Native menus and bubbles keep their own theme colors with reduced background alp
 
 Tab and group hover cards, including their fading text and memory icons, keep their foreground painting. Their separate client and footer backgrounds are removed, while a tint derived from Brave’s own background color sits beneath Chromium’s content. This keeps the tint consistent during transitions and avoids black fade masks. The same native-popup path covers dialogs such as **Restore pages?**. Windows-drawn popup borders are suppressed where supported and their previous value is restored on unload.
 
-Suggestions use Chromium's existing rounded compositor layer. Blur is restricted to results below the native input cutout, so typed text stays sharp. Native layer changes are restored on their owning UI thread when the mod unloads. These options affect native browser surfaces; they do not turn website dialogs or extension HTML into acrylic. Windows high contrast and the transparency preference are respected.
+The native **Extensions** manager also clears its repeated scroll-container backgrounds so they cannot cover the blur. Extension names, icons, pin buttons, menus and the Manage extensions button keep their native painting and input. This does not alter HTML content inside an extension's own popup.
+
+Suggestions use Chromium's normal desktop-popup factory instead of its in-window Aura override. Windows supplies the blur behind that native results popup, which also works with the tested Zen Internet transparency setup. Chromium still owns its contents, layout, keyboard navigation and mouse input. Native view bounds and header height define a rounded window region below the address field; there is no input catcher or separate overlay. Resizing and DPI changes update the region, and cleanup restores the actual prior region on the owning UI thread. Restart Brave after applying this option so existing results widgets are rebuilt. These options do not turn website dialogs or extension HTML into acrylic. Windows high contrast and the transparency preference are respected.
 
 ## Symbol resolution, privacy and updates
 
-Brave Acrylic resolves the exact C++ prototypes and background-class identity with Windhawk's supported `HookSymbols` / `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` mechanism. Before accepting any returned address, the mod requires compatibility data authenticated against its approved generation pipeline. No build-specific addresses are embedded and remote PDB downloads remain disabled.
+Brave Acrylic resolves exact C++ prototypes and the background-class identity with Windhawk's supported `HookSymbols` / `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` mechanism. Windhawk handles its ordinary local cache and optional online download. No build-specific addresses are embedded and remote PDB downloads remain disabled. The mod retains local executable-range, unwind-boundary, approved-leaf, thunk and overlap checks before registering hooks.
 
-The small feature cache and proof locator are published under `brave-acrylic-features-v4/` on this repository's [`symbol-cache` branch](https://github.com/bardelyne/brave-acrylic/tree/symbol-cache). Older compatibility namespaces remain intact for existing mod versions. Branch contents alone are not trusted. On first use of a build, the mod checks GitHub's HTTPS API for the immutable artifact's SHA256, exact PDB identity, original repository, successful run and GitHub-hosted job attempts. It fetches the workflow at that run's immutable commit and checks its complete bytes against a SHA256 compiled into the mod. The approved workflow checks out fixed extractor and action revisions. Every Windhawk-resolved address must then match the verified named entry and pass local executable-boundary, leaf, thunk and overlap checks.
+Small named-symbol files are published under `brave-acrylic-features-v7/` on our [`symbol-cache` branch](https://github.com/bardelyne/brave-acrylic/tree/symbol-cache). They contain the native function locations needed for each Brave build. The service and publishing workflow are controlled and maintained by bardelyne. Older namespaces remain available for older mod versions.
 
-**Cache ownership:** this service is operated by bardelyne, the mod's author. It is not an official Windhawk cache. The approved workflow and its dependencies remain part of the trust boundary.
+Windhawk handles compatibility downloads and local caching through its standard mechanism. Our workflow uses pinned actions and checks the official Brave archive and matching symbols before publishing. See [cache hosting](https://github.com/bardelyne/brave-acrylic/blob/main/docs/trusted-pipeline.md) for the technical details.
 
-Editing the cache branch, replacing the locator, changing the workflow, or changing tools on main cannot silently authorize different functions. A pipeline change requires a reviewed mod update approving the new policy. This trusts GitHub's API/TLS and hosted infrastructure plus the approved extractor and official Brave inputs; it is not a proof that a native ABI can never change. The data is author-hosted, not the official Windhawk cache, and maintainer acceptance remains a separate decision. See the [trust design](https://github.com/bardelyne/brave-acrylic/blob/main/docs/trusted-pipeline.md).
+**No telemetry, uploads or login:** the mod only downloads compatibility data through Windhawk. Browser cookies, history, page content, settings and account details stay on your PC. Turn **Use online symbol cache** off and restart Brave to use suitable existing local cached symbols only.
 
-Successfully verified data is retained in Windhawk's per-mod storage, scoped to the exact PDB identity and approved workflow. Warm launches reuse it offline. Old Windhawk entries without this proof cannot bypass the gate. If proof, rate limits, networking or function validation prevent a first-time verification, transparency stays off rather than using unverified addresses. There is no polling or retry thread in the mod.
-
-**No telemetry, uploads or login:** requests are download-only GETs to GitHub. No token, browser cookies, history, page content, settings, account details or analytics are sent. GitHub necessarily sees the requester's IP and requested URLs, including the build identity. Turn **Use verified online symbol cache** off and re-enable the mod for offline-only operation; a build must have been verified previously. Initial verification adds several small API requests at startup and can be affected by GitHub's anonymous rate limits. Existing requests cannot be withdrawn by changing the setting.
-
-The workflow requests a check **every two hours, with a backup 30 minutes later**. GitHub can delay or drop scheduled starts, so this is not an exact timer. Unchanged releases skip all browser and PDB downloads. Large official files stay on the GitHub runner. The raw exact-PDB artifact is retained for 90 days; local verified entries continue working if upstream metadata later becomes unavailable. Re-enable the mod or reopen Brave normally after new data becomes available.
+The workflow requests a check **every two hours, with a backup 30 minutes later**. GitHub can delay or drop scheduled starts, so this is not an exact timer. It checks the stable release, asset identities and native contract before downloading large files. Unchanged releases skip browser and PDB downloads. Both generation and publication use the run's same source revision; large official files stay on the GitHub runner. Restart Brave after newly required compatibility data becomes available.
 
 The extractor handles verified compiler folding according to each function's role, while rejecting unrelated sharing on patched functions. The workflow reports compatibility separately for vertical tabs, the toolbar, webpage backing, menus, popups, and suggestions. A missing or changed function disables only its dependent features. Validated features are still published, and the workflow summary lists unavailable features with their reasons. Invalid files, mismatched symbols, failed downloads, and publishing errors still stop publication.
 
@@ -120,9 +120,9 @@ If two sets of minimize/maximize/close buttons appear, first enable **Use compac
 
 ## Troubleshooting
 
-Reopen Brave normally after installation or native-area changes. Enable Windhawk debug logging to check the availability messages for each native feature or a Windhawk symbol-cache message. For website styling, check Zen Internet's transparency setting and whether that site has a supported style, or check the CSS and site scope of your Stylus style.
+Restart Brave after installing or applying changes: close all windows and its background instance, then reopen normally. Enable Windhawk debug logging to check each feature's availability or a symbol-cache message. For website styling, check Zen Internet's transparency setting and whether that site has a supported style, or check the CSS and site scope of your Stylus style.
 
-For reports, include Windows/Brave versions, window type, enabled areas, backdrop configuration, and reproduction steps. See the [advanced reference](docs/advanced.md), [compatibility data](docs/compatibility.md), [webview investigation](docs/webview-background.md), and [changelog](CHANGELOG.md).
+For reports, include Windows/Brave versions, window type, enabled areas, backdrop configuration, and reproduction steps. See the [advanced reference](https://github.com/bardelyne/brave-acrylic/blob/main/docs/advanced.md), [compatibility data](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compatibility.md), [webview investigation](https://github.com/bardelyne/brave-acrylic/blob/main/docs/webview-background.md), and [changelog](https://github.com/bardelyne/brave-acrylic/blob/main/CHANGELOG.md).
 */
 // ==/WindhawkModReadme==
 // ==WindhawkModSettings==
@@ -149,8 +149,8 @@ For reports, include Windows/Brave versions, window type, enabled areas, backdro
   $name: Hide duplicate Windows buttons
   $description: "Optional workaround: removes the real Windows system-menu style and can affect Alt+Space, taskbar menus, accessibility tools and window managers. Prefer Brave Appearance > Use compact mode. Applies immediately."
 - useOnlineSymbolCache: true
-  $name: Use verified online symbol cache
-  $description: Download exact-build symbols and verify GitHub artifact, run and approved workflow metadata. No login, uploads, telemetry or PDB downloads. GitHub sees your IP and requested URLs. Turn off and re-enable for offline-only operation with previously verified data. Missing proof disables transparency.
+  $name: Use online symbol cache
+  $description: Download small compatibility files from the author-controlled symbol cache. No login, uploads, telemetry or PDB downloads. GitHub sees your IP and requested build URLs. Turn off to use local cached symbols only. Restart Brave after applying changes.
 */
 // ==/WindhawkModSettings==
 #include <windows.h>
@@ -174,13 +174,9 @@ BOOL Wh_ModInit() {
 #include <cwchar>
 #include <cstring>
 #include <windhawk_utils.h>
-#include <winhttp.h>
-#include <bcrypt.h>
-#include <wincrypt.h>
 #include <roapi.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
-#include <winrt/Windows.Data.Json.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -366,7 +362,7 @@ namespace NativeUi { static bool SuppressPopupBackground(void* view); }
 static void ViewOnPaintBackground_Hook(void* view, void* canvas) {
     if (canvas && NativeUi::SuppressPopupBackground(view)) {
         BraveBackground::ClassName role{};s_background.getClass(view,&role);
-        if(role.data&&(std::string_view(role.data,role.length)=="DialogClientView"||std::string_view(role.data,role.length)=="ImageView"))s_background.clear(canvas,0,0);
+        if(role.data&&std::string_view(role.data,role.length)!="FooterView"&&std::string_view(role.data,role.length)!="FadeLabel")s_background.clear(canvas,0,0);
         return;
     }
     if (canvas && AddressShouldClear(view)) {
@@ -823,10 +819,10 @@ static bool ValidateCompatibilityMap(HMODULE module, const CompatibilityMap& map
     return true;
 }
 // Windhawk retains standard named-symbol resolution and its own local cache.
-// The separate gate authenticates downloaded bytes and compares every result.
-// No executable updates, retry worker, telemetry, or remote PDB fallback.
+// The author-hosted cache is trusted; local checks validate address structure.
+// No custom HTTP verifier, retry worker, telemetry, or remote PDB fallback.
 static constexpr wchar_t kOnlineSymbolCache[] =
-    L"https://raw.githubusercontent.com/bardelyne/brave-acrylic/symbol-cache/brave-acrylic-features-v4";
+    L"https://raw.githubusercontent.com/bardelyne/brave-acrylic/symbol-cache/brave-acrylic-features-v7";
 
 static bool ValidateSymbolAddresses(HMODULE module, void* const* addresses, size_t* rva) {
     BuildIdentity id{};
@@ -896,297 +892,14 @@ static bool ValidateSymbolAddresses(HMODULE module, void* const* addresses, size
     }
     // Bounds, exact unwind entries, approved leaf shapes, direct E9 thunks,
     // and disjoint entry/body ranges are independent local safety checks.
-    // Authentication of named entries is enforced separately by PipelineTrust.
+    // These structural checks do not authenticate the author-hosted cache.
     return ValidateCompatibilityMap(module, local, rva);
 }
 
-// Branch files only locate data. HTTPS GitHub API metadata authenticates the
-// immutable artifact digest, source run and workflow blob. The approved YAML
-// checks out fixed extractor/action commits; main cannot replace its tools.
-namespace PipelineTrust {
-using Json = winrt::Windows::Data::Json::JsonObject;
-static constexpr wchar_t kWorkflowBlob[] = L"8e990f49a04ada22179ac58670e0d0e6c27f8973";
-static constexpr wchar_t kWorkflowSha256[] =
-    L"089fb8675cbc5d5a69269f66aabf203035c436a77770513a599716881d48a174";
-static constexpr uint64_t kRepositoryId = 1428612836, kWorkflowId = 394997888;
-static constexpr size_t kMaxCache = 16384;
-static std::atomic<bool> stopping{false};
-using Getter = std::function<std::string(const wchar_t*, const std::wstring&, size_t)>;
-
-static bool Hex(std::wstring_view value, size_t length) {
-    return value.size() == length && std::all_of(value.begin(), value.end(), [](wchar_t c) {
-               return (c >= L'0' && c <= L'9') || (c >= L'a' && c <= L'f');
-           });
-}
-static uint64_t Id(const Json& json, const wchar_t* key) {
-    const double value = json.GetNamedNumber(key);
-    if (!std::isfinite(value) || value < 1 || value > 9007199254740991.0 ||
-        std::floor(value) != value)
-        throw std::runtime_error("invalid GitHub identifier");
-    return static_cast<uint64_t>(value);
-}
-static Json Parse(const std::string& bytes) {
-    if (bytes.empty() || bytes.size() > 128 * 1024)
-        throw std::runtime_error("invalid metadata size");
-    return Json::Parse(winrt::to_hstring(bytes));
-}
-static std::array<unsigned char, 32> Digest(std::string_view bytes) {
-    std::array<unsigned char, 32> digest{};
-    BCRYPT_ALG_HANDLE algorithm = nullptr;
-    if (bytes.size() > kMaxCache ||
-        BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0)
-        throw std::runtime_error("SHA256 unavailable");
-    const auto status = BCryptHash(
-        algorithm, nullptr, 0, reinterpret_cast<PUCHAR>(const_cast<char*>(bytes.data())),
-        static_cast<ULONG>(bytes.size()), digest.data(), static_cast<ULONG>(digest.size()));
-    BCryptCloseAlgorithmProvider(algorithm, 0);
-    if (status < 0)
-        throw std::runtime_error("SHA256 failed");
-    return digest;
-}
-static std::wstring HashText(std::string_view bytes) {
-    const auto digest = Digest(bytes);
-    std::wstring result;
-    for (const auto byte : digest) {
-        result += L"0123456789abcdef"[byte >> 4];
-        result += L"0123456789abcdef"[byte & 15];
-    }
-    return result;
-}
-static bool Verify(const std::string& cache, const std::string& locator, const std::wstring& pdbKey,
-                   const Getter& get) try {
-    if (cache.empty() || cache.size() > kMaxCache || stopping)
-        return false;
-    const auto pointer = Parse(locator);
-    if (pointer.GetNamedNumber(L"schema") != 1)
-        return false;
-    const auto artifactId = Id(pointer, L"artifactId");
-    const std::wstring root = L"/repos/bardelyne/brave-acrylic/";
-    const auto artifact = Parse(
-        get(L"api.github.com", root + L"actions/artifacts/" + std::to_wstring(artifactId), 32768));
-    if (Id(artifact, L"id") != artifactId ||
-        artifact.GetNamedString(L"name") != L"pdb_" + pdbKey + L".txt" ||
-        Id(artifact, L"size_in_bytes") != cache.size() ||
-        artifact.GetNamedString(L"digest") != L"sha256:" + HashText(cache))
-        return false;
-    const auto origin = artifact.GetNamedObject(L"workflow_run");
-    const auto runId = Id(origin, L"id");
-    const std::wstring revision{origin.GetNamedString(L"head_sha")};
-    if (!Hex(revision, 40) || origin.GetNamedString(L"head_branch") != L"main" ||
-        Id(origin, L"repository_id") != kRepositoryId ||
-        Id(origin, L"head_repository_id") != kRepositoryId)
-        return false;
-    const auto run =
-        Parse(get(L"api.github.com", root + L"actions/runs/" + std::to_wstring(runId), 65536));
-    const auto event = run.GetNamedString(L"event");
-    if (Id(run, L"id") != runId || Id(run, L"workflow_id") != kWorkflowId ||
-        Id(run.GetNamedObject(L"repository"), L"id") != kRepositoryId ||
-        Id(run.GetNamedObject(L"head_repository"), L"id") != kRepositoryId ||
-        run.GetNamedString(L"path") != L".github/workflows/compatibility.yml" ||
-        run.GetNamedString(L"head_sha") != revision ||
-        run.GetNamedString(L"head_branch") != L"main" ||
-        run.GetNamedString(L"status") != L"completed" ||
-        run.GetNamedString(L"conclusion") != L"success" ||
-        (event != L"schedule" && event != L"push" && event != L"workflow_dispatch"))
-        return false;
-    // A repository owner must not substitute a self-hosted machine for the
-    // runner. Check every attempt, so an earlier untrusted attempt cannot be
-    // laundered by a later hosted rerun of the same run ID.
-    const auto jobs = Parse(
-        get(L"api.github.com",
-            root + L"actions/runs/" + std::to_wstring(runId) + L"/jobs?filter=all&per_page=100",
-            128 * 1024));
-    const auto items = jobs.GetNamedArray(L"jobs");
-    if (items.Size() == 0 || items.Size() > 100 ||
-        jobs.GetNamedNumber(L"total_count") != items.Size())
-        return false;
-    bool generated = false;
-    for (const auto& item : items) {
-        const auto job = item.GetObject();
-        const auto name = job.GetNamedString(L"name");
-        if (name != L"generate" && name != L"publish")
-            return false;
-        if (job.GetNamedValue(L"runner_id").ValueType() ==
-            winrt::Windows::Data::Json::JsonValueType::Null)
-            continue;
-        if (job.GetNamedNumber(L"runner_group_id") != 0 ||
-            job.GetNamedString(L"runner_group_name") != L"GitHub Actions" ||
-            Id(job, L"runner_id") < 1 ||
-            !std::wstring_view(job.GetNamedString(L"runner_name")).starts_with(L"GitHub Actions "))
-            return false;
-        if (name == L"generate" && job.GetNamedString(L"conclusion") == L"success")
-            generated = true;
-    }
-    if (!generated)
-        return false;
-    // Read the workflow at the run's immutable commit, never the mutable main
-    // branch or a caller-provided workflow hash. GitHub owns this association.
-    const auto workflow =
-        Parse(get(L"api.github.com",
-                  root + L"contents/.github/workflows/compatibility.yml?ref=" + revision, 32768));
-    if (workflow.GetNamedString(L"type") != L"file" ||
-        workflow.GetNamedString(L"path") != L".github/workflows/compatibility.yml" ||
-        workflow.GetNamedString(L"sha") != kWorkflowBlob ||
-        workflow.GetNamedString(L"encoding") != L"base64")
-        return false;
-    const auto content = workflow.GetNamedString(L"content");
-    DWORD length = 0;
-    if (content.empty() || content.size() > 24000 ||
-        !CryptStringToBinaryW(content.c_str(), content.size(),
-                              CRYPT_STRING_BASE64 | CRYPT_STRING_STRICT, nullptr, &length, nullptr,
-                              nullptr) ||
-        length == 0 || length > kMaxCache)
-        return false;
-    std::string yaml(length, '\0');
-    if (!CryptStringToBinaryW(content.c_str(), content.size(),
-                              CRYPT_STRING_BASE64 | CRYPT_STRING_STRICT,
-                              reinterpret_cast<BYTE*>(yaml.data()), &length, nullptr, nullptr) ||
-        length != yaml.size())
-        return false;
-    return HashText(yaml) == kWorkflowSha256 && !stopping;
-} catch (...) {
-    return false;
-}
-
-struct Handle {
-    HINTERNET value = nullptr;
-    explicit Handle(HINTERNET v) : value(v) {
-    }
-    ~Handle() {
-        if (value)
-            WinHttpCloseHandle(value);
-    }
-    Handle(const Handle&) = delete;
-    Handle& operator=(const Handle&) = delete;
-};
-class Http {
-    const ULONGLONG deadline = GetTickCount64() + 8000;
-    Handle session{WinHttpOpen(L"BraveAcrylic/" WH_MOD_VERSION, WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
-                               WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0)};
-    void Check() const {
-        if (stopping || GetTickCount64() >= deadline)
-            throw std::runtime_error("verification stopped");
-    }
-
-   public:
-    std::string Get(const wchar_t* host, const std::wstring& path, size_t maximum) {
-        Check();
-        if (!session.value ||
-            (wcscmp(host, L"api.github.com") && wcscmp(host, L"raw.githubusercontent.com")) ||
-            path.empty() || path.front() != L'/' || path.size() > 256 || maximum > 128 * 1024)
-            throw std::runtime_error("invalid verification request");
-        const int timeout =
-            static_cast<int>(std::min<ULONGLONG>(2000, deadline - GetTickCount64()));
-        if (timeout < 1 || !WinHttpSetTimeouts(session.value, timeout, timeout, timeout, timeout))
-            throw std::runtime_error("verification timeout");
-        Handle connection{WinHttpConnect(session.value, host, INTERNET_DEFAULT_HTTPS_PORT, 0)};
-        Handle request{connection.value
-                           ? WinHttpOpenRequest(connection.value, L"GET", path.c_str(), nullptr,
-                                                WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES,
-                                                WINHTTP_FLAG_SECURE)
-                           : nullptr};
-        DWORD disabled =
-            WINHTTP_DISABLE_COOKIES | WINHTTP_DISABLE_AUTHENTICATION | WINHTTP_DISABLE_REDIRECTS;
-        if (!request.value || !WinHttpSetOption(request.value, WINHTTP_OPTION_DISABLE_FEATURE,
-                                                &disabled, sizeof(disabled)))
-            throw std::runtime_error("verification connection failed");
-        static constexpr wchar_t headers[] =
-            L"Accept: application/vnd.github+json\r\nX-GitHub-Api-Version: 2022-11-28\r\n";
-        Check();
-        if (!WinHttpSendRequest(request.value, headers, static_cast<DWORD>(-1),
-                                WINHTTP_NO_REQUEST_DATA, 0, 0, 0) ||
-            !WinHttpReceiveResponse(request.value, nullptr))
-            throw std::runtime_error("verification request failed");
-        DWORD status = 0, size = sizeof(status);
-        if (!WinHttpQueryHeaders(
-                request.value, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-                WINHTTP_HEADER_NAME_BY_INDEX, &status, &size, WINHTTP_NO_HEADER_INDEX) ||
-            status != 200)
-            throw std::runtime_error("verification unavailable");
-        std::string bytes;
-        char buffer[4096];
-        for (;;) {
-            Check();
-            DWORD count = 0;
-            if (!WinHttpReadData(request.value, buffer, sizeof(buffer), &count))
-                throw std::runtime_error("verification read failed");
-            if (!count)
-                break;
-            if (bytes.size() + count > maximum)
-                throw std::runtime_error("oversized verification response");
-            bytes.append(buffer, count);
-        }
-        Check();
-        return bytes;
-    }
-};
-static std::wstring BuildKey(const BuildIdentity& id) {
-    wchar_t key[48];
-    swprintf_s(key, L"%08X%04X%04X%02X%02X%02X%02X%02X%02X%02X%02X%X",
-               static_cast<unsigned>(id.guid.Data1), id.guid.Data2, id.guid.Data3, id.guid.Data4[0],
-               id.guid.Data4[1], id.guid.Data4[2], id.guid.Data4[3], id.guid.Data4[4],
-               id.guid.Data4[5], id.guid.Data4[6], id.guid.Data4[7], static_cast<unsigned>(id.age));
-    return key;
-}
-static std::wstring StorageKey(const BuildIdentity& id) {
-    return L"trustedPipeline1:" + std::wstring(kWorkflowBlob) + L":" + BuildKey(id);
-}
-static bool ReadLocal(const BuildIdentity& id, std::string* cache) try {
-    std::array<unsigned char, kMaxCache + 32> bytes{};
-    const auto count = Wh_GetBinaryValue(StorageKey(id).c_str(), bytes.data(), bytes.size());
-    if (count <= 32 || count > bytes.size())
-        return false;
-    const std::string data(reinterpret_cast<const char*>(bytes.data() + 32), count - 32);
-    const auto digest = Digest(data);
-    if (!std::equal(digest.begin(), digest.end(), bytes.begin()))
-        return false;
-    *cache = data;
-    return !stopping;
-} catch (...) {
-    return false;
-}
-static void SaveLocal(const BuildIdentity& id, const std::string& cache) {
-    const auto digest = Digest(cache);
-    std::vector<unsigned char> bytes(digest.begin(), digest.end());
-    bytes.insert(bytes.end(), cache.begin(), cache.end());
-    Wh_SetBinaryValue(StorageKey(id).c_str(), bytes.data(), bytes.size());
-}
-static bool Load(const BuildIdentity& id, bool online, std::string* cache) try {
-    if (stopping)
-        return false;
-    if (ReadLocal(id, cache))
-        return true;
-    if (!online)
-        return false;  // Old, unverified Windhawk entries cannot bypass the gate.
-    struct Apartment {
-        HRESULT result = RoInitialize(RO_INIT_MULTITHREADED);
-        ~Apartment() {
-            if (SUCCEEDED(result))
-                RoUninitialize();
-        }
-    } apartment;
-    if (FAILED(apartment.result) && apartment.result != RPC_E_CHANGED_MODE)
-        return false;
-    Http http;
-    const std::wstring stem =
-        L"/bardelyne/brave-acrylic/symbol-cache/brave-acrylic-features-v4/pdb_" + BuildKey(id);
-    // A shared policy query prevents an older policy's CDN entry from being
-    // reused immediately after a publisher/mod update. No per-user identifier.
-    const std::wstring policy = L"?policy=" + std::wstring(kWorkflowBlob);
-    const auto locator =
-        http.Get(L"raw.githubusercontent.com", stem + L".proof.json" + policy, 2048);
-    const auto data = http.Get(L"raw.githubusercontent.com", stem + L".txt" + policy, kMaxCache);
-    if (!Verify(data, locator, BuildKey(id), [&](auto host, const auto& path, size_t maximum) {
-            return http.Get(host, path, maximum);
-        }))
-        return false;
-    SaveLocal(id, data);
-    *cache = data;
-    return true;
-} catch (...) {
-    return false;
-}
-
+// Standard named-cache parsing is retained for offline contract tests. Runtime
+// fetching and local symbol caching belong to Windhawk's HookSymbols mechanism.
+namespace SymbolCache {
+static constexpr size_t kMaxCache=16384;
 static constexpr const char* kSymbols[] = {
     "protected: virtual void __cdecl views::View::OnPaintBackground(class gfx::Canvas *)",
     "public: void __cdecl gfx::Canvas::DrawColor(unsigned int,enum SkBlendMode)",
@@ -1240,7 +953,9 @@ static bool ParseCache(const std::string& bytes, const BuildIdentity& id, size_t
     std::copy(entries.begin(), entries.end(), result);
     return true;
 }
-}  // namespace PipelineTrust
+}  // namespace SymbolCache
+
+
 
 static bool ResolveSymbolAddresses(HMODULE module, size_t* rva) {
     void* addresses[kFunctionSlots]{};
@@ -1270,18 +985,6 @@ static bool ResolveSymbolAddresses(HMODULE module, size_t* rva) {
          &addresses[12]},
     };
     static_assert(ARRAYSIZE(chromeHooks) == kFunctionSlots);
-    BuildIdentity identity{};
-    std::string trustedCache;
-    std::array<size_t, kFunctionSlots> trusted{};
-    if (!GetBuildIdentity(module, &identity) ||
-        !PipelineTrust::Load(identity, s_useOnlineSymbolCache.load(std::memory_order_acquire),
-                             &trustedCache) ||
-        !PipelineTrust::ParseCache(trustedCache, identity, trusted.data())) {
-        Wh_Log(
-            L"Trusted pipeline proof unavailable or rejected; no browser functions will be used");
-        return false;
-    }
-
     WH_HOOK_SYMBOLS_OPTIONS options{};
     options.optionsSize = sizeof(options);
     options.symbolServer = L"";  // Never fall back to downloading a multi-GB PDB.
@@ -1292,35 +995,21 @@ static bool ResolveSymbolAddresses(HMODULE module, size_t* rva) {
     // on failure; nothing is published unless the entire set passes validation.
     if (!WindhawkUtils::HookSymbols(module, chromeHooks, ARRAYSIZE(chromeHooks), &options))
         return false;
-    // The ordinary cache can be stale, replaced, or contain earlier unverified
-    // entries. Compare every named entry BEFORE using any function pointer.
-    const auto base = reinterpret_cast<uintptr_t>(module);
-    for (size_t i = 0; i < kFunctionSlots; ++i)
-        if (reinterpret_cast<uintptr_t>(addresses[i]) != base + trusted[i])
-            return false;
-    return !PipelineTrust::stopping && ValidateSymbolAddresses(module, addresses, rva);
+    return ValidateSymbolAddresses(module, addresses, rva);
 }
 
 // <feature-kernel>
-static constexpr unsigned kFeatureSlots=31;
+static constexpr unsigned kFeatureSlots=30;
 static constexpr unsigned kVertical=1,kToolbar=2,kWebpage=4,kMenus=8,kPopups=16,kSuggestions=32;
 static unsigned CompleteFeatures(const size_t* entries) {
     const auto all=[&](std::initializer_list<unsigned> slots){for(unsigned i:slots)if(!entries[i])return false;return true;};
-    return (all({0,1,2,3,4,5})?kVertical:0)|(all({0,1,2,3,6,7})?kToolbar:0)|
-        (all({0,1,2,3,8,9,10,11,12})?kWebpage:0)|(all({13,14,15,17})?kMenus:0)|
-        (all({0,1,2,13,14,16,17,28,29,30})?kPopups:0)|(all({5,13,14,18,19,20,21,22,23,24,25,26,27})?kSuggestions:0);
+    return (all({0,1,2,3,4,5})?kVertical:0)|(all({0,1,2,3,6,7})?kToolbar:0)|(all({0,1,2,3,8,9,10,11,12})?kWebpage:0)|(all({13,14,15,17})?kMenus:0)|(all({0,1,2,13,14,16,17,25,26,27})?kPopups:0)|(all({5,13,14,18,19,20,21,22,23,24,28,29})?kSuggestions:0) ;
 }
 static bool FeatureHelperLeaf(const unsigned char* code,unsigned slot,unsigned* length) {
-    const unsigned char blur[]={0xF3,0x0F,0x11,0x89,0,0,0,0,0xE9,0,0,0,0};
     const unsigned char bounds[]={0x48,0x89,0xD0,0x48,0xC7,0x02,0,0,0,0,0x48,0x8B,0x89,0,0,0,0,0x48,0x89,0x4A,0x08,0xC3};
-    const auto* pattern=slot==22?blur:bounds;
-    const unsigned count=slot==22?sizeof(blur):sizeof(bounds);
-    if(slot!=22&&slot!=23)return false;
-    for(unsigned i=0;i<count;++i){
-        const bool variable=slot==22?((i>=4&&i<8)||(i>=9&&i<13)):(i>=13&&i<17);
-        if(!variable&&code[i]!=pattern[i])return false;
-    }
-    *length=count;return true;
+    if(slot!=22)return false;
+    for(unsigned i=0;i<sizeof(bounds);++i)if(!(i>=13&&i<17)&&code[i]!=bounds[i])return false;
+    *length=sizeof(bounds);return true;
 }
 static bool ValidateFeatureAddresses(HMODULE module,void* const* addresses,size_t* result) {
     ReadOnlyImage image{};
@@ -1341,7 +1030,7 @@ static bool ValidateFeatureAddresses(HMODULE module,void* const* addresses,size_
         const auto pointer=reinterpret_cast<uintptr_t>(addresses[i]),base=reinterpret_cast<uintptr_t>(module);
         if(pointer<base||pointer-base>=image.size)return false;
         const size_t entry=pointer-base;
-        if(i==27){
+        if(i==24){
             bool immutable=false;
             for(unsigned n=0;n<image.count;++n){const auto& section=image.sections[n];
                 if(!memcmp(section.Name,".rdata\0\0",8)&&!(section.Characteristics&(IMAGE_SCN_MEM_WRITE|IMAGE_SCN_MEM_EXECUTE))&&
@@ -1369,11 +1058,9 @@ static bool ValidateFeatureAddresses(HMODULE module,void* const* addresses,size_
                 if(memcmp(image.base+target,first,3)||memcmp(image.base+target+7,last,6))return false;
                 length=13;
             }else if(i==6&&FocusLeafLayout(image.base+target)){}
-            else if(!FeatureHelperLeaf(image.base+target,i,&length))return false;
+            else if(!inText(target,32)||!FeatureHelperLeaf(image.base+target,i,&length))return false;
             if(!LeafOutsideUnwind(module,target,length))return false;
-            if(i==22){int delta=0;memcpy(&delta,image.base+target+9,4);
-                const int64_t destination=int64_t(target)+13+delta;
-                if(destination<0||uint64_t(destination)>=image.size||!FunctionContains(module,size_t(destination),1))return false;}
+
         }
         const auto add=[&](size_t start,size_t count){
             for(const auto& span:spans)if(start<span.start+span.length&&span.start<start+count)return false;
@@ -1385,7 +1072,7 @@ static bool ValidateFeatureAddresses(HMODULE module,void* const* addresses,size_
     }
     std::copy(normalized.begin(),normalized.end(),result);return true;
 }
-namespace PipelineTrust {
+namespace SymbolCache {
 static constexpr const char* kFeatureSymbols[]={
     "protected: virtual void __cdecl views::View::OnPaintBackground(class gfx::Canvas *)",
     "public: void __cdecl gfx::Canvas::DrawColor(unsigned int,enum SkBlendMode)",
@@ -1409,15 +1096,14 @@ static constexpr const char* kFeatureSymbols[]={
     "public: virtual __cdecl RoundedOmniboxResultsFrame::~RoundedOmniboxResultsFrame(void)",
     "private: virtual void __cdecl ui::Layer::SetRoundedCornersFromAnimation(class gfx::RoundedCornersF const &,enum ui::PropertyChangeReason)",
     "public: virtual void __cdecl views::SolidBackground::Paint(class gfx::Canvas *,class views::View *)const",
-    "public: void __cdecl ui::Layer::SetBackgroundBlur(float)",
     "public: class gfx::Rect __cdecl views::View::GetLocalBounds(void)const",
     "public: static int __cdecl RoundedOmniboxResultsFrame::GetNonResultSectionHeight(bool)",
-    "private: virtual void __cdecl ui::Layer::SetClipRectFromAnimation(class gfx::Rect const &,enum ui::PropertyChangeReason)",
-    "public: void __cdecl ui::Layer::SetClipRect(class gfx::Rect const &)",
     "const views::SolidBackground::`vftable'",
     "public: virtual void __cdecl views::BubbleFrameView::OnThemeChanged(void)",
     "public: void __cdecl ui::Layer::SetFillsBoundsOpaquely(bool)",
     "public: virtual void __cdecl FadeLabel::OnPaintBackground(class gfx::Canvas *)",
+    "public: class gfx::Rect __cdecl views::View::GetBoundsInScreen(void)const",
+    "public: static void __cdecl RoundedOmniboxResultsFrame::OnBeforeWidgetInit(struct views::Widget::InitParams *,class views::Widget *)",
 };
 static bool ParseFeatureCache(const std::string& bytes,const BuildIdentity& id,size_t* result) {
     if(bytes.empty()||bytes.size()>kMaxCache||!std::all_of(bytes.begin(),bytes.end(),
@@ -1449,14 +1135,8 @@ static bool ParseFeatureCache(const std::string& bytes,const BuildIdentity& id,s
 }
 }
 static bool ResolveFeatureAddresses(HMODULE module,size_t* result) {
-    BuildIdentity identity{};std::string cache;
-    std::array<size_t,kFeatureSlots> trusted{};
-    if(!GetBuildIdentity(module,&identity)||!PipelineTrust::Load(identity,s_useOnlineSymbolCache.load(),&cache)||
-        !PipelineTrust::ParseFeatureCache(cache,identity,trusted.data())){
-        Wh_Log(L"Trusted feature cache unavailable or rejected; no native targets will be used");return false;
-    }
     void* addresses[kFeatureSlots]{};
-    WindhawkUtils::SYMBOL_HOOK lookups[]={
+    WindhawkUtils::SYMBOL_HOOK chromeDllHooks[]={
         {{L"protected: virtual void __cdecl views::View::OnPaintBackground(class gfx::Canvas *)"},&addresses[0],nullptr,true},
         {{L"public: void __cdecl gfx::Canvas::DrawColor(unsigned int,enum SkBlendMode)"},&addresses[1],nullptr,true},
         {{L"public: class std::__Cr::basic_string_view<char,struct std::__Cr::char_traits<char> > __cdecl views::View::GetClassNameW(void)const"},&addresses[2],nullptr,true},
@@ -1479,24 +1159,20 @@ static bool ResolveFeatureAddresses(HMODULE module,size_t* result) {
         {{L"public: virtual __cdecl RoundedOmniboxResultsFrame::~RoundedOmniboxResultsFrame(void)"},&addresses[19],nullptr,true},
         {{L"private: virtual void __cdecl ui::Layer::SetRoundedCornersFromAnimation(class gfx::RoundedCornersF const &,enum ui::PropertyChangeReason)"},&addresses[20],nullptr,true},
         {{L"public: virtual void __cdecl views::SolidBackground::Paint(class gfx::Canvas *,class views::View *)const"},&addresses[21],nullptr,true},
-        {{L"public: void __cdecl ui::Layer::SetBackgroundBlur(float)"},&addresses[22],nullptr,true},
-        {{L"public: class gfx::Rect __cdecl views::View::GetLocalBounds(void)const"},&addresses[23],nullptr,true},
-        {{L"public: static int __cdecl RoundedOmniboxResultsFrame::GetNonResultSectionHeight(bool)"},&addresses[24],nullptr,true},
-        {{L"private: virtual void __cdecl ui::Layer::SetClipRectFromAnimation(class gfx::Rect const &,enum ui::PropertyChangeReason)"},&addresses[25],nullptr,true},
-        {{L"public: void __cdecl ui::Layer::SetClipRect(class gfx::Rect const &)"},&addresses[26],nullptr,true},
-        {{L"const views::SolidBackground::`vftable'"},&addresses[27],nullptr,true},
-        {{L"public: virtual void __cdecl views::BubbleFrameView::OnThemeChanged(void)"},&addresses[28],nullptr,true},
-        {{L"public: void __cdecl ui::Layer::SetFillsBoundsOpaquely(bool)"},&addresses[29],nullptr,true},
-        {{L"public: virtual void __cdecl FadeLabel::OnPaintBackground(class gfx::Canvas *)"},&addresses[30],nullptr,true},
+        {{L"public: class gfx::Rect __cdecl views::View::GetLocalBounds(void)const"},&addresses[22],nullptr,true},
+        {{L"public: static int __cdecl RoundedOmniboxResultsFrame::GetNonResultSectionHeight(bool)"},&addresses[23],nullptr,true},
+        {{L"const views::SolidBackground::`vftable'"},&addresses[24],nullptr,true},
+        {{L"public: virtual void __cdecl views::BubbleFrameView::OnThemeChanged(void)"},&addresses[25],nullptr,true},
+        {{L"public: void __cdecl ui::Layer::SetFillsBoundsOpaquely(bool)"},&addresses[26],nullptr,true},
+        {{L"public: virtual void __cdecl FadeLabel::OnPaintBackground(class gfx::Canvas *)"},&addresses[27],nullptr,true},
+        {{L"public: class gfx::Rect __cdecl views::View::GetBoundsInScreen(void)const"},&addresses[28],nullptr,true},
+        {{L"public: static void __cdecl RoundedOmniboxResultsFrame::OnBeforeWidgetInit(struct views::Widget::InitParams *,class views::Widget *)"},&addresses[29],nullptr,true},
     };
-    std::vector<WindhawkUtils::SYMBOL_HOOK> selected;
-    for(unsigned i=0;i<kFeatureSlots;++i)if(trusted[i])selected.push_back(std::move(lookups[i]));
+    static_assert(ARRAYSIZE(chromeDllHooks)==kFeatureSlots);
     WH_HOOK_SYMBOLS_OPTIONS options{};options.optionsSize=sizeof(options);options.symbolServer=L"";
     options.onlineCacheUrl=s_useOnlineSymbolCache.load()?kOnlineSymbolCache:L"";
-    if(!selected.empty()&&!WindhawkUtils::HookSymbols(module,selected.data(),selected.size(),&options))return false;
-    const auto base=reinterpret_cast<uintptr_t>(module);
-    for(unsigned i=0;i<kFeatureSlots;++i)if(trusted[i]&&reinterpret_cast<uintptr_t>(addresses[i])!=base+trusted[i])return false;
-    return !PipelineTrust::stopping&&ValidateFeatureAddresses(module,addresses,result);
+    if(!WindhawkUtils::HookSymbols(module,chromeDllHooks,ARRAYSIZE(chromeDllHooks),&options))return false;
+    return ValidateFeatureAddresses(module,addresses,result);
 }
 // </feature-kernel>
 
@@ -1565,7 +1241,14 @@ MIDL_INTERFACE("29E691FA-4567-4DCA-B319-D0F207EB6807") DesktopInterop : IUnknown
 };
 struct Shape { float left,top,width,height,rx,ry,scale; };
 static bool Equal(const Shape& a,const Shape& b){return !memcmp(&a,&b,sizeof(Shape));}
-struct Request { Shape shape{}; bool valid=false,applied=false,pending=false; unsigned feature=0; bool hoverCard=false; unsigned tint=0; };
+struct Request {
+    Shape shape{};
+    bool valid=false,applied=false,pending=false;
+    unsigned feature=0;
+    bool hoverCard=false;
+    unsigned tint=0;
+    bool extensionsMenu=false;
+};
 struct State {
     composition::Desktop::DesktopWindowTarget target{nullptr};
     composition::SpriteVisual sprite{nullptr}, shade{nullptr};
@@ -1762,6 +1445,12 @@ static void Update(HWND hwnd,const RoundRect& input,unsigned feature) {
     ReleaseSRWLockExclusive(&lock);
     if(notify && WaitForSingleObject(startEvent,0)==WAIT_OBJECT_0)PostThreadMessageW(threadId,kUpdate,0,0);
 }
+static void Forget(HWND hwnd) {
+    bool notify=false;AcquireSRWLockExclusive(&lock);const auto found=requests.find(hwnd);
+    if(found!=requests.end()){found->second.valid=false;found->second.pending=true;notify=true;}
+    ReleaseSRWLockExclusive(&lock);
+    if(notify&&thread&&WaitForSingleObject(startEvent,0)==WAIT_OBJECT_0)PostThreadMessageW(threadId,kUpdate,0,0);
+}
 static void Recheck(){if(thread)PostThreadMessageW(threadId,kRecheck,0,0);}
 static void Stop() {
     AcquireSRWLockExclusive(&lock);stopping=true;const HANDLE worker=thread;const DWORD id=threadId;
@@ -1796,14 +1485,23 @@ static bool SuppressPopupBackground(void* view) {
  if(!name.data||name.length>127)return false;
  const std::string_view cls(name.data,name.length);
  const bool hover=cls=="TabHoverCardBubbleView";
- if(!hover&&cls!="DialogClientView"&&cls!="FooterView"&&cls!="ImageView"&&cls!="FadeLabel")return false;
+ const bool extensions=cls=="ExtensionsMenuView"||cls=="ExtensionsMenuMainPageView"||cls=="ExtensionsMenuSitePermissionsPageView";
+ // ScrollView paints its own background, then repeats it on its viewport
+ // and (with layered scrolling) its contents. These containers are cleared
+ // only after this popup identifies itself as the native Extensions menu.
+ // Extension HTML popups and generic containers in other bubbles stay native.
+ const bool extensionBacking=cls=="ScrollView"||cls=="ScrollView::Viewport"||cls=="View"||
+     cls=="BoxLayoutView"||cls=="FlexLayoutView"||cls=="SectionContainer";
+ if(!hover&&!extensions&&!extensionBacking&&cls!="DialogClientView"&&cls!="FooterView"&&cls!="ImageView"&&cls!="FadeLabel")return false;
  const auto hwnd=NativeUi::Candidate(view,NativeUi::Popups);
  if(!hwnd)return false;
  AcquireSRWLockExclusive(&NativeUi::Material::lock);
  const auto found=NativeUi::Material::requests.find(hwnd);
  const bool shaped=found!=NativeUi::Material::requests.end()&&found->second.valid&&found->second.feature==NativeUi::Popups;
  if(shaped&&hover)found->second.hoverCard=true;
- const bool clear=shaped&&!hover&&((cls!="ImageView"&&cls!="FadeLabel")||found->second.hoverCard);
+ if(shaped&&extensions)found->second.extensionsMenu=true;
+ const bool clear=shaped&&!hover&&(extensionBacking?found->second.extensionsMenu:
+     ((cls!="ImageView"&&cls!="FadeLabel")||found->second.hoverCard));
  ReleaseSRWLockExclusive(&NativeUi::Material::lock);
  return clear;
 }
@@ -1842,70 +1540,52 @@ static void BubbleHook(const void* background,void* canvas,void* view) {
 }
 
 namespace Omnibox {
+struct Rect { int x,y,width,height; };
 using Constructor=void* (*)(void*,void*,void*,bool);
 using Destructor=void (*)(void*);
 using SetBackground=void (*)(void*,void*);
 using SetRounded=void (*)(void*,const float*,int);
-using SetBlur=void (*)(void*,float);
-struct Rect{int x,y,width,height;};
-using LocalBounds=Rect* (*)(const void*,Rect*);
+using Bounds=Rect* (*)(const void*,Rect*);
 using HeaderHeight=int (*)(bool);
-using SetClip=void (*)(void*,const Rect*);
-using AnimatedClip=void (*)(void*,const Rect*,int);
+using BeforeWidget=void (*)(void*,void*);
 static Constructor originalConstructor=nullptr;
 static Destructor originalDestructor=nullptr;
 static SetBackground originalBackground=nullptr;
 static SetRounded originalRounded=nullptr;
 static BackgroundPaint originalSolid=nullptr;
-static SetBlur setBlur=nullptr;
-static LocalBounds getBounds=nullptr;
+static BeforeWidget originalBeforeWidget=nullptr;
+static Bounds getBounds=nullptr,getScreenBounds=nullptr;
 static HeaderHeight getHeader=nullptr;
-static SetClip setClip=nullptr;
-static AnimatedClip originalClip=nullptr;
 static const void* solidVtable=nullptr;
-struct Capture{void* frame;const void* background=nullptr;void* layer=nullptr;unsigned backgrounds=0,layers=0;
-    std::unordered_map<void*,Rect> clips;};
+struct Capture {
+    void* frame;const void* background=nullptr;void* layer=nullptr;
+    unsigned backgrounds=0,layers=0;float radius=0;
+};
+struct Record {
+    void* frame;void* layer;HWND window=nullptr;
+    Rect sampling{};float radius=0,scale=0;HRGN originalRegion=nullptr;bool painted=false;
+};
 static thread_local Capture* constructing=nullptr;
-static thread_local unsigned clipWrites=0;
-struct Record{void* frame;void* layer;HWND window;bool painted=false;int width=0,height=0,header=-1;Rect nativeClip{};};
 static SRWLOCK lock=SRWLOCK_INIT;
 static std::unordered_map<const void*,Record> backgrounds;
 static std::vector<HWND> subclassedWindows;
-static constexpr UINT_PTR kSubclass=0xBA3801;
+static constexpr UINT_PTR kSubclass=0xBA3901;
 static UINT cleanupMessage=0;
-static bool ResultsClip(int width,int height,int header,const Rect& native,Rect* result) {
-    if(width<=0||width>32768||height<=header||height>32768||header<0)return false;
-    // An empty native clip means "unclipped". Clip the final output, leaving
-    // Chromium free to sample the full backdrop for its blur filter.
-    int64_t left=0,top=header,right=width,bottom=height;
-    if(native.width>0&&native.height>0){
-        left=std::max(left,int64_t(native.x));top=std::max(top,int64_t(native.y));
-        right=std::min(right,int64_t(native.x)+native.width);
-        bottom=std::min(bottom,int64_t(native.y)+native.height);
-    }
-    // Do not set an empty result: Chromium would interpret it as no clip.
-    if(right<=left||bottom<=top)return false;
-    *result={int(left),int(top),int(right-left),int(bottom-top)};return true;
+static bool SameRect(const Rect& a,const Rect& b) {
+    return a.x==b.x&&a.y==b.y&&a.width==b.width&&a.height==b.height;
 }
-static void WriteClip(void* layer,const Rect& clip) {
-    ++clipWrites;setClip(layer,&clip);--clipWrites;
+static bool SamplingBounds(const Rect& frame,const Rect& host,int header,Rect* result) {
+    if(frame.width<=0||frame.width>32768||frame.height<=0||frame.height>32768||
+       host.width<=0||host.width>32768||host.height<=0||host.height>32768||header<0||header>=host.height)return false;
+    const int64_t x=int64_t(host.x)-frame.x,y=int64_t(host.y)-frame.y+header;
+    if(x<0||y<0||x+host.width>frame.width||y+host.height-header>frame.height)return false;
+    *result={int(x),int(y),host.width,host.height-header};return true;
 }
-static void ClipHook(void* layer,const Rect* clip,int reason) {
-    Rect output=*clip;bool disable=false;
-    if(!clipWrites){
-        if(constructing)constructing->clips[layer]=*clip;
-        AcquireSRWLockExclusive(&lock);
-        for(auto& [_,record]:backgrounds)if(record.layer==layer){
-            record.nativeClip=*clip;
-            if(record.painted&&!ResultsClip(record.width,record.height,record.header,*clip,&output)){
-                record.painted=false;disable=true;
-            }
-            break;
-        }
-        ReleaseSRWLockExclusive(&lock);
-    }
-    if(disable)setBlur(layer,0.f);
-    originalClip(layer,&output,reason);
+static void Restore(const Record& record) {
+    // Windows takes ownership of a successfully restored region.
+    if(!record.window||!IsWindow(record.window)||!SetWindowRgn(record.window,record.originalRegion,TRUE))
+        if(record.originalRegion)DeleteObject(record.originalRegion);
+    if(record.window)Material::Forget(record.window);
 }
 static void RestoreWindow(HWND hwnd) {
     std::vector<Record> records;
@@ -1914,15 +1594,19 @@ static void RestoreWindow(HWND hwnd) {
         records.push_back(it->second);it=backgrounds.erase(it);
     }else ++it;
     ReleaseSRWLockExclusive(&lock);
-    for(const auto& record:records)if(record.painted){setBlur(record.layer,0.f);WriteClip(record.layer,record.nativeClip);}
+    for(const auto& record:records)Restore(record);
 }
 static LRESULT CALLBACK WindowProc(HWND hwnd,UINT message,WPARAM wParam,LPARAM lParam,UINT_PTR,DWORD_PTR) {
-    if(message==cleanupMessage || message==WM_NCDESTROY){
+    if(message==cleanupMessage||message==WM_NCDESTROY){
         RestoreWindow(hwnd);RemoveWindowSubclass(hwnd,WindowProc,kSubclass);
-        AcquireSRWLockExclusive(&lock);
-        std::erase(subclassedWindows,hwnd);ReleaseSRWLockExclusive(&lock);
+        AcquireSRWLockExclusive(&lock);std::erase(subclassedWindows,hwnd);ReleaseSRWLockExclusive(&lock);
     }
     return DefSubclassProc(hwnd,message,wParam,lParam);
+}
+static void BeforeWidgetHook(void* params,void* widget) {
+    if(!Active(Suggestions)||!UserAllowsTransparency())originalBeforeWidget(params,widget);
+    // Otherwise leave Chromium's desktop-popup factory selected instead of its
+    // in-window Aura override. Chromium owns the native popup and all its input.
 }
 static void BackgroundHook(void* view,void* value) {
     const void* background=nullptr;
@@ -1941,81 +1625,90 @@ static bool RoundedShape(const float* radii) {
 }
 static void RoundedHook(void* layer,const float* radii,int reason) {
     originalRounded(layer,radii,reason);
-    if(constructing&&layer&&RoundedShape(radii)&&constructing->layer!=layer){++constructing->layers;if(constructing->layers==1)constructing->layer=layer;}
+    if(constructing&&layer&&RoundedShape(radii)&&constructing->layer!=layer){
+        ++constructing->layers;if(constructing->layers==1){
+            constructing->layer=layer;constructing->radius=*std::min_element(radii,radii+4);
+        }
+    }
 }
 static void* ConstructorHook(void* self,void* contents,void* location,bool forward) {
     Capture capture{self};Capture* previous=constructing;
     constructing=Active(Suggestions)&&UserAllowsTransparency()?&capture:nullptr;
     void* result=originalConstructor(self,contents,location,forward);constructing=previous;
     if(Active(Suggestions)&&capture.backgrounds==1&&capture.layers==1&&capture.background&&capture.layer){
-        // The view is not necessarily attached to a Widget until after its
-        // constructor returns. Find/subclass the real HWND on its first paint.
         AcquireSRWLockExclusive(&lock);
-        // This is a newly created native layer, whose initial clip is empty.
-        // Also retain any clip Chromium set during construction or animation.
-        if(Active(Suggestions)){
-            auto& record=backgrounds[capture.background];record={self,capture.layer,nullptr};
-            if(const auto clip=capture.clips.find(capture.layer);clip!=capture.clips.end())record.nativeClip=clip->second;
-        }
+        if(Active(Suggestions))backgrounds[capture.background]={self,capture.layer,nullptr,{},capture.radius};
         ReleaseSRWLockExclusive(&lock);
     }
     return result;
 }
 static void Forget(void* frame) {
+    std::vector<Record> records;
     AcquireSRWLockExclusive(&lock);
-    for(auto it=backgrounds.begin();it!=backgrounds.end();)if(it->second.frame==frame)it=backgrounds.erase(it);else ++it;
+    for(auto it=backgrounds.begin();it!=backgrounds.end();)if(it->second.frame==frame){
+        records.push_back(it->second);it=backgrounds.erase(it);
+    }else ++it;
     ReleaseSRWLockExclusive(&lock);
+    for(const auto& record:records)Restore(record);
 }
 static void DestructorHook(void* self){Forget(self);originalDestructor(self);}
 static bool Blur(const void* background,void* view) {
     Record record{};
-    AcquireSRWLockShared(&lock);const auto it=backgrounds.find(background);
-    if(it!=backgrounds.end())record=it->second;ReleaseSRWLockShared(&lock);
-    if(!record.layer||!view)return false;
+    AcquireSRWLockShared(&lock);const auto found=backgrounds.find(background);
+    if(found!=backgrounds.end())record=found->second;ReleaseSRWLockShared(&lock);
+    if(!record.layer||!view||!Active(Suggestions)||!UserAllowsTransparency())return false;
+    HWND hwnd=windowForView(view);
+    if(!PopupWindow(hwnd)||GetWindowThreadProcessId(hwnd,nullptr)!=GetCurrentThreadId())return false;
+    Rect frame{},host{},local{},sampling{};getBounds(view,&local);
+    getScreenBounds(record.frame,&frame);getScreenBounds(view,&host);
+    if(local.width!=host.width||local.height!=host.height||!SamplingBounds(frame,host,getHeader(true),&sampling))return false;
+    RECT client{};const float scale=GetDpiForWindow(hwnd)/96.f;
+    if(!GetClientRect(hwnd,&client)||scale<=0||scale>8||
+       (sampling.x+sampling.width)*scale>client.right+2||(sampling.y+sampling.height)*scale>client.bottom+2)return false;
     if(!record.window){
-        if(!Active(Suggestions))return false;
-        HWND hwnd=windowForView(view);
-        if(!hwnd||GetWindowThreadProcessId(hwnd,nullptr)!=GetCurrentThreadId())return false;
-        AcquireSRWLockShared(&lock);
-        const bool existing=std::find(subclassedWindows.begin(),subclassedWindows.end(),hwnd)!=subclassedWindows.end();
-        ReleaseSRWLockShared(&lock);
-        if(!SetWindowSubclass(hwnd,WindowProc,kSubclass,0))return false;
-        AcquireSRWLockExclusive(&lock);const auto live=backgrounds.find(background);
-        const bool keep=Active(Suggestions)&&live!=backgrounds.end()&&live->second.frame==record.frame;
-        if(keep){
-            record.window=hwnd;live->second.window=hwnd;
-            if(std::find(subclassedWindows.begin(),subclassedWindows.end(),hwnd)==subclassedWindows.end())subclassedWindows.push_back(hwnd);
-        }
+        HRGN saved=CreateRectRgn(0,0,0,0);if(!saved)return false;
+        if(GetWindowRgn(hwnd,saved)==ERROR){DeleteObject(saved);saved=nullptr;}
+        if(!SetWindowSubclass(hwnd,WindowProc,kSubclass,0)){if(saved)DeleteObject(saved);return false;}
+        AcquireSRWLockExclusive(&lock);const auto current=backgrounds.find(background);
+        const bool keep=Active(Suggestions)&&current!=backgrounds.end()&&current->second.frame==record.frame;
+        if(keep){current->second.window=hwnd;current->second.originalRegion=saved;
+            if(std::find(subclassedWindows.begin(),subclassedWindows.end(),hwnd)==subclassedWindows.end())subclassedWindows.push_back(hwnd);}
         ReleaseSRWLockExclusive(&lock);
-        if(!keep){if(!existing)RemoveWindowSubclass(hwnd,WindowProc,kSubclass);return false;}
+        if(!keep){RemoveWindowSubclass(hwnd,WindowProc,kSubclass);if(saved)DeleteObject(saved);return false;}
+        record.window=hwnd;record.originalRegion=saved;
     }
-    Rect bounds{};getBounds(view,&bounds);const int header=getHeader(true);
-    Rect clip{};
-    const bool allowed=Active(Suggestions)&&UserAllowsTransparency()&&
-        ResultsClip(bounds.width,bounds.height,header,record.nativeClip,&clip);
-    if(!allowed){
-        if(record.painted){setBlur(record.layer,0.f);WriteClip(record.layer,record.nativeClip);}
-    }else if(!record.painted||record.width!=bounds.width||record.height!=bounds.height||record.header!=header){
-        WriteClip(record.layer,clip);setBlur(record.layer,24.f);
+    const float radius=std::min(record.radius,std::min(sampling.width,sampling.height)/2.f);
+    if(!record.painted||!SameRect(record.sampling,sampling)||record.scale!=scale){
+        // Exclude the actual input field and shadow margins from the popup's
+        // rounded OS region. Pointer input goes directly to the native controls.
+        HRGN region=CreateRoundRectRgn(int(sampling.x*scale),int(sampling.y*scale),
+            int((sampling.x+sampling.width)*scale)+1,int((sampling.y+sampling.height)*scale)+1,
+            int(radius*scale*2),int(radius*scale*2));
+        if(!region)return false;
+        if(!SetWindowRgn(hwnd,region,TRUE)){DeleteObject(region);return false;}
     }
-    AcquireSRWLockExclusive(&lock);const auto live=backgrounds.find(background);
-    if(live!=backgrounds.end()&&live->second.frame==record.frame){
-        live->second.painted=allowed;live->second.width=bounds.width;live->second.height=bounds.height;live->second.header=header;
-    }
-    ReleaseSRWLockExclusive(&lock);return allowed;
+    if(!Material::Start())return false;
+    Material::Shape shape{float(sampling.x),float(sampling.y),float(sampling.width),float(sampling.height),radius,radius,scale};
+    bool notify=false;AcquireSRWLockExclusive(&Material::lock);
+    if(!Material::stopping){auto& request=Material::requests[hwnd];
+        if(!request.valid||!Material::Equal(request.shape,shape)||request.feature!=Suggestions){
+            request.shape=shape;request.feature=Suggestions;request.tint=0;request.valid=true;request.pending=true;notify=true;}}
+    ReleaseSRWLockExclusive(&Material::lock);
+    if(notify&&WaitForSingleObject(Material::startEvent,0)==WAIT_OBJECT_0)PostThreadMessageW(Material::threadId,Material::kUpdate,0,0);
+    AcquireSRWLockExclusive(&lock);const auto current=backgrounds.find(background);
+    if(current!=backgrounds.end()){current->second.sampling=sampling;current->second.scale=scale;current->second.painted=true;}
+    ReleaseSRWLockExclusive(&lock);return true;
 }
 static void SolidHook(const void* background,void* canvas,void* view){Scope scope(Blur(background,view));originalSolid(background,canvas,view);}
 static void Stop() {
-    // Native layer changes and subclass removal run on the owning UI thread.
-    // No registry lock is held across the synchronous window dispatch.
     std::vector<HWND> windows;
-    AcquireSRWLockShared(&lock);
-    windows=subclassedWindows;
-    ReleaseSRWLockShared(&lock);
+    AcquireSRWLockShared(&lock);windows=subclassedWindows;ReleaseSRWLockShared(&lock);
+    // Do not hold a registry lock across dispatch to the owning UI thread.
     for(HWND hwnd:windows)SendMessageW(hwnd,cleanupMessage,0,0);
     AcquireSRWLockExclusive(&lock);backgrounds.clear();ReleaseSRWLockExclusive(&lock);
 }
 }
+
 static void Stop(){ready=false;Omnibox::Stop();Material::Stop();}
 }
 // </native-ui>
@@ -2044,17 +1737,17 @@ static bool ResolveNativeBackground(HMODULE module) {
     if((features&(kMenus|kPopups))&&!hook(17,NativeUi::RoundRectHook,&NativeUi::originalRoundRect))features&=~(kMenus|kPopups);
     if((features&kMenus)&&!hook(15,NativeUi::MenuHook,&NativeUi::originalMenu))features&=~kMenus;
     if((features&kPopups)&&(!hook(16,NativeUi::BubbleHook,&NativeUi::originalBubble)||
-        !hook(28,NativeUi::BubbleThemeHook,&NativeUi::originalBubbleTheme)||
-        !hook(29,NativeUi::LayerOpaqueHook,&NativeUi::originalLayerOpaque)||
-        !hook(30,NativeUi::FadeBackgroundHook,&NativeUi::originalFadeBackground)))features&=~kPopups;
+        !hook(25,NativeUi::BubbleThemeHook,&NativeUi::originalBubbleTheme)||
+        !hook(26,NativeUi::LayerOpaqueHook,&NativeUi::originalLayerOpaque)||
+        !hook(27,NativeUi::FadeBackgroundHook,&NativeUi::originalFadeBackground)))features&=~kPopups;
     if(features&kSuggestions){
         using namespace NativeUi::Omnibox;
-        setBlur=reinterpret_cast<SetBlur>(address(22));getBounds=reinterpret_cast<LocalBounds>(address(23));
-        getHeader=reinterpret_cast<HeaderHeight>(address(24));setClip=reinterpret_cast<SetClip>(address(26));solidVtable=address(27);
-        cleanupMessage=RegisterWindowMessageW(L"BraveAcrylic.OmniboxCleanup.3.8");
+        getBounds=reinterpret_cast<Bounds>(address(22));getHeader=reinterpret_cast<HeaderHeight>(address(23));
+        solidVtable=address(24);getScreenBounds=reinterpret_cast<Bounds>(address(28));
+        cleanupMessage=RegisterWindowMessageW(L"BraveAcrylic.OmniboxCleanup.3.9");
         if(!cleanupMessage||!hook(5,BackgroundHook,&originalBackground)||!hook(18,ConstructorHook,&originalConstructor)||
             !hook(19,DestructorHook,&originalDestructor)||!hook(20,RoundedHook,&originalRounded)||!hook(21,SolidHook,&originalSolid)||
-            !hook(25,ClipHook,&originalClip))features&=~kSuggestions;
+            !hook(29,BeforeWidgetHook,&originalBeforeWidget))features&=~kSuggestions;
     }
     NativeUi::supported=features;NativeUi::enabled=s_requestedUi.load();
     s_availableAreas=features&7;s_background.areas.fetch_and(features&7);
@@ -2164,7 +1857,6 @@ void Wh_ModSettingsChanged() {
 }
 
 void Wh_ModBeforeUninit() {
-    PipelineTrust::stopping.store(true, std::memory_order_release);
     s_captionStopping.store(true, std::memory_order_release);
     s_captionFixActive.store(false, std::memory_order_release);
     AcquireSRWLockExclusive(&s_initLock);

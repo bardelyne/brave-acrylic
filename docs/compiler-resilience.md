@@ -1,5 +1,12 @@
 # Compiler compatibility study
 
+The 3.9 release uses a new native desktop-popup contract and ordinary Windhawk cache fetching. Earlier multi-major reports cover their stated contracts; they do not validate every new 3.9 dependency. The new contract is checked separately against the available 1.98.60 and 1.98.62 official DLL/PDB pairs. The workflow reports unsupported targets per feature.
+
+The results below concern the earlier 13-function background contract. The
+[Brave Acrylic 3.8 feature study](native-feature-study-2026-10-29.md) repeats the
+official-input analysis for that version's 31 native targets and all six feature
+groups across the same 12 builds.
+
 GitHub Actions downloaded official Windows archives and matching multi-gigabyte
 PDBs for twelve stable releases. The archives were checked against official SHA256
 assets; the DLL's GUID/DBI age selected and authenticated its PDB identity.

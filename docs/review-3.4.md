@@ -1,6 +1,6 @@
 # Review changes in 3.4
 
-Historical notes for 3.4/3.4.1. Version 3.5 adds a bounded HTTPS pipeline-proof gate; see [trusted-pipeline.md](trusted-pipeline.md) for the current trust model and network behavior.
+Historical notes for 3.4/3.4.1. Version 3.5 introduced a pipeline-proof gate, which 3.9 removes. See [trusted-pipeline.md](trusted-pipeline.md) for the current author-hosted cache trust model and network behavior.
 
 Addresses the [3.3 AI review](https://github.com/ramensoftware/windhawk-mods/pull/6471#issuecomment-6390506396) and the [maintainer's online-cache suggestion](https://github.com/ramensoftware/windhawk-mods/pull/6471#issuecomment-6391627353).
 

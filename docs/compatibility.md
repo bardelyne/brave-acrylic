@@ -1,10 +1,8 @@
-# Verified feature compatibility
+# Native feature compatibility
 
-Brave Acrylic 3.7 keeps Windhawk's named-symbol resolution and the approved-pipeline gate. The contract contains 27 exact functions and one immutable background-class vtable. All returned addresses must match authenticated data before any native hook is registered. Remote PDB fallback remains disabled.
+Brave Acrylic 3.9 uses ordinary Windhawk named-symbol fetching. The current contract contains 29 functions and one immutable background-class vtable. Remote PDB fallback is disabled. Local structural checks remain; there is no workflow/artifact verification gate. The symbol service is controlled by the author: see [hosting and trust](trusted-pipeline.md).
 
-The cache uses Windhawk's ordinary format: `1#chrome.dll#x86-64_<timestamp>_<size>#<full-symbol-name>#<decimal-RVA>#...`. All 28 names have a fixed order. An empty RVA explicitly marks an unavailable optional target. Orphan targets that do not serve any complete feature are rejected.
-
-## Independent features
+The format is `1#chrome.dll#x86-64_<timestamp>_<size>#<full-symbol-name>#<decimal-RVA>#...`. All 30 names have a fixed order. An empty RVA explicitly marks an unavailable optional target. The producer publishes only addresses serving complete features.
 
 | Feature | Required slots |
 | --- | --- |
@@ -12,32 +10,21 @@ The cache uses Windhawk's ordinary format: `1#chrome.dll#x86-64_<timestamp>_<siz
 | toolbar | 0, 1, 2, 3, 6, 7 |
 | webpage | 0, 1, 2, 3, 8, 9, 10, 11, 12 |
 | menus | 13, 14, 15, 17 |
-| popups | 13, 14, 16, 17 |
-| suggestions | 5, 13, 14, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27 |
+| popups | 0, 1, 2, 13, 14, 16, 17, 25, 26, 27 |
+| suggestions | 5, 13, 14, 18, 19, 20, 21, 22, 23, 24, 28, 29 |
 
-The full decorated and readable names are defined in [feature-cache.cjs](../tools/feature-cache.cjs). Both producer and native parser are tested against the same contract. Sixteen functions are hooked when every feature is supported; eleven are call-only helpers. The vtable is only used to identify the native solid background, and must be in immutable .rdata with executable method entries.
+The names and decorated PDB inputs are defined in [feature-cache.cjs](../tools/feature-cache.cjs). Twenty functions are hooked when every feature is supported; nine are called as helpers. The solid-background vtable identifies its native background class and must lie in immutable .rdata with executable method entries.
 
-The original background interfaces retain their validated short-leaf and direct-jump rules. Additional helpers accept only their exact observed leaf instruction layouts or normal unwind-backed entries. Unrelated aliases on patched functions are rejected. A folded background setter may remain usable as a call-only helper for vertical tabs while suggestions are disabled. Global PE/PDB corruption, GUID/DBI-age mismatch and unsupported symbol remapping always abort generation.
+Native suggestions use the desktop-popup factory, actual local/screen bounds and native header height. Windows supplies the host backdrop. Superseded Chromium backdrop-filter, widget-layer and rounded-filter-construction helpers are no longer dependencies. A rounded OS region keeps the popup and blur below the typed input, follows resizing/DPI, and restores the actual previous region on cleanup.
 
-## Workflow behavior
+The original background interfaces retain their approved short-leaf and direct-jump rules. The local-bounds helper accepts its exact observed leaf or a normal unwind-backed entry. Unrelated aliases on patched functions are rejected. A folded background setter may remain callable for vertical tabs while disabling suggestions. Corrupt inputs, mismatched GUID/DBI age and unsupported symbol remapping abort generation.
 
-The primary schedule and staggered backup remain every two hours. Official release/asset/contract checks skip large downloads when unchanged. A needed run downloads the official archive and matching PDB once, keeps large inputs on the hosted runner, and never executes downloaded browser code or source-server commands.
+## Workflow
 
-Each feature gets an availability result and a reason in the run summary and release record. A missing, renamed, aliased or unsupported native target disables its dependent features; the other complete features are still published. Even a build with no supported features produces an explicit diagnostic-only cache with no usable addresses. Such a build installs no native feature hooks. Network failures, corrupt inputs, test failures and publishing failures remain real errors; they are not converted into successful compatibility claims.
+The primary two-hour schedule and its staggered backup first check the stable release, asset identity and native contract. Unchanged releases skip all large downloads. Both jobs check out the run's same source revision, and external actions remain pinned. The runner downloads the checksum-verified official archive and matching PDB once; neither downloaded browser code nor source-server commands are executed.
 
-Publication uses `brave-acrylic-features/pdb_<GUID-age>.txt`, its proof locator, and `feature-releases/<tag>.json` on the symbol-cache branch. The older thirteen-symbol cache files are preserved for installed older mod versions. The independently validated raw artifact binds the exact cache bytes to the approved immutable run/workflow. See [the trust design](trusted-pipeline.md).
+Availability and reasons are reported per feature. Missing or unsupported functions disable dependent features while other validated features are published. Even a build with no supported features gets an explicit diagnostic-only cache with no usable addresses. Network failures, corrupt files, test failures and publication failures remain errors.
 
-## Tests
+Publication writes `brave-acrylic-features-v7/pdb_<GUID-age>.txt` and `feature-releases-v7/v<version>.json` to the `symbol-cache` branch, preserving older namespaces. No new proof locator or raw-proof artifact is published. The record retains official asset provenance, cache hash, extractor/native-contract identity and feature status for diagnostics and unchanged-release checks.
 
-The combined native targets validate on official Brave 1.98.60 and 1.98.62. The menu/suggestion browser test uses a separate profile; no personal Brave data is copied. Tests cover all 64 feature combinations, removal of every dependency, malformed and ambiguous symbols, native boundary/leaf checks, first-paint menu alpha, sharp input cutouts, native input/styles, composition ownership and unload cleanup.
-
-```text
-node --test tests/*.test.cjs
-node tests/run-client.cjs
-node tests/run-pipeline-trust.cjs
-node tests/run-native-ui.cjs --material
-node tools/feature-cache.cjs chrome.dll chrome.dll.pdb cache.txt
-node tools/build.cjs
-```
-
-The older [twelve-release study](compiler-resilience.md) describes the background-only contract and is not a claim that the new menu/suggestion interfaces were tested on every historical release. Do not commit browser archives, DLLs or PDBs.
+Restart Brave after applying the mod or settings, and after new data becomes available for a previously unsupported build. See [the compiler studies](compiler-resilience.md) for their precise version/contract coverage; the older multi-major studies do not validate the complete new contract.

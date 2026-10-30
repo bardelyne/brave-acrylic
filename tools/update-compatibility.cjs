@@ -14,7 +14,6 @@ const BRANCH = 'symbol-cache';
 const WORK = path.resolve(process.env.COMPATIBILITY_WORK_DIR ||
   (process.env.RUNNER_TEMP ? path.join(process.env.RUNNER_TEMP, 'brave-compatibility') : 'compatibility-work'));
 const API = 'https://api.github.com';
-const {proofFor, artifactName} = require('./trusted-pipeline.cjs');
 function check(ok, message) { if (!ok) throw Error(message); }
 function tagName(value) {
   check(/^v\d{1,3}\.\d{1,3}\.\d{1,5}$/.test(value), 'Expected a stable Brave tag such as v1.98.60');
@@ -36,10 +35,11 @@ async function contractMetadata() {
       namedThunk:{kind:3,slots:'any',opcode:0xE9,length:5,unwind:false,targetField:'reserved',body:'normal-unwind-or-approved-slot-leaf',
         ranges:'source-and-body-distinct-nonoverlapping-executable'},
       nativeAbi:{color:'float4-indirect',pageBase:'optional-color8-register-present-byte4',attach:'canonical-WebContents-before-native-attach',
-        vtable:'named-readonly-rdata-two-executable-methods',helperLeaves:'exact-background-blur-tail-setter-and-local-rect',
-        menus:'scoped-native-paint-alpha-and-rounded-host-backdrop',suggestions:'native-layer-filter-below-input-cutout'},
+        vtable:'named-readonly-rdata-two-executable-methods',helperLeaves:'exact-local-rect-return',
+        menus:'scoped-native-paint-alpha-and-rounded-host-backdrop',
+        suggestions:'native-desktop-popup-rounded-region-below-input-and-windows-host-backdrop'},
       aliases:{hooks:'reject-unrelated-public-names-and-thunk-bodies',
-        callOnlySlots:[1,2,6,7,11,13,22,23,24,25,26],
+        callOnlySlots:SYMBOLS.map((_,i)=>i).filter(i=>!HOOK_SLOTS.includes(i)&&i!==24),
         themeForwarder:{slot:8,kind:3,bodyName:'?UpdateBackgroundColor@ContentsWebView@@AEAAXXZ',
           bodyOnly:true,otherThunks:false}}}))}};
 }
@@ -98,9 +98,6 @@ async function prepare({work = WORK, env = process.env, request = api, modSource
     try {
       const record = JSON.parse(Buffer.from(existing.content, 'base64').toString('utf8'));
       known = record.tag === tag && hexHash(record.sha256) &&
-        record.pipelineProof?.schema === 1 && Number.isSafeInteger(record.pipelineProof.artifactId) &&
-        record.pipelineProof.artifactId > 0 && record.pipelineProof.sha256 === record.sha256 &&
-        record.pipelineProof.artifactName === artifactName(record.key) &&
         Object.entries(metadata).every(([key, value]) => same(record[key], value)) &&
         same(record.assets, official.assets);
     } catch { /* A broken record requires regeneration. */ }
@@ -197,9 +194,6 @@ async function build() {
       dllSha256:await shaFile(dll), symbols:url}, elapsedMs:Date.now() - started};
   await fs.writeFile(path.join(out, 'record.json'), JSON.stringify(record, null, 2) + '\n');
   await verify(out, {allowLegacy:false});
-  const trusted = path.join(WORK, 'trusted');
-  await fs.mkdir(trusted, {recursive:true});
-  await fs.copyFile(path.join(out, 'cache.txt'), path.join(trusted, artifactName(record.key)));
   console.log('Generated ' + (await fs.stat(path.join(out, 'cache.txt'))).size + ' bytes in ' + Math.round(record.elapsedMs / 1000) + ' seconds');
 }
 async function verify(directory, {modSource} = {}) {
@@ -247,18 +241,10 @@ async function publish() {
   const {map, record} = await verify(path.join(WORK, 'out'), {allowLegacy:false});
   const official = releaseIdentity(await api('/repos/brave/brave-browser/releases/tags/' + record.tag));
   check(official.tag === record.tag && same(official.assets, record.assets), 'Official assets changed before publication');
-  const artifactId = process.env.TRUSTED_ARTIFACT_ID || '';
-  check(/^[1-9]\d{0,15}$/.test(artifactId), 'Missing raw-cache artifact identity');
-  const artifact = await api(`/repos/${REPOSITORY}/actions/artifacts/${artifactId}`);
-  check(artifact.id === Number(artifactId), 'Artifact identity mismatch');
-  const proof = proofFor(artifact, {runId:Number(process.env.GITHUB_RUN_ID),
-    headSha:process.env.GITHUB_SHA, sha256:hash(map), size:map.length, key:record.key});
-  record.pipelineProof = proof;
   const ref = await api(`/repos/${REPOSITORY}/git/ref/heads/${BRANCH}`, 'GET', undefined, true);
   const commit = ref ? await api(`/repos/${REPOSITORY}/git/commits/${ref.object.sha}`) : null;
   const files = [
     [`${CACHE_ROOT}/pdb_${record.key}.txt`, map, 'base64'],
-    [`${CACHE_ROOT}/pdb_${record.key}.proof.json`, Buffer.from(JSON.stringify(proof) + '\n'), 'utf-8'],
     [`${RELEASE_ROOT}/${record.tag}.json`, Buffer.from(JSON.stringify(record, null, 2) + '\n'), 'utf-8'],
   ];
   // Older releases remain on the branch; source code and contributor history

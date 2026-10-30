@@ -92,7 +92,7 @@ async function disassemble(report,output){
   await fs.unlink(filename);
  }
 }
-async function collect(tag,work){
+async function collect(tag,work,{afterAnalyze}={}){
  tagName(tag);work=path.resolve(work);await fs.mkdir(work,{recursive:true});
  const output=path.join(work,'report');await fs.mkdir(output,{recursive:true});
  const official=await json('https://api.github.com/repos/brave/brave-browser/releases/tags/'+tag),identity=releaseIdentity(official);
@@ -129,6 +129,7 @@ async function collect(tag,work){
  if(process.env.GITHUB_STEP_SUMMARY)await fs.appendFile(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');
  if(report.candidate.accepted)await fs.writeFile(path.join(output,'candidate-cache.txt'),report.candidate.cache);
  console.log(JSON.stringify({tag,key:report.key,strict:report.strict,candidate:report.candidate.accepted,functions:report.functions.length}));
+ if(afterAnalyze)await afterAnalyze({tag,dll,pdb,output,report});
  // Keep huge official inputs only on this runner, not in artifacts or caches.
  await fs.unlink(pdb);await fs.unlink(dll);
  return report;

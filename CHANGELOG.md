@@ -1,7 +1,17 @@
 # Changelog
 
+## 3.9 — Alpha
+
+- Use Chromium's native desktop suggestions popup with Windows backdrop blur, including the tested YouTube and Zen Internet transparency combination. Preserve sharp input/results, native navigation, rounded clipping, DPI changes and the original window region on cleanup.
+- Remove the custom workflow/artifact verification gate and its extra GitHub API requests. Keep Windhawk's standard named-symbol cache, optional downloads, local address checks and disabled remote PDB fallback.
+- Publish a smaller native contract with 29 functions and one background vtable. Remove the superseded Chromium blur/filter helpers while preserving independent feature availability.
+- Prepare the two-hour workflow to generate and publish from the same run revision, skip unchanged official releases and report unsupported features without discarding working ones. Remove proof locators and raw-proof artifacts; retain pinned actions and official PE/PDB checks.
+- Disclose author control of the symbol service and its trust implications. Require restarting Brave after installing, updating or applying settings.
+
 ## 3.8
 
+- Clear repeated scroll backgrounds in the native Extensions manager while preserving its controls and extension HTML popups.
+- Put the author-hosted cache ownership and trust notice near the top of both READMEs.
 - Add consistent acrylic to tab and tab-group hover cards and native dialogs such as Restore pages.
 - Keep native text and icons clear, including their cross-fade transitions, without black background flashes.
 - Derive popup tint from Brave's theme and keep menu tint separate; suppress Windows-drawn popup borders where supported.
