@@ -204,7 +204,7 @@
     }
   ],
   "modContract": {
-    "abiSha256": "c285ac234f07659e8d5e19191781edaa1016ade570eeb30d01ec00a28a00458a"
+    "abiSha256": "9e55f337e872f5dcd6d3aaa055e0ada1495dce2121abf1a6adb25b8aa1d6e4a0"
   },
   "tag": "v1.99.55",
   "assets": {
@@ -223,13 +223,13 @@
       "digest": "sha256:58f01e678d74806ae1bad432c40c726e6360a06ed607062e8ad02931eb6e75dc"
     }
   },
-  "modSourceSha256": "e53e726327f4349727fadba1e046b3dda5a8eb0533617c390dee7c436ab7cedb",
-  "createdUtc": "2026-11-05T20:57:45.481Z",
+  "modSourceSha256": "e4e16b854e935af2e2d12b0f324fa92b39576de2b761b6c4a9da9d59a696f771",
+  "createdUtc": "2026-11-05T21:53:59.444Z",
   "source": {
     "release": "https://github.com/brave/brave-browser/releases/download/v1.99.55/brave-v1.99.55-win32-x64.zip",
     "archiveSha256": "ababc163488bfd58cab7ebe4a4057dd23227c81f5958f3a8597526a278fbae15",
     "dllSha256": "41d24dfdfbfec47f59feb6c4f1cea8ef0af624e40ad56e562d582a2fd078622b",
     "symbols": "https://brave-symbols.s3.brave.com/chrome.dll.pdb/22DC58117C04ED6E4C4C44205044422E1/chrome.dll.pdb"
   },
-  "elapsedMs": 45930
+  "elapsedMs": 39663
 }
