@@ -36,9 +36,9 @@ Reveal the Windows backdrop through Brave's vertical tab area, frame, toolbar, a
 
 Windows 11 is the tested environment. Windows 10 is unverified; the backdrop provider and selected effect must support that Windows version. Native ARM64 Brave is unsupported.
 
-The native-popup suggestion method was tested with Brave 1.98.60 and with regular Brave 1.98.62 / Chromium 156, including YouTube with Zen Internet transparency enabled. Version 4.0 adds rounded-content and popup coverage; its native targets have been checked against the matching official Brave 1.98.60 and 1.98.63 DLL/PDB pairs. Visual confirmation of each new surface is separate from symbol validation. Other builds need valid compatibility data for their exact `chrome.dll`. Native interfaces and rendering behavior can change and may require a mod update.
+Native popup suggestions were tested in Brave 1.98, including YouTube with Zen Internet transparency enabled. Version 4.0 adds rounded-content and popup coverage and separates the Toolbar and Address bar options.
 
-The earlier background-only native contract was validated on seven official releases from Brave 1.93.138 through 1.98.62 (Chromium 151–156). This checks the native compatibility data; it is separate from visual testing. See the [compiler study](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compiler-resilience.md).
+The 4.0 compatibility study validated all eight feature groups on one official stable build from each Brave 1.93–1.99 release line (Chromium 151–157). Builds tested from 1.88–1.92 had partial coverage. The study checks matching binaries and symbols. Visual behavior is tested separately. Brave Acrylic uses compatibility data for the exact installed `chrome.dll`. See the [compatibility matrix run](https://github.com/bardelyne/brave-acrylic/actions/runs/42106823647) and [compiler study](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compiler-resilience.md).
 
 ## Fast setup
 
