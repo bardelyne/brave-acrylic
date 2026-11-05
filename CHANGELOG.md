@@ -4,6 +4,7 @@
 
 - Check for new Brave releases hourly.
 - Recognize Chromium 157’s virtual popup opacity setter.
+- Enable Hide duplicate Windows buttons by default on fresh installs.
 
 - Separate Toolbar and Address bar settings. Address bar is on by default. If you previously disabled Toolbar to keep the address field opaque, turn Address bar off separately. Address bar transparency also clears Brave’s hover shadow on supported builds.
 
@@ -66,7 +67,7 @@
 - Replace custom runtime map downloads, binary-map storage and retry worker with Windhawk's standard named-symbol cache mechanism. Disable remote PDB fallback and keep an offline-only setting.
 - Publish standard `pdb_<GUID-age>.txt` caches through the two-hour workflow; retain strict official DLL/PDB checks and skip unchanged releases.
 - Resolve all thirteen names before registering native hooks, with local PE, function-boundary, leaf, thunk and overlap validation. Preserve the persistent white-fallback fix.
-- Default duplicate-caption hiding off, restore compact-mode guidance, disclose system-menu effects, and restore real styles before hook teardown.
+- Default duplicate-caption hiding off, disclose system-menu effects, and restore real styles before hook teardown.
 - Use the build version macro in logs, clarify cache hosting/trust and request metadata, and expand failure, offline, shutdown and caption regression tests.
 
 ## 3.3 — Alpha

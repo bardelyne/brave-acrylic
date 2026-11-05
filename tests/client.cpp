@@ -219,7 +219,7 @@ static void TestCaptionRestore() {
         Check(GetWindowLongPtrW_Hook(window,GWL_STYLE)&WS_SYSMENU,"disabled caption getter returns the actual style");
         Check(SetWindowLongPtrW_Hook(window,GWL_STYLE,GetWindowLongPtrW(window,GWL_STYLE))!=0,"disabled caption setter forwards native style updates");
     }
-    Check(captionPropertyReads==0,"default-off caption hooks perform no property lookups");
+    Check(captionPropertyReads==0,"disabled caption hooks perform no property lookups");
     s_isBrowserProcess=true;s_captionHooksInstalled=true;s_transparencyReady=true;
     SyncNativeCaptions();Check(GetWindowLongPtrW(window,GWL_STYLE)&WS_SYSMENU,"default-off option preserves actual system-menu style");
     s_hideNativeCaptionButtons=true;SyncNativeCaptions();

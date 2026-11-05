@@ -51,7 +51,7 @@ test('standard Windhawk fetching keeps local structural checks without a pipelin
   assert.match(code,/options\.onlineCacheUrl\s*=\s*s_useOnlineSymbolCache/);
   assert.match(code,/ValidateFeatureAddresses\(module,\s*addresses,\s*result\)/);
   assert.doesNotMatch(code,/kBuiltinMap|knownBuild|builtIn/);
-  assert.match(source,/- hideNativeCaptionButtons: false/);
+  assert.match(source,/- hideNativeCaptionButtons: true/);
 });
 test('workflow uses the same source revision in both jobs and pinned actions',async()=>{
   const yaml=(await fs.readFile(path.join(__dirname,'../.github/workflows/compatibility.yml'),'utf8')).replaceAll('\r\n','\n');
