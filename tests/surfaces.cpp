@@ -25,7 +25,9 @@ static void* ConstructTestShadow(void* self,void*,const void*,const ShadowParame
 static void LayerColor(void*,const NativeColor* color){received=*color;}
 static unsigned borderDraws=0,pathDraws=0;
 static int configuredOpacity=62;
-static int fillPath=1,strokePath=2,fillFlags=3,strokeFlags=4;
+static int fillPath=1,strokePath=2;
+static uint32_t fillFlags[7]={0,0,0,0,0,0,0x101},strokeFlags[7]={0,0,0,0,0,0,0x141};
+static bool strokeFirst=false,paintFill=true;
 static std::vector<const void*> drawnPaths;
 static void OriginalPath(void* canvas,const void* path,const void* flags,int cache){
  assert(canvas);
@@ -35,8 +37,10 @@ static void OriginalPath(void* canvas,const void* path,const void* flags,int cac
 }
 static void OriginalBorder(void*,void* canvas){
  ++borderDraws;
- if(canvas){RoundedContents::PathHook(canvas,&fillPath,&fillFlags,17);
-            RoundedContents::PathHook(canvas,&strokePath,&strokeFlags,29);}
+ if(!canvas)return;
+ if(strokeFirst)RoundedContents::PathHook(canvas,&strokePath,&strokeFlags,29);
+ if(paintFill)RoundedContents::PathHook(canvas,&fillPath,&fillFlags,17);
+ if(!strokeFirst)RoundedContents::PathHook(canvas,&strokePath,&strokeFlags,29);
 }
 static void NestedColors(void*){
  const NativeColor opaque{.2f,.4f,.6f,1};PageLayerColorHook(nullptr,&opaque);
@@ -90,14 +94,23 @@ int main(){
    RoundedContents::BorderHook(&view,&view);
    const bool clear=available&&ready&&(area&BraveBackground::Page)&&!strcmp(name,"BraveContentsContainerView");
    assert(borderDraws==1&&pathDraws==(clear?1u:2u));
-   assert(drawnPaths.back()==&strokePath&&!RoundedContents::skipFill);++checks;
+   assert(drawnPaths.back()==&strokePath&&!RoundedContents::clearBackingFill);++checks;
   }
  RoundedContents::available=true;s_transparencyReady=true;s_background.areas=BraveBackground::Page;
  TestView rounded{"BraveContentsContainerView",false};
- borderDraws=0;RoundedContents::BorderHook(&rounded,nullptr);assert(borderDraws==1&&!RoundedContents::skipFill);++checks;
- RoundedContents::skipFill=true;
- std::thread isolated([&]{assert(!RoundedContents::skipFill);});isolated.join();++checks;
- RoundedContents::skipFill=false;
+ borderDraws=0;RoundedContents::BorderHook(&rounded,nullptr);assert(borderDraws==1&&!RoundedContents::clearBackingFill);++checks;
+ for(bool includeFill:{false,true}){
+  strokeFirst=true;paintFill=includeFill;drawnPaths.clear();
+  RoundedContents::BorderHook(&rounded,&rounded);
+  assert(drawnPaths==std::vector<const void*>{&strokePath});++checks;
+ }
+ fillFlags[6]=0x301;drawnPaths.clear();
+ RoundedContents::BorderHook(&rounded,&rounded);
+ assert(drawnPaths.size()==2);++checks;
+ fillFlags[6]=0x101;
+ RoundedContents::clearBackingFill=true;
+ std::thread isolated([&]{assert(!RoundedContents::clearBackingFill);});isolated.join();++checks;
+ RoundedContents::clearBackingFill=false;
  drawnPaths.clear();RoundedContents::PathHook(&rounded,&fillPath,&fillFlags,17);
  assert(drawnPaths==std::vector<const void*>{&fillPath});++checks;
  s_originalTheme=s_originalReady=NestedColors;s_originalLayerColor=LayerColor;

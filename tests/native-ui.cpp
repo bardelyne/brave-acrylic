@@ -48,6 +48,14 @@ static NativeUi::Omnibox::Rect* ScreenBounds(const void* view,NativeUi::Omnibox:
     result->x=100+(view==mockFrame?0:hostShift);result->y=100;return result;}
 static int Header(bool){return header;}
 static void Pump(){MSG message{};while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)){TranslateMessage(&message);DispatchMessageW(&message);}}
+static bool BackdropApplied(HWND hwnd){
+    using namespace NativeUi::Material;
+    AcquireSRWLockShared(&lock);
+    const auto found=requests.find(hwnd);
+    const bool applied=found!=requests.end()&&found->second.applied;
+    ReleaseSRWLockShared(&lock);
+    return applied;
+}
 static std::string fakeClass;
 static int originalPaints=0,clears=0,fadePaints=0;
 static bool layerOpaque=true;
@@ -79,12 +87,23 @@ int wmain(int argc,wchar_t** argv){
         void* addresses[kFeatureSlots]{};auto* base=reinterpret_cast<unsigned char*>(module);
         for(unsigned i=0;i<kFeatureSlots;++i)if(entries[i])addresses[i]=base+entries[i];
         Check(ValidateFeatureAddresses(module,addresses,normalized),"all live functions, helpers and immutable vtable validate");
+        std::array<size_t,kFeatureSlots> valid{};
+        std::copy_n(normalized,kFeatureSlots,valid.begin());
         for(unsigned i=0;i<kFeatureSlots;++i)if(entries[i]){
             auto* saved=addresses[i];addresses[i]=base+entries[i]+1;
-            Check(!ValidateFeatureAddresses(module,addresses,normalized),"misaligned/inside-function target rejected");addresses[i]=saved;
+            auto expected=valid;expected[i]=0;
+            Check(ValidateFeatureAddresses(module,addresses,normalized)&&
+                  std::equal(expected.begin(),expected.end(),normalized),
+                  "misaligned target rejected while unrelated slots remain valid");
+            addresses[i]=saved;
         }
-        const unsigned available=CompleteFeatures(entries);
-        Check(available==255,"all eight tested native features are available");
+        addresses[15]=addresses[14];
+        auto expected=valid;expected[14]=expected[15]=0;
+        Check(ValidateFeatureAddresses(module,addresses,normalized)&&
+              std::equal(expected.begin(),expected.end(),normalized),"both overlapping roles are rejected");
+        const unsigned available=CompleteFeatures(valid.data());
+        Check(available==255&&CompleteOptionalFeatures(valid.data(),available)==(kPopupFade|kAddressShadow),
+              "all eight native features and both optional enhancements are available");
         FreeLibrary(module);printf("PASS: %u exact-build native checks; eight features; no hooks installed\n",checks);RoUninitialize();return 0;
     }
     using namespace NativeUi;
@@ -118,7 +137,9 @@ int wmain(int argc,wchar_t** argv){
         if(i<13&&i!=5)Check((mask&Menus)==Menus,"base feature dependency cannot break native menus");
         if(i==0||i==1||i==2)Check(!(mask&Popups),"missing shared popup painting helpers disable only their dependent popup feature");
         if(i==30||i==31)Check((mask&63)==63 && !(mask&kRoundedWebpage),"rounded-border dependencies cannot disable the existing six features");
-        if(i==6||i==7||i==36)Check(mask==127,"address-bar dependencies cannot disable the other features");
+        if(i==6||i==7)Check(mask==127,"address-bar dependencies cannot disable the other features");
+        if(i>=32)Check(mask==255&&CompleteOptionalFeatures(entries,mask)==(i==36?kPopupFade:kAddressShadow),
+                       "a missing enhancement leaves both base features enabled");
         entries[i]=1;
     }
     Omnibox::Rect region{};
@@ -135,7 +156,12 @@ int wmain(int argc,wchar_t** argv){
         DWORD previousBorder=0;
         const bool borderKnown=SUCCEEDED(DwmGetWindowAttribute(hwnd,34,&previousBorder,sizeof(previousBorder)));
         testPopup=hwnd;windowForView=PopupForView;originalColor=NativeColorValue;originalMenu=InitialMenuPaint;
-        Check(!Material::Applied(hwnd),"first paint precedes asynchronous backdrop attachment");
+        Check(!BackdropApplied(hwnd),"first paint precedes asynchronous backdrop attachment");
+        PopupTransition::original=NativeAnimation;
+        PopupTransition::Mark(hwnd);
+        Check(!GetPropW(hwnd,PopupTransition::kProperty)&&!Material::FadeBegin(hwnd,true)&&
+              Material::requests.empty(),"an unavailable worker cannot mark or queue a popup");
+        PopupTransition::original=nullptr;
         MenuHook(&view,nullptr);
         Check(initialMenuColor==Tint(0xff345678,true),"entire retained menu background is translucent on its first paint, without hover");
         Check(ColorHook(nullptr,0)==0xff345678,"foreground stays opaque after initial menu paint");
@@ -143,8 +169,8 @@ int wmain(int argc,wchar_t** argv){
         NativeUi::RoundRect shape{8,8,392,232,{12,12,12,12,12,12,12,12}};
         Material::Update(hwnd,shape,Menus);
         const auto deadline=GetTickCount64()+5000;
-        while(!Material::Applied(hwnd)&&GetTickCount64()<deadline){Pump();Sleep(10);}
-        Check(Material::Applied(hwnd),"owned worker attaches clipped host backdrop on another window thread");
+        while(!BackdropApplied(hwnd)&&GetTickCount64()<deadline){Pump();Sleep(10);}
+        Check(BackdropApplied(hwnd),"owned worker attaches clipped host backdrop on another window thread");
         const HWND settingsWindow=FindWindowW(Material::kSettingsClass,L"");
         Check(settingsWindow&&!IsWindowVisible(settingsWindow),"worker owns an invisible setting-broadcast listener");
         HWND frameWindow=CreateWindowExW(0,cls.lpszClassName,L"Hidden main-frame test",WS_OVERLAPPEDWINDOW,
@@ -159,8 +185,8 @@ int wmain(int argc,wchar_t** argv){
         DestroyWindow(frameWindow);
         const auto waitApplied=[&](bool expected){
             const auto until=GetTickCount64()+5000;
-            while(Material::Applied(hwnd)!=expected&&GetTickCount64()<until){Pump();Sleep(10);}
-            Check(Material::Applied(hwnd)==expected,"Windows preference changes recheck existing materials");
+            while(BackdropApplied(hwnd)!=expected&&GetTickCount64()<until){Pump();Sleep(10);}
+            Check(BackdropApplied(hwnd)==expected,"Windows preference changes recheck existing materials");
         };
         allowTransparency=false;SendMessageW(settingsWindow,WM_SETTINGCHANGE,0,0);
         Check(!UserAllowsTransparency()&&!Candidate(&view,Popups),"turning transparency off updates the cached paint decision");
@@ -318,7 +344,7 @@ int wmain(int argc,wchar_t** argv){
         Omnibox::Stop();
         ready=false;fakeClass="FadeLabel";FadeBackgroundHook(&view,&canvas);
         Check(fadePaints==1,"disabled popup feature restores the native fade background");
-        PopupTransition::Stop();
+        PopupTransition::Clear(true);
         Check(!GetPropW(hwnd,PopupTransition::kProperty)&&PopupTransition::windows.empty(),"fade markers and lifetime records are removed before unloading");
         Material::Stop();
         Check(!IsWindow(settingsWindow),"setting-broadcast listener is destroyed before unload");

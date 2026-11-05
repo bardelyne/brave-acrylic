@@ -2,7 +2,7 @@
 
 > **Very important — Symbol cache:** Controlled and maintained by **bardelyne**, the author of Brave Acrylic. This is an author-hosted cache, not an official Windhawk service. Our GitHub Actions workflow checks for new Brave releases and prepares small compatibility files from Brave’s official symbols. Windhawk downloads the matching file for your installed Brave build and caches it locally. The large symbol files are processed by the workflow; your PC receives only the small compatibility data.
 
-> **If the mod isn’t working after a Brave update** The workflow checks for compatibility every hour. Give it about an hour, then fully exit and reopen Brave so Windhawk can fetch the matching cache. GitHub can delay scheduled runs.
+> **If the mod isn’t working after a Brave update,** give it about an hour, then fully exit and reopen Brave so Windhawk can fetch the matching cache. The workflow checks for compatibility every hour. GitHub can delay scheduled runs.
 
 ![Brave Acrylic](https://raw.githubusercontent.com/bardelyne/brave-acrylic/main/assets/brave-acrylic-v3.3.png)
 
@@ -44,7 +44,7 @@ Brave's **Show rounded corners on main content areas** setting can remain enable
 | --- | --- | --- |
 | **Vertical tabs background** | On | Reveal the backdrop behind the vertical tab area and browser frame. |
 | **Toolbar** | On | Clear the toolbar and bookmarks bar backgrounds. |
-| **Address bar** | On | Clear the unfocused address field and its hover shadow. The focused field keeps its native appearance. |
+| **Address bar** | On | Clear the unfocused address field and, where supported, its hover shadow. The focused field keeps its native appearance. |
 | **Webpage background** | On | Clear only Chromium's background behind the webpage area, including its default white fallback and the fill behind rounded content areas. Native rounded clipping and the thin outline stay intact. Website HTML, CSS, and content are unchanged. Use Zen Internet or Stylus for website backgrounds; Stylus requires custom CSS. |
 | **Acrylic menus** | On | Blur native context menus, the main menu, and submenus. Text, icons, selection, and input stay native. |
 | **Acrylic popups** | On | Blur supported native browser bubbles, site information, recent downloads, media controls, and the native Extensions manager. Permission controls, download actions, album art, text and playback buttons keep their native painting. Extension and website HTML overlays keep their own styling. |
@@ -83,7 +83,7 @@ The full native path uses **36 functions**, of which **24 are private hooks**, a
 
 ## Menus, popups and suggestions
 
-Native menus and bubbles keep their own theme colors with reduced background alpha. A Windows host-backdrop visual sits underneath Chromium in the same popup window and follows its actual rounded background geometry. There are no extra overlay windows or input forwarding. Bubble popups use a short fade instead of scaling, so their contents and backdrop appear and disappear together. Context menus, the main menu and bookmark menus retain their native animation path. Windows reduced-motion preferences are respected. A private composition worker owns its own dispatcher; disabling the mod closes its targets and joins that worker without changing Brave's dispatcher. If Windows cannot read the host-backdrop capability flag, cleanup removes the visual effect without guessing a prior flag value.
+Native menus and bubbles keep their own theme colors with reduced background alpha. A Windows host-backdrop visual sits underneath Chromium in the same popup window and follows its actual rounded background geometry. There are no extra overlay windows or input forwarding. Where supported, bubble popups use a short fade instead of scaling so their contents and backdrop appear and disappear together. Context menus, the main menu and bookmark menus retain their native animation path. Windows reduced-motion preferences are respected. A private composition worker owns its own dispatcher; disabling the mod closes its targets and joins that worker without changing Brave's dispatcher. If Windows cannot read the host-backdrop capability flag, cleanup removes the visual effect without guessing a prior flag value.
 
 Tab and group hover cards, including their fading text and memory icons, keep their foreground painting. Their separate client and footer backgrounds are removed, while a tint derived from Brave’s own background color sits beneath Chromium’s content. This keeps the tint consistent during transitions and avoids black fade masks. The same native-popup path covers dialogs such as **Restore pages?**. Windows-drawn popup borders are suppressed where supported and their previous value is restored on unload.
 

@@ -97,7 +97,7 @@ const FEATURES = Object.freeze({
     2,
     3
   ],
-  "addressBar": [0, 1, 2, 3, 6, 7, 36],
+  "addressBar": [0, 1, 2, 3, 6, 7],
   "webpage": [
     0,
     1,
@@ -125,11 +125,7 @@ const FEATURES = Object.freeze({
     17,
     25,
     26,
-    27,
-    32,
-    33,
-    34,
-    35
+    27
   ],
   "roundedWebpage": [0, 1, 2, 3, 8, 9, 10, 11, 12, 30, 31],
   "suggestions": [
@@ -147,6 +143,10 @@ const FEATURES = Object.freeze({
     29
   ]
 });
+const OPTIONAL_GROUPS = [
+  {feature:'popups', slots:[32,33,34,35]},
+  {feature:'addressBar', slots:[36]}
+];
 // Chromium 157 made the setter virtual. Its x64 member-call arguments
 // remain the same, and either spelling must resolve to a unique entry.
 const ALTERNATE_NAMES = Object.freeze({
@@ -226,7 +226,12 @@ function featureStatus(entries, errors = []) {
   }));
 }
 function completeSlots(entries) {
-  return new Set(Object.values(FEATURES).filter(slots => slots.every(i => entries[i])).flat());
+  const complete = slots => slots.every(i => entries[i]);
+  const used = new Set(Object.values(FEATURES).filter(complete).flat());
+  for (const {feature, slots} of OPTIONAL_GROUPS)
+    if (complete(FEATURES[feature]) && complete(slots))
+      for (const slot of slots) used.add(slot);
+  return used;
 }
 function validateMap(bytes) {
   check(Buffer.isBuffer(bytes) && bytes.length > 0 && bytes.length <= MAP_SIZE && bytes.every(b => b >= 32 && b <= 126), 'Invalid ASCII feature cache');

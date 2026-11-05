@@ -5,7 +5,7 @@
 - Check for new Brave releases hourly.
 - Recognize Chromium 157’s virtual popup opacity setter.
 
-- Separate Toolbar and Address bar settings. Address bar transparency also clears Brave’s hover shadow.
+- Separate Toolbar and Address bar settings. Address bar is on by default. If you previously disabled Toolbar to keep the address field opaque, turn Address bar off separately. Address bar transparency also clears Brave’s hover shadow on supported builds.
 
 - Replace bubble-popup scaling with a short matching fade for native content and its blur backdrop; preserve menu animations and reduced-motion preferences.
 

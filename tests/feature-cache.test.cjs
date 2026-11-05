@@ -26,6 +26,24 @@ test('losing each native target disables only its dependent features',()=>{
       assert.equal(parsed.features[name].available,!slots.includes(slot),`${slot}:${name}`);
   }
 });
+test('shadow and fade targets are published only with their complete base feature',()=>{
+  for(const [missing,omitted] of [
+    [6,[36]], [36,[36]], [25,[32,33,34,35]],
+    ...[32,33,34,35].map(slot=>[slot,[32,33,34,35]])
+  ]){
+    const entries=all.map((entry,i)=>i===missing?null:entry);
+    const bytes=cache.encodeCache(fake,entries), parsed=cache.validateMap(bytes);
+    assert.equal(parsed.features.addressBar.available,missing!==6);
+    assert.equal(parsed.features.popups.available,missing!==25);
+    for(const slot of [32,33,34,35,36])
+      assert.equal(Boolean(parsed.entries[slot]),!omitted.includes(slot));
+    if(missing!==36){
+      const orphan=bytes.toString().split('#');
+      orphan[4+2*omitted[0]]=String(all[omitted[0]].rva);
+      assert.throws(()=>cache.validateMap(Buffer.from(orphan.join('#'))),/Orphan native target/);
+    }
+  }
+});
 test('missing optional entries use Windhawk empty values; bad names, zeros, aliases and orphan data are rejected',()=>{
   const bytes=cache.encodeCache(fake,all);
   for(const mutate of [f=>{f[4]='0';},f=>{f[4]='-1';},f=>{f[4]='001';},f=>{f[6]=f[4];},
@@ -67,10 +85,10 @@ test('real PE/PDB parsing publishes the old background features despite missing 
   const record=await cache.generate(dll,pdb,out);
   assert.equal(record.features.verticalTabs.available,true);assert.equal(record.features.toolbar.available,true);
   assert.equal(record.features.webpage.available,true);assert.equal(record.features.menus.available,false);
-  assert.equal(record.features.suggestions.available,false);assert.equal(record.features.addressBar.available,false);
-  assert.equal(record.functions.length,11);
+  assert.equal(record.features.suggestions.available,false);assert.equal(record.features.addressBar.available,true);
+  assert.equal(record.functions.length,13);
   const parsed=cache.validateMap(await fs.readFile(out));
-  assert.deepEqual(parsed.addresses.slice(0,13),RVAS.map((rva,i)=>i===6||i===7?0:rva));
+  assert.deepEqual(parsed.addresses.slice(0,13),RVAS);
 });
 test('missing or unsafe targets are isolated; corrupt PDB identity remains a fatal error',async t=>{
   const dir=await temporary(t),{pe}=fixtureMapV6();

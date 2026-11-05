@@ -390,10 +390,14 @@ static bool ParseFeatureCache(const std::string& bytes,const BuildIdentity& id,s
     }
     // Every published address must serve a complete feature. An explicit cache
     // with no supported features is a safe diagnostic outcome, never a hook.
-    const unsigned available=CompleteFeatures(entries.data());
+    const auto complete=[](const auto& values){
+        const auto features=CompleteFeatures(values.data());
+        return features|CompleteOptionalFeatures(values.data(),features);
+    };
+    const unsigned available=complete(entries);
     for(unsigned i=0;i<kFeatureSlots;++i)if(entries[i]){
         auto removed=entries;removed[i]=0;
-        if(CompleteFeatures(removed.data())==available)return false;
+        if(complete(removed)==available)return false;
     }
     std::copy(entries.begin(),entries.end(),result);return true;
 }

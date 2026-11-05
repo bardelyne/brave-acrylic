@@ -160,7 +160,8 @@ static void TestSymbols() {
     Reset();s_useOnlineSymbolCache=false;
     Check(ResolveNativeBackground(fakeModule)&&lookupCalls==1&&hookCalls==7,"ordinary offline Windhawk cache needs no workflow proof");
     Reset();mockMap.functions[0].rva=fixture.functions[1].rva;
-    Check(!ResolveNativeBackground(fakeModule)&&hookCalls==0,"duplicate native function entries are rejected before hooks");
+    Check(ResolveNativeBackground(fakeModule)&&hookCalls==0&&!s_availableAreas,
+          "both duplicate roles are rejected before their dependent hooks");
     Reset();engineSuccess=false;
     Check(!ResolveNativeBackground(fakeModule)&&hookCalls==0,"even thirteen outputs cannot override a failed engine lookup");
     for(bool online:{false,true}){
@@ -185,7 +186,7 @@ static void TestSymbols() {
     }
     for(int failure=0;failure<7;++failure){Reset();failHook=failure;
         Check(TryInstallChromeHooks(fakeModule,true),"registration failure is isolated to its feature");
-        const unsigned expected=failure<2?0:failure==2?6:3;
+        const unsigned expected=failure<2?0:(failure==2?6:3)|kAddressBar;
         Check(s_availableAreas==expected,"failed native registration removes only dependent background features");
         Check(bool(s_transparencyReady)==bool(expected),"only complete background paths become ready");}
     Reset();applySuccess=false;
