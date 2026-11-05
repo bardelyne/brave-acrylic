@@ -22,7 +22,7 @@ async function study({tag,dll,pdb,output,report}){
  const pe=new PeImage(await fs.readFile(dll)),publics=await Pdb.open(pdb);
  let diagnostics;
  try{
-  const raw=await publics.symbols(pe,{names:features.DECORATED,partial:true,
+  const raw=await publics.symbols(pe,{names:features.DECORATED,alternateNames:features.ALTERNATE_NAMES,partial:true,
    fingerprint:rva=>({rva,unwindEnd:pe.functions.get(rva)||null,code:pe.read(rva,64).toString('hex')})});
   const targets=new Map(raw.entries.flatMap((e,i)=>e?[[e.rva,i]]:[]));
   const aliases=new Map([...targets].map(([rva])=>[rva,[]]));
@@ -44,7 +44,7 @@ async function study({tag,dll,pdb,output,report}){
   cacheSha256:record.sha256,cacheBytes:bytes.length,functions:record.functions,diagnostics};
  await fs.writeFile(path.join(output,'feature-report.json'),JSON.stringify(result,null,2)+'\n');
  await fs.writeFile(path.join(output,'feature-record.json'),JSON.stringify(record,null,2)+'\n');
- const lines=[`## ${tag}: ${available.length}/6 native feature groups`,
+ const lines=[`## ${tag}: ${available.length}/${Object.keys(features.FEATURES).length} native feature groups`,
   `Chromium ${report.chromium||'unknown'} · client ${record.clientVersion} · ABI ${record.abiRevision}`,'',
   '| Feature | Result | Reason |','| --- | --- | --- |',
   ...Object.entries(record.features).map(([name,f])=>`| ${name} | ${f.available?'Available':'Unavailable'} | ${f.reasons.join('; ').replaceAll('|','\\|')} |`),

@@ -11,10 +11,10 @@ async function find(root){const out=[];for(const item of await fs.readdir(root,{
  if(!rows.length||new Set(rows.map(r=>r.tag)).size!==rows.length||
     (expected&&(!Array.isArray(expected)||expected.length!==rows.length||rows.some(r=>!expected.includes(r.tag)))))throw Error('Missing or duplicate feature-study results');
  rows.sort((a,b)=>a.tag.localeCompare(b.tag,undefined,{numeric:true}));
- const names=['verticalTabs','toolbar','webpage','menus','popups','suggestions'];
+ const names=Object.keys(contract.FEATURES);
  const lines=['# Brave '+contract.CLIENT_VERSION+' feature compatibility matrix','',
-  '| Brave | Chromium | Vertical tabs | Toolbar | Webpage backing | Menus | Popups | Suggestions |',
-  '| --- | --- | --- | --- | --- | --- | --- | --- |',
+  '| Brave | Chromium | '+names.map(name=>name.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase())).join(' | ')+' |',
+  '| '+Array(names.length+2).fill('---').join(' | ')+' |',
   ...rows.map(r=>`| ${r.tag} | ${r.chromium||'unknown'} | ${names.map(n=>r.features[n].available?'Pass':'Unavailable').join(' | ')} |`),
   '',`${rows.length} builds analyzed. Pass means named targets and their dependencies validated against the matching official PE/PDB; it does not claim visual behavior was tested.`,
   'Unavailable features remain native. This research workflow has read-only repository permissions and publishes no production cache.',''];

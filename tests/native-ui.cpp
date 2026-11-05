@@ -60,6 +60,13 @@ static void LayerOpacity(void*,bool value){layerOpaque=value;}
 static void ThemeColors(void* view){themeForeground=NativeUi::ColorHook(nullptr,0);NativeUi::LayerOpaqueHook(view,true);}
 static void BubbleColors(const void*,void*,void*){bubbleForeground=NativeUi::ColorHook(nullptr,0);bubbleFeature=NativeUi::paintFeature;}
 static void NativeRectangle(void*,const NativeUi::RoundRect&,const void*){++nativeRoundRects;}
+static unsigned animationCalls=0,fadeTypeCalls=0,fadeDurationCalls=0;
+static bool animationResult=true;
+static HWND NativeAnimationWindow(void*){return testPopup;}
+static bool NativeAnimation(void*,bool){++animationCalls;return animationResult;}
+static void NativeFadeType(void*,int type){Check(type==3,"bubble animation uses Chromium's native FADE type");++fadeTypeCalls;}
+static void NativeFadeDuration(void*,const long long& duration){Check(duration==160000,"native fade and backdrop use the same microsecond duration");++fadeDurationCalls;}
+
 int wmain(int argc,wchar_t** argv){
     HRESULT apartment=RoInitialize(RO_INIT_MULTITHREADED);Check(SUCCEEDED(apartment),"test apartment initialized");
     if(argc==4&&!wcscmp(argv[1],L"--validate")){
@@ -77,8 +84,8 @@ int wmain(int argc,wchar_t** argv){
             Check(!ValidateFeatureAddresses(module,addresses,normalized),"misaligned/inside-function target rejected");addresses[i]=saved;
         }
         const unsigned available=CompleteFeatures(entries);
-        Check(available==63,"all six tested native features are available");
-        FreeLibrary(module);printf("PASS: %u exact-build native checks; six features; no hooks installed\n",checks);RoUninitialize();return 0;
+        Check(available==255,"all eight tested native features are available");
+        FreeLibrary(module);printf("PASS: %u exact-build native checks; eight features; no hooks installed\n",checks);RoUninitialize();return 0;
     }
     using namespace NativeUi;
     RefreshTransparencyAllowed();
@@ -89,17 +96,29 @@ int wmain(int argc,wchar_t** argv){
         Check((Tint(color,true)&0xffffff)==0x345678,"native RGB preserved");
         Check((Tint(color,true)>>24)==(alpha*62+50)/100,"all theme alpha levels scaled correctly");
     }
+    for(unsigned opacity:{0u,1u,25u,62u,85u,100u}) {
+        s_popupOpacity=opacity;
+        for(unsigned alpha=0;alpha<256;++alpha) {
+            const unsigned color=(alpha<<24)|0x345678;
+            Check(Tint(color,false)==color,"opacity never changes unscoped foreground colors");
+            Check((Tint(color,true)&0xffffff)==0x345678,"custom opacity preserves theme RGB");
+            Check((Tint(color,true)>>24)==(alpha*opacity+50)/100,"popup opacity applies exactly at every alpha level");
+        }
+    }
+    s_popupOpacity=62;
     Check(backgroundScope==0,"background scope initially clear");
     {Scope one(true);Check(backgroundScope==1,"outer native background scope");
         {Scope two(true);Check(backgroundScope==2,"nested native paint scope");}
         Check(backgroundScope==1,"nested scope restored");}
     Check(backgroundScope==0,"foreground scope restored after painting");
     size_t entries[kFeatureSlots];std::fill(entries,entries+kFeatureSlots,1);
-    Check(CompleteFeatures(entries)==63,"six independent dependency groups");
+    Check(CompleteFeatures(entries)==255,"eight independent dependency groups");
     for(unsigned i=0;i<kFeatureSlots;++i){entries[i]=0;const unsigned mask=CompleteFeatures(entries);
         if(i>=13)Check((mask&7)==7,"new popup/suggestion dependency cannot break base background features");
         if(i<13&&i!=5)Check((mask&Menus)==Menus,"base feature dependency cannot break native menus");
         if(i==0||i==1||i==2)Check(!(mask&Popups),"missing shared popup painting helpers disable only their dependent popup feature");
+        if(i==30||i==31)Check((mask&63)==63 && !(mask&kRoundedWebpage),"rounded-border dependencies cannot disable the existing six features");
+        if(i==6||i==7||i==36)Check(mask==127,"address-bar dependencies cannot disable the other features");
         entries[i]=1;
     }
     Omnibox::Rect region{};
@@ -157,7 +176,39 @@ int wmain(int argc,wchar_t** argv){
         Check(winrt::Windows::System::DispatcherQueue::GetForCurrentThread()==queueBefore,"Brave/UI dispatcher is untouched");
         s_background.getClass=ClassForView;s_background.clear=ClearForView;s_background.originalPaint=PaintForView;
         s_background.ready=false;originalLayerOpaque=LayerOpacity;originalBubbleTheme=ThemeColors;originalFadeBackground=PaintFade;
+        PopupTransition::windowForNative=NativeAnimationWindow;
+        PopupTransition::original=NativeAnimation;
+        PopupTransition::setType=NativeFadeType;PopupTransition::setDuration=NativeFadeDuration;
         BubbleThemeHook(&view);
+        Check(GetPropW(hwnd,PopupTransition::kProperty)==PopupTransition::Owner(),"bubble theme marks only our own popup for the fade policy");
+        PopupTransition::Mark(hwnd);
+        Check(PopupTransition::windows.size()==1,"repeated theme changes do not duplicate popup lifetime records");
+        Check(PopupTransition::AnimateHook(&view,true),"native show fade remains enabled");
+        auto fade=Material::requests.at(hwnd).fade;
+        Check(fade.from==0&&fade.to==1&&fade.duration==160,"first popup show starts a short fade with no scaling");
+        Check(Material::FadeValue(fade,fade.start)==0&&Material::FadeValue(fade,fade.start+80)==.5f&&
+              Material::FadeValue(fade,fade.start+160)==1&&Material::FadeValue(fade,fade.start+999)==1,
+              "backdrop fade is bounded and reaches the exact final opacity even after delayed worker attachment");
+        const auto firstFade=fade.serial;
+        Check(PopupTransition::AnimateHook(&view,false),"native hide fade remains enabled");
+        fade=Material::requests.at(hwnd).fade;
+        Check(fade.serial>firstFade&&fade.to==0,"quick dismissal reverses toward zero opacity");
+        const auto secondFade=fade.serial;
+        Material::FadeImmediate(hwnd,firstFade);
+        Check(Material::requests.at(hwnd).fade.serial==secondFade,"a stale fade completion cannot overwrite a newer transition");
+        animationResult=false;
+        Check(!PopupTransition::AnimateHook(&view,true),"native reduced-motion path is preserved");
+        Check(Material::requests.at(hwnd).fade.duration==0&&Material::FadeValue(Material::requests.at(hwnd).fade,GetTickCount64())==1,
+              "when Chromium skips animation the backdrop appears immediately too");
+        animationResult=true;
+        const unsigned calls=fadeTypeCalls;
+        enabled=Menus;PopupTransition::AnimateHook(&view,true);enabled=Menus|Popups|Suggestions;
+        Check(fadeTypeCalls==calls,"disabled popup feature cannot change native animations");
+        HWND menuWindow=CreateWindowExW(0,cls.lpszClassName,L"Unmarked native menu",WS_POPUP,0,0,200,120,nullptr,nullptr,cls.hInstance,nullptr);
+        Check(menuWindow!=nullptr,"create an independent native menu window");
+        testPopup=menuWindow;PopupTransition::AnimateHook(&view,true);testPopup=hwnd;
+        Check(fadeTypeCalls==calls&&fadeTypeCalls==fadeDurationCalls,"context, bookmark and main menus keep the native animation path");
+        DestroyWindow(menuWindow);
         Check(themeForeground==0xff345678&&!layerOpaque,"popup opacity changes cannot dim cached text or icon colors");
         LayerOpaqueHook(&view,true);Check(layerOpaque,"unrelated layers keep their original opacity flag");
         AcquireSRWLockExclusive(&Material::lock);Material::requests[hwnd].feature=Popups;ReleaseSRWLockExclusive(&Material::lock);
@@ -207,6 +258,33 @@ int wmain(int argc,wchar_t** argv){
             Check(!SuppressPopupBackground(&view),"Extensions identification cannot affect a menu feature window");
         }
         Material::requests[hwnd]=beforeExtensions;
+        // Page information and downloads repeat their fills on native child
+        // containers. Do not touch permission controls, file rows or alerts.
+        for(const char* root:{"BravePageInfoBubbleView","PageInfoBubbleView","InternalPageInfoBubbleView","PageInfoMainView",
+                             "DownloadBubbleContentsView","DownloadDialogView","DownloadBubblePrimaryView","DownloadBubblePartialView",
+                             "MediaDialogView","MediaItemUIListView","MediaItemUIUpdatedView","MediaItemUIView"}) {
+            Material::requests[hwnd]=beforeExtensions;
+            Material::requests[hwnd].hoverCard=false;fakeClass=root;
+            Check(SuppressPopupBackground(&view),"site information/download roots identify their shaped native popup");
+            for(const char* child:{"ScrollView","ScrollView::Viewport"}) {
+                fakeClass=child;Check(SuppressPopupBackground(&view),"identified popup scrolling backings are cleared");
+            }
+            for(const char* child:{"Label","ImageView","PageInfoPermissionContentView","DownloadBubbleRowView",
+                                  "DownloadBubbleSecurityView","ToggleButton","ShowAllDownloadsButton","BoxLayoutView"}) {
+                fakeClass=child;Check(!SuppressPopupBackground(&view),"permissions, warning cards, download rows and controls retain native painting");
+            }
+            fakeClass="PageSwitcherView";
+            Check(SuppressPopupBackground(&view)==Material::requests[hwnd].pageInfo,
+                  "page-switcher background clears only in identified site-information bubbles");
+            for(const char* quick:{"View","FlexLayoutView"}) {
+                fakeClass=quick;
+                Check(SuppressPopupBackground(&view)==Material::requests[hwnd].downloads,
+                      "both old and current download quick-action backings clear only in identified downloads popups");
+            }
+            Material::requests[hwnd].feature=Menus;fakeClass=root;
+            Check(!SuppressPopupBackground(&view),"popup classifiers cannot affect an ordinary menu");
+        }
+        Material::requests[hwnd]=beforeExtensions;
         originalRoundRect=NativeRectangle;backgroundWindow=hwnd;paintFeature=Popups;
         popupTint=0xff345678;popupTintKnown=true;RoundRectHook(&canvas,shape,nullptr);
         AcquireSRWLockShared(&Material::lock);const unsigned capturedTint=Material::requests.at(hwnd).tint;ReleaseSRWLockShared(&Material::lock);
@@ -240,6 +318,8 @@ int wmain(int argc,wchar_t** argv){
         Omnibox::Stop();
         ready=false;fakeClass="FadeLabel";FadeBackgroundHook(&view,&canvas);
         Check(fadePaints==1,"disabled popup feature restores the native fade background");
+        PopupTransition::Stop();
+        Check(!GetPropW(hwnd,PopupTransition::kProperty)&&PopupTransition::windows.empty(),"fade markers and lifetime records are removed before unloading");
         Material::Stop();
         Check(!IsWindow(settingsWindow),"setting-broadcast listener is destroyed before unload");
         Check(!GetPropW(hwnd,Material::kProperty),"owned popup property removed before DLL unload");

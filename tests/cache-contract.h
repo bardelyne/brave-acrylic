@@ -361,6 +361,13 @@ static constexpr const char* kFeatureSymbols[]={
     "public: virtual void __cdecl FadeLabel::OnPaintBackground(class gfx::Canvas *)",
     "public: class gfx::Rect __cdecl views::View::GetBoundsInScreen(void)const",
     "public: static void __cdecl RoundedOmniboxResultsFrame::OnBeforeWidgetInit(struct views::Widget::InitParams *,class views::Widget *)",
+    "protected: virtual void __cdecl views::View::OnPaintBorder(class gfx::Canvas *)",
+    "public: virtual void __cdecl cc::RecordPaintCanvas::drawPath(class SkPath const &,class cc::PaintFlags const &,enum cc::UsePaintCache)",
+    "bool __cdecl wm::AnimateOnChildWindowVisibilityChanged(class aura::Window *,bool)",
+    "struct HWND__ * __cdecl views::HWNDForNativeWindow(class aura::Window *const)",
+    "void __cdecl wm::SetWindowVisibilityAnimationType(class aura::Window *,int)",
+    "void __cdecl wm::SetWindowVisibilityAnimationDuration(class aura::Window *,class base::TimeDelta const &)",
+    "public: __cdecl ViewShadow::ViewShadow(class views::View *,class gfx::RoundedCornersF const &,struct ViewShadow::ShadowParameters const &)"
 };
 static bool ParseFeatureCache(const std::string& bytes,const BuildIdentity& id,size_t* result) {
     if(bytes.empty()||bytes.size()>kMaxCache||!std::all_of(bytes.begin(),bytes.end(),

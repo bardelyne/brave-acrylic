@@ -2,10 +2,8 @@ name: Brave compatibility data
 
 on:
   schedule:
-    # GitHub schedules are best-effort. A staggered backup compensates for
-    # dropped primary runs; unchanged releases skip all binary downloads.
-    - cron: '17 */2 * * *'
-    - cron: '47 */2 * * *'
+    # Unchanged releases skip all binary downloads.
+    - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
       tag:

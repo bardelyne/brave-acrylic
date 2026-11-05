@@ -34,7 +34,14 @@ const DECORATED = Object.freeze([
   "?SetFillsBoundsOpaquely@Layer@ui@@QEAAX_N@Z",
   "?OnPaintBackground@FadeLabel@@UEAAXPEAVCanvas@gfx@@@Z",
   "?GetBoundsInScreen@View@views@@QEBA?AVRect@gfx@@XZ",
-  "?OnBeforeWidgetInit@RoundedOmniboxResultsFrame@@SAXPEAUInitParams@Widget@views@@PEAV34@@Z"
+  "?OnBeforeWidgetInit@RoundedOmniboxResultsFrame@@SAXPEAUInitParams@Widget@views@@PEAV34@@Z",
+  "?OnPaintBorder@View@views@@MEAAXPEAVCanvas@gfx@@@Z",
+  "?drawPath@RecordPaintCanvas@cc@@UEAAXAEBVSkPath@@AEBVPaintFlags@2@W4UsePaintCache@2@@Z",
+  "?AnimateOnChildWindowVisibilityChanged@wm@@YA_NPEAVWindow@aura@@_N@Z",
+  "?HWNDForNativeWindow@views@@YAPEAUHWND__@@QEAVWindow@aura@@@Z",
+  "?SetWindowVisibilityAnimationType@wm@@YAXPEAVWindow@aura@@H@Z",
+  "?SetWindowVisibilityAnimationDuration@wm@@YAXPEAVWindow@aura@@AEBVTimeDelta@base@@@Z",
+  "??0ViewShadow@@QEAA@PEAVView@views@@AEBVRoundedCornersF@gfx@@AEBUShadowParameters@0@@Z"
 ]);
 const SYMBOLS = Object.freeze([
   "protected: virtual void __cdecl views::View::OnPaintBackground(class gfx::Canvas *)",
@@ -66,7 +73,14 @@ const SYMBOLS = Object.freeze([
   "public: void __cdecl ui::Layer::SetFillsBoundsOpaquely(bool)",
   "public: virtual void __cdecl FadeLabel::OnPaintBackground(class gfx::Canvas *)",
   "public: class gfx::Rect __cdecl views::View::GetBoundsInScreen(void)const",
-  "public: static void __cdecl RoundedOmniboxResultsFrame::OnBeforeWidgetInit(struct views::Widget::InitParams *,class views::Widget *)"
+  "public: static void __cdecl RoundedOmniboxResultsFrame::OnBeforeWidgetInit(struct views::Widget::InitParams *,class views::Widget *)",
+  "protected: virtual void __cdecl views::View::OnPaintBorder(class gfx::Canvas *)",
+  "public: virtual void __cdecl cc::RecordPaintCanvas::drawPath(class SkPath const &,class cc::PaintFlags const &,enum cc::UsePaintCache)",
+  "bool __cdecl wm::AnimateOnChildWindowVisibilityChanged(class aura::Window *,bool)",
+  "struct HWND__ * __cdecl views::HWNDForNativeWindow(class aura::Window *const)",
+  "void __cdecl wm::SetWindowVisibilityAnimationType(class aura::Window *,int)",
+  "void __cdecl wm::SetWindowVisibilityAnimationDuration(class aura::Window *,class base::TimeDelta const &)",
+  "public: __cdecl ViewShadow::ViewShadow(class views::View *,class gfx::RoundedCornersF const &,struct ViewShadow::ShadowParameters const &)"
 ]);
 const FEATURES = Object.freeze({
   "verticalTabs": [
@@ -81,10 +95,9 @@ const FEATURES = Object.freeze({
     0,
     1,
     2,
-    3,
-    6,
-    7
+    3
   ],
+  "addressBar": [0, 1, 2, 3, 6, 7, 36],
   "webpage": [
     0,
     1,
@@ -112,8 +125,13 @@ const FEATURES = Object.freeze({
     17,
     25,
     26,
-    27
+    27,
+    32,
+    33,
+    34,
+    35
   ],
+  "roundedWebpage": [0, 1, 2, 3, 8, 9, 10, 11, 12, 30, 31],
   "suggestions": [
     5,
     13,
@@ -129,9 +147,14 @@ const FEATURES = Object.freeze({
     29
   ]
 });
-const HOOK_SLOTS = Object.freeze([...native.HOOK_SLOTS,5,14,15,16,17,18,19,20,21,25,26,27,29]);
-const FORMAT = 'windhawk-feature-cache-v1', EXTRACTOR = 1, ABI_REVISION = 7;
-const CLIENT_VERSION = '3.9', MAP_SIZE = 16384;
+// Chromium 157 made the setter virtual. Its x64 member-call arguments
+// remain the same, and either spelling must resolve to a unique entry.
+const ALTERNATE_NAMES = Object.freeze({
+  [DECORATED[26]]: Object.freeze(["?SetFillsBoundsOpaquely@Layer@ui@@UEAAX_N@Z"])
+});
+const HOOK_SLOTS = Object.freeze([...native.HOOK_SLOTS,5,14,15,16,17,18,19,20,21,25,26,27,29,30,31,32,36]);
+const FORMAT = 'windhawk-feature-cache-v1', EXTRACTOR = 1, ABI_REVISION = 9;
+const CLIENT_VERSION = '4.0', MAP_SIZE = 16384;
 const CACHE_ROOT = 'brave-acrylic-features-v' + ABI_REVISION;
 const RELEASE_ROOT = 'feature-releases-v' + ABI_REVISION;
 const REQUIRED_SLOTS = Object.freeze([]); // Required per feature, never guessed.
@@ -143,6 +166,21 @@ function outsideUnwind(pe, rva, length) {
   check(!pe.functionRanges.some(f => f.begin < rva + length && f.end > rva), 'Leaf overlaps unwind range');
 }
 function helperLeaf(bytes,slot) {
+  if(slot===34) {
+    const pattern=Buffer.from('4189d04881c100000000488d1500000000e900000000','hex');
+    return bytes.length>=pattern.length&&pattern.every((b,i)=>(i>=6&&i<10)||(i>=13&&i<17)||(i>=18&&i<22)||bytes[i]===b)?pattern.length:0;
+  }
+  if(slot===33) {
+    const layouts=[
+      ['4885c974194889c84883b81801000000751b488b80300100004885c075ea31c0c3488b89300100004885c9740c488b91180100004885d274e8488b02488b40584889d148ff25667bf50b',new Set([11,12,13,14,21,22,23,24,36,37,38,39,48,49,50,51,70,71,72,73])],
+      ['4885c974444889c84883b81801000000751a488b80300100004885c075eaeb29488b89300100004885c9740c488b91180100004885d274e8488b02488b40584889d148ff256f66e00b31c0c3',new Set([11,12,13,14,21,22,23,24,35,36,37,38,47,48,49,50,69,70,71,72])],
+    ];
+    for(const [hex,variable]of layouts) {
+      const pattern=Buffer.from(hex,'hex');
+      if(bytes.length>=pattern.length&&pattern.every((b,i)=>variable.has(i)||bytes[i]===b))return pattern.length;
+    }
+    return 0;
+  }
   if(slot!==22)return 0;
   const pattern=Buffer.from('4889d048c70200000000488b890000000048894a08c3','hex');
   return bytes.length>=pattern.length&&pattern.every((b,i)=>(i>=13&&i<17)||bytes[i]===b)?pattern.length:0;
@@ -160,10 +198,11 @@ function fingerprint(pe, rva, slot) {
     return {rva,length:16,kind:4,reserved:0,code,mask:Buffer.alloc(16,255)};
   }
   if (pe.functions.has(rva)) return {...pe.fingerprint(rva),kind:0,reserved:0};
-  const bytes = pe.read(rva,32), length = helperLeaf(bytes,slot);
+  const bytes = pe.read(rva,slot===33?80:32), length = helperLeaf(bytes,slot);
   if (length) {
     check(executable(pe,rva,length),'Helper leaves executable text');
     outsideUnwind(pe,rva,length);
+    if(slot===34)check(pe.functions.has(rva+22+bytes.readInt32LE(18)),'Invalid animation property setter target');
 
     return {rva,length,kind:5,reserved:0,code:Buffer.from(bytes.subarray(0,32)),mask:Buffer.alloc(32,255)};
   }
@@ -221,7 +260,8 @@ async function generate(dll,pdbPath,output) {
   const pe = new PeImage(await fs.readFile(dll)), pdb = await Pdb.open(pdbPath);
   try {
     let sharedBackgroundSetter = false;
-    const result = await pdb.symbols(pe,{names:DECORATED,fingerprint:(rva,i) => fingerprint(pe,rva,i),
+    const result = await pdb.symbols(pe,{names:DECORATED,alternateNames:ALTERNATE_NAMES,
+      fingerprint:(rva,i) => fingerprint(pe,rva,i),
       rejectAliases:true,partial:true,aliasPolicy:value => {
         if (value.slot === 5) { sharedBackgroundSetter = true; return true; }
         return aliasPolicy(value);
@@ -255,6 +295,6 @@ async function generate(dll,pdbPath,output) {
   } finally { await pdb.close(); }
 }
 module.exports = {FORMAT,EXTRACTOR,ABI_REVISION,CLIENT_VERSION,CACHE_ROOT,RELEASE_ROOT,MAP_SIZE,REQUIRED_SLOTS,FEATURES,
-  DECORATED,SYMBOLS,HOOK_SLOTS,aliasPolicy,fingerprint,helperLeaf,featureStatus,completeSlots,validateMap,encodeCache,generate};
+  DECORATED,ALTERNATE_NAMES,SYMBOLS,HOOK_SLOTS,aliasPolicy,fingerprint,helperLeaf,featureStatus,completeSlots,validateMap,encodeCache,generate};
 if (require.main === module) generate(...process.argv.slice(2)).then(record => console.log(JSON.stringify(record,null,2)))
   .catch(error => {console.error(error.message);process.exitCode=1;});

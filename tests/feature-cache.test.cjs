@@ -7,9 +7,9 @@ const {Pdb}=require('../tools/symbol-map.cjs');
 const {fixtureMapV6,fixturePdbV6,RVAS}=require('./fixtures-v6.cjs');
 const fake={timestamp:123,imageSize:65536};
 const all=cache.SYMBOLS.map((_,i)=>({rva:0x1000+i*64}));
-test('all 64 feature combinations round-trip without exposing orphan addresses',()=>{
+test('all feature combinations round-trip without exposing orphan addresses',()=>{
   const groups=Object.values(cache.FEATURES);
-  for(let bits=0;bits<64;++bits){
+  for(let bits=0;bits<(1<<groups.length);++bits){
     const used=new Set(groups.flatMap((slots,i)=>(bits&(1<<i))?slots:[]));
     const entries=all.map((e,i)=>used.has(i)?e:null);
     const parsed=cache.validateMap(cache.encodeCache(fake,entries));
@@ -48,6 +48,16 @@ test('exact helper leaves preserve every opcode while allowing native member dis
     }
   }
 });
+test('native HWND and fade-property helper leaves reject instruction changes',()=>{
+  const patterns=[{"hex": "4885c974194889c84883b81801000000751b488b80300100004885c075ea31c0c3488b89300100004885c9740c488b91180100004885d274e8488b02488b40584889d148ff25667bf50b", "variable": [11, 12, 13, 14, 21, 22, 23, 24, 36, 37, 38, 39, 48, 49, 50, 51, 70, 71, 72, 73]}, {"hex": "4885c974444889c84883b81801000000751a488b80300100004885c075eaeb29488b89300100004885c9740c488b91180100004885d274e8488b02488b40584889d148ff256f66e00b31c0c3", "variable": [11, 12, 13, 14, 21, 22, 23, 24, 35, 36, 37, 38, 47, 48, 49, 50, 69, 70, 71, 72]}];
+  patterns.push({hex:'4189d04881c100000000488d1500000000e900000000',variable:[6,7,8,9,13,14,15,16,18,19,20,21],slot:34});
+  for(const {hex,variable,slot=33}of patterns) {
+    const bytes=Buffer.from(hex,'hex');assert.equal(cache.helperLeaf(bytes,slot),bytes.length);
+    for(let i=0;i<bytes.length;++i){const changed=Buffer.from(bytes);changed[i]^=1;
+      assert.equal(cache.helperLeaf(changed,slot),variable.includes(i)?bytes.length:0,`${slot}:${i}`);}
+    assert.equal(cache.helperLeaf(bytes.subarray(0,-1),slot),0);
+  }
+});
 async function temporary(t){const dir=await fs.mkdtemp(path.join(os.tmpdir(),'brave-features-'));
   t.after(()=>fs.rm(dir,{recursive:true,force:true}));return dir;}
 test('real PE/PDB parsing publishes the old background features despite missing new menu symbols',async t=>{
@@ -57,8 +67,10 @@ test('real PE/PDB parsing publishes the old background features despite missing 
   const record=await cache.generate(dll,pdb,out);
   assert.equal(record.features.verticalTabs.available,true);assert.equal(record.features.toolbar.available,true);
   assert.equal(record.features.webpage.available,true);assert.equal(record.features.menus.available,false);
-  assert.equal(record.features.suggestions.available,false);assert.equal(record.functions.length,13);
-  const parsed=cache.validateMap(await fs.readFile(out));assert.deepEqual(parsed.addresses.slice(0,13),RVAS);
+  assert.equal(record.features.suggestions.available,false);assert.equal(record.features.addressBar.available,false);
+  assert.equal(record.functions.length,11);
+  const parsed=cache.validateMap(await fs.readFile(out));
+  assert.deepEqual(parsed.addresses.slice(0,13),RVAS.map((rva,i)=>i===6||i===7?0:rva));
 });
 test('missing or unsafe targets are isolated; corrupt PDB identity remains a fatal error',async t=>{
   const dir=await temporary(t),{pe}=fixtureMapV6();
@@ -97,4 +109,22 @@ test('the compiled feature names and dependency groups match the producer contra
   assert.doesNotMatch(source,/namespace PipelineTrust|WinHttp|kWorkflowSha256|kWorkflowBlob/);
   assert.match(resolve,/options\.symbolServer\s*=\s*L""/);
   assert.doesNotMatch(source,/PopupProbe|OmniboxProbe|ProbeSymbols::|OmniboxSymbols::/);
+});
+test('the virtual opacity setter uses the same slot and rejects ambiguous addresses',async t=>{
+  const dir=await temporary(t),{pe}=fixtureMapV6(),file=path.join(dir,'symbols.pdb');
+  const name=cache.DECORATED[26],alternate=cache.ALTERNATE_NAMES[name][0];
+  const resolve=async extra=>{
+    await fs.writeFile(file,fixturePdbV6(pe,extra));
+    const pdb=await Pdb.open(file);
+    try{return await pdb.symbols(pe,{names:[name],alternateNames:cache.ALTERNATE_NAMES,
+      rejectAliases:true,partial:true,fingerprint:rva=>({rva})});}
+    finally{await pdb.close();}
+  };
+  assert.equal((await resolve([{name:alternate,within:0x700}])).entries[0].rva,0x1700);
+  const ambiguous=await resolve([{name:alternate,within:0x700},{name,within:0x720}]);
+  assert.equal(ambiguous.entries[0],null);
+  assert.match(ambiguous.errors[0],/ambiguous ABI/);
+  const shared=await resolve([{name:alternate,within:0x700},{name:'Unrelated',within:0x700}]);
+  assert.equal(shared.entries[0],null);
+  assert.match(shared.errors[0],/alias at target/);
 });

@@ -22,7 +22,7 @@ int main(){
  assert(context.Complete());context.ready=true;
  unsigned checks=0;
  // Identical colors in other controls never select them for clearing.
- const char* protectedNames[]={"View","Label","ImageView","Textfield","LabelButton","ToolbarButton","BraveTab","VerticalTabNewTabButton","ShortcutBox","BraveLocationBarView","ContentsWebView","BraveContentsContainerView","MenuItemView","BrowserCaptionButtonContainer","BraveToolbarViewExtra"};
+ const char* protectedNames[]={"View","Label","ImageView","Textfield","LabelButton","ToolbarButton","BraveTab","VerticalTabNewTabButton","ShortcutBox","BraveLocationBarView","ContentsWebView","MenuItemView","BrowserCaptionButtonContainer","BraveToolbarViewExtra"};
  for(const char* n:protectedNames)for(unsigned color:{0u,0xFFFFFFFFu,0xFF333C4Du,0xFF1D2636u}){
   View v{n,color};operations.clear();canvasValue=0xABCD;PaintBackground(context,&v,&canvasValue);
   assert(operations==std::vector<std::string>{"original"});assert(canvasValue==0xABCD);++checks;
@@ -32,6 +32,11 @@ int main(){
   assert(operations==std::vector<std::string>{"clear"});assert(canvasValue==0);++checks;
  }
  assert(!IsBackgroundContainer({nullptr,20},3));assert(!IsBackgroundContainer({"View",0},3));
+ for(const char* n:{"ContentsContainerView","BraveContentsContainerView","MainBackgroundRegionView"})for(unsigned mask=0;mask<=7;++mask){
+  context.areas=mask;View v{n,0xff123456};operations.clear();PaintBackground(context,&v,&canvasValue);
+  assert(operations==std::vector<std::string>{(mask&Page)?"clear":"original"});++checks;
+ }
+ context.areas=All;
  char longName[128]{};assert(!IsBackgroundContainer({longName,128},3));checks+=3;
  assert(WindowContentsTransparent(context,nullptr));++checks;
  View self{"BraveVerticalTabStripContainerView",123},host{"View",0xFF123456},unrelated{"View",0xFF123456};

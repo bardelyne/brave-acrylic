@@ -85,7 +85,7 @@ do not need a new hardcoded instruction pattern.
 
 ## Ongoing checks
 
-The ordinary two-hour workflow first checks metadata and skips unchanged builds.
+The ordinary hourly workflow first checks metadata and skips unchanged builds.
 If extraction fails after official inputs were downloaded, it inspects those
 same files and uploads a small diagnostic report. Unsupported output is not
 published. The report records missing/ambiguous names, aliases, forwarding jumps,
@@ -94,7 +94,7 @@ code samples, disassembly and boundary failures without another large download.
 The separate manual compiler-research workflow accepts up to twelve unique
 stable release tags. It verifies each official release, inspects its exact PDB,
 and requires the candidate extractor to pass. This historical study is not run
-every two hours. Large inputs are neither committed nor uploaded as artifacts.
+every hour. Large inputs are neither committed nor uploaded as artifacts.
 
 Seven passing builds demonstrate coverage of these observed variations. They do
 not establish a percentage for future updates. Inlining that removes a needed

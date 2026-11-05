@@ -6,7 +6,7 @@ on:
       tags:
         description: JSON array of 1-12 official stable Brave tags
         type: string
-        default: '["v1.88.138","v1.89.145","v1.90.128","v1.91.180","v1.92.144","v1.93.138","v1.94.121","v1.95.104","v1.96.61","v1.97.59","v1.98.60","v1.98.62"]'
+        default: '["v1.88.138","v1.89.145","v1.90.128","v1.91.180","v1.92.144","v1.93.138","v1.94.121","v1.95.104","v1.96.61","v1.97.59","v1.98.63","v1.99.55"]'
 
 permissions:
   contents: read
@@ -42,7 +42,7 @@ jobs:
           persist-credentials: false
       - name: Test the official-input reader
         run: node --test tests/research-compiler.test.cjs
-      - name: Download matching official inputs and validate all six feature groups
+      - name: Download matching official inputs and validate native feature groups
         env:
           GH_TOKEN: ${{ github.token }}
           BRAVE_TAG: ${{ matrix.tag }}

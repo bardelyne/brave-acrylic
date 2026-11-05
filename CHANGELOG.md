@@ -1,5 +1,19 @@
 # Changelog
 
+## 4.0 — Alpha
+
+- Check for new Brave releases hourly.
+- Recognize Chromium 157’s virtual popup opacity setter.
+
+- Separate Toolbar and Address bar settings. Address bar transparency also clears Brave’s hover shadow.
+
+- Replace bubble-popup scaling with a short matching fade for native content and its blur backdrop; preserve menu animations and reduced-motion preferences.
+
+- Support rounded webpage transparency by clearing the native surround and border backing while preserving rounded clipping and the thin outline.
+- Add native site-information, recent-downloads and media-controls backing roles. Clear the downloads quick-action strip while retaining native icons, buttons and artwork.
+- Add a popup background-opacity setting from 0 to 100 percent, defaulting to 62, without fading text or icons.
+- Extend compatibility generation with an independent rounded-webpage feature and two optional native paint targets. Keep the existing six features available when the new targets are unsupported.
+
 ## 3.9 — Alpha
 
 - Cache Windows transparency/high-contrast preferences outside paint hooks and update existing popup effects from system notifications. Skip default-off caption property lookups, keep type-checked hooks, and move historical cache fixtures out of the shipped mod.
