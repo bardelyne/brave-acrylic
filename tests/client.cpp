@@ -45,15 +45,22 @@ bool WindhawkUtils::HookSymbols(HMODULE module,const SYMBOL_HOOK* hooks,size_t c
                                const WH_HOOK_SYMBOLS_OPTIONS* options) {
     ++lookupCalls;
     Check(module==mockModule&&count==(featureCache?kFeatureSlots:kFunctionSlots),"resolve all required symbols for the loaded DLL");
+    const bool allowFallback=featureCache&&s_allowBraveSymbolServerFallback;
     Check(options&&options->optionsSize==sizeof(*options)&&options->symbolServer&&
-          !*options->symbolServer&&!options->noUndecoratedSymbols,"never download remote PDBs; standard C++ prototypes");
+          !wcscmp(options->symbolServer,allowFallback?kBraveSymbolServer:L"")&&
+          bool(options->noUndecoratedSymbols)==allowFallback,
+          "remote PDB lookup uses the official server and skips undecoration only after opt-in");
     Check(options->onlineCacheUrl&&!wcscmp(options->onlineCacheUrl,
           s_useOnlineSymbolCache?kOnlineSymbolCache:L""),"offline opt-out passed directly to Windhawk");
     if(blockLookup){std::unique_lock lock(mutex);entered=true;condition.notify_all();
         condition.wait(lock,[]{return released;});}
     for(unsigned i=0;i<count;++i){
-        Check(hooks[i].symbols.size()==1&&hooks[i].optional==featureCache&&!hooks[i].hookFunction,
+        const bool alternate=allowFallback&&i==26;
+        Check(hooks[i].symbols.size()==(alternate?3u:allowFallback?2u:1u)&&
+              hooks[i].optional==featureCache&&!hooks[i].hookFunction,
               "lookups cannot install hooks and only approved present feature slots are requested");
+        if(alternate)Check(hooks[i].symbols[2]==L"?SetFillsBoundsOpaquely@Layer@ui@@UEAAX_N@Z",
+                           "official fallback also matches Chromium 157's virtual opacity setter");
         *hooks[i].originalFunction=int(i)==badSlot||i>=kFunctionSlots?nullptr:
             reinterpret_cast<unsigned char*>(module)+mockMap.functions[i].rva;
     }
@@ -69,7 +76,8 @@ static void Reset() {
     s_activateAfterInit=false;s_transparencyReady=false;s_isBrowserProcess=false;
     s_availableAreas=BraveBackground::All;s_background.areas=BraveBackground::All;NativeUi::supported=0;NativeUi::ready=false;
     NativeUi::Material::stopping=false;featureCache=true;
-    s_useOnlineSymbolCache=true;s_captionStopping=false;s_captionHooksInstalled=false;
+    s_useOnlineSymbolCache=true;s_allowBraveSymbolServerFallback=false;
+    s_captionStopping=false;s_captionHooksInstalled=false;
     s_captionFixActive=false;s_hideNativeCaptionButtons=false;
     s_captionPropertyUsed=false;
     s_background.originalPaint=nullptr;s_background.clear=nullptr;s_background.getClass=nullptr;
@@ -148,6 +156,14 @@ static void TestValidation() {
 }
 static void TestSymbols() {
     Reset();size_t output[13]{};
+    for(bool online:{false,true})for(bool fallback:{false,true}){
+        Reset();s_useOnlineSymbolCache=online;s_allowBraveSymbolServerFallback=fallback;
+        size_t entries[kFeatureSlots]{};
+        Check(ResolveFeatureAddresses(fakeModule,entries)&&lookupCalls==1&&hookCalls==0&&
+              entries[1]==fixture.functions[1].rva,
+              "both download preferences independently configure the standard Windhawk lookup");
+    }
+    Reset();
     featureCache=false;
     Check(ResolveSymbolAddresses(fakeModule,output)&&output[8]==0x1300,
           "named symbol entry resolves to the validated live body");

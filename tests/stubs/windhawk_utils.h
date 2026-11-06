@@ -2,9 +2,10 @@
 #include <windhawk_api.h>
 #include <initializer_list>
 #include <string_view>
+#include <vector>
 namespace WindhawkUtils {
 struct SYMBOL_HOOK {
-    std::initializer_list<std::wstring_view> symbols;
+    std::vector<std::wstring_view> symbols;
     void** originalFunction;
     void* hookFunction = nullptr;
     bool optional = false;

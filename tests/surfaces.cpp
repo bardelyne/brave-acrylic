@@ -10,6 +10,7 @@ static unsigned checks=0,paints=0,clears=0;
 static NativeColor received{};
 
 static bool enabled=true;
+static bool fallbackEnabled=false;
 static bool toolbarEnabled=true,addressBarEnabled=true;
 static std::vector<int> order;
 static BraveBackground::ClassName* Name(const void* raw,BraveBackground::ClassName* name){
@@ -145,7 +146,9 @@ int main(){
 
  for(bool selected:{false,true}){enabled=selected;LoadModSettings();
   assert(s_background.areas==(selected?BraveBackground::All:0u));
-  assert(s_useOnlineSymbolCache==selected&&s_hideNativeCaptionButtons==selected);++checks;}
+  assert(s_useOnlineSymbolCache==selected&&s_hideNativeCaptionButtons==selected);
+  assert(!s_allowBraveSymbolServerFallback);++checks;}
+ fallbackEnabled=true;LoadModSettings();assert(s_allowBraveSymbolServerFallback);++checks;
  for(int value:{-20,0,1,62,100,200}){configuredOpacity=value;LoadModSettings();
   assert(s_popupOpacity==static_cast<unsigned>(std::clamp(value,0,100)));++checks;}
  printf("%u toolbar, address shadow, focus, scoped webview and tab-selection checks passed.\n",checks);
@@ -155,6 +158,7 @@ PCWSTR Wh_GetStringSetting(PCWSTR,...){assert(false);return nullptr;}
 void Wh_FreeStringSetting(PCWSTR){}
 int Wh_GetIntSetting(PCWSTR name){
  if(!wcscmp(name,L"popupOpacity"))return configuredOpacity;
+ if(!wcscmp(name,L"allowBraveSymbolServerFallback"))return fallbackEnabled;
  if(!wcscmp(name,L"transparentToolbar"))return enabled&&toolbarEnabled;
  if(!wcscmp(name,L"transparentAddressBar"))return enabled&&addressBarEnabled;
  return enabled;

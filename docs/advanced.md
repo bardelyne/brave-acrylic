@@ -16,7 +16,7 @@ The worker closes its targets and shuts down only its own queue before DLL unloa
 
 The eight feature groups are independent. Missing native dependencies leave their features native while working features remain available. Windhawk performs ordinary symbol-cache fetching and local caching; the mod retains local range, unwind-entry, helper-leaf, thunk and overlap checks. It does not query workflow/artifact APIs or independently authenticate the author-controlled cache. See [compatibility](compatibility.md) and [hosting and trust](trusted-pipeline.md).
 
-The mod downloads compatibility data only. It uploads no browsing content, credentials, settings or telemetry and requests no user login/token. GitHub sees the public IP and requested build URL. Turn off Use online symbol cache and restart for local-cache-only operation; suitable cached symbols must already exist. Remote PDB downloads and custom retry/polling workers are disabled.
+Windhawk downloads symbol data without a login. The server used for a download sees the requester’s IP and the requested build. Brave Acrylic sends no browsing content, credentials, settings or telemetry. By default, Windhawk downloads only the small compatibility cache. The opt-in fallback can download the full PDB from Brave’s official server. Turn both symbol download options off and restart Brave for local-cache-only operation.
 
 ## Website backgrounds
 

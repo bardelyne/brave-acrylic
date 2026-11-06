@@ -3,6 +3,7 @@
 ## 4.0 — Alpha
 
 - Check for new Brave releases hourly.
+- Add an opt-in fallback to Brave’s official symbol server when Windhawk cannot resolve symbols from the caches.
 - Recognize Chromium 157’s virtual popup opacity setter.
 - Enable Hide duplicate Windows buttons by default on fresh installs.
 

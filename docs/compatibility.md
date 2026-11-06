@@ -1,6 +1,6 @@
 # Native feature compatibility
 
-Brave Acrylic 4.0 uses ordinary Windhawk named-symbol fetching. The current contract contains 36 functions and one immutable background-class vtable. Remote PDB fallback is disabled. Local structural checks remain; there is no workflow/artifact verification gate. The symbol service is controlled by the author: see [hosting and trust](trusted-pipeline.md).
+Brave Acrylic 4.0 uses Windhawk’s named-symbol fetching. The current contract contains 36 functions and one immutable background-class vtable. Windhawk can fall back to Brave’s official PDB server when the user enables the option. Local structural checks apply to both sources. See [hosting and trust](trusted-pipeline.md) for details on the author-controlled cache.
 
 The format is `1#chrome.dll#x86-64_<timestamp>_<size>#<full-symbol-name>#<decimal-RVA>#...`. All 37 names have a fixed order. An empty RVA explicitly marks an unavailable optional target. The producer publishes only addresses serving complete features.
 

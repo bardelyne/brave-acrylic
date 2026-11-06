@@ -1,8 +1,11 @@
 # Brave Acrylic
 
-> **Very important — Symbol cache:** Controlled and maintained by **bardelyne**, the author of Brave Acrylic. This is an author-hosted cache, not an official Windhawk service. Our GitHub Actions workflow checks for new Brave releases and prepares small compatibility files from Brave’s official symbols. Windhawk downloads the matching file for your installed Brave build and caches it locally. The large symbol files are processed by the workflow; your PC receives only the small compatibility data.
+> **Very important — Symbol cache:** Controlled and maintained by **bardelyne**, the author of Brave Acrylic. This is an author-hosted cache, not an official Windhawk service. Our GitHub Actions workflow checks for new Brave releases and prepares small compatibility files from Brave’s official symbols. By default, Windhawk downloads only the small cache for your Brave build. The optional **Download symbols from Brave as a fallback** setting is off by default.
 
-> **If the mod isn’t working after a Brave update,** give it about an hour, then fully exit and reopen Brave so Windhawk can fetch the matching cache. The workflow checks for compatibility every hour. GitHub can delay scheduled runs.
+> **If the mod isn’t working after a Brave update**
+>
+> - **Wait for the small cache (default).** The workflow checks for new Brave builds every hour. Give it about an hour, then fully exit and reopen Brave. GitHub can delay scheduled runs.
+> - **Download directly from Brave.** If you have a fast connection and enough disk space, enable **Download symbols from Brave as a fallback** in the mod’s Windhawk settings, then fully exit and reopen Brave. On a cache miss, Windhawk can download the full symbols from Brave’s official server. For a recent build, the download was about **1.2 GB** and expanded to about **6 GB** on disk.
 
 ![Brave Acrylic](https://raw.githubusercontent.com/bardelyne/brave-acrylic/main/assets/brave-acrylic-v3.3.png)
 
@@ -51,7 +54,8 @@ Brave's **Show rounded corners on main content areas** setting can remain enable
 | **Blur search suggestions** | On | Use a native results popup with Windows blur below the input cutout. Typed text, result text and input remain native and sharp. |
 | **Popup background opacity (%)** | 62 | Control the background tint of menus, native popups and suggestions from 0 (transparent) to 100 (opaque). Text, icons and controls retain their native opacity. Restart Brave after changing it. |
 | **Hide duplicate Windows buttons** | On | Hide the extra Windows minimize, maximize and close buttons while keeping Brave’s controls. This can affect Alt+Space, taskbar menus and other window tools. |
-| **Use online symbol cache** | On | Let Windhawk download small exact-build files from the author-controlled cache. Turn off to use existing local cached symbols only, then restart Brave. |
+| **Use online symbol cache** | On | Let Windhawk download small exact-build files from the author-controlled cache. |
+| **Download symbols from Brave as a fallback** | Off | Let Windhawk download the full PDB from Brave’s official symbol server if it cannot resolve symbols from the available caches. A tested build used about 1.2 GB of bandwidth and 6.2 GB of disk space. Restart Brave after changing this setting. |
 
 Restart Brave after applying settings, even when a change appears immediately. Some backing views and native popup choices are created with their windows. Webpage backing can apply on tab selection without refreshing the page; restarting after disabling it restores existing renderer defaults. The caption-button option can apply immediately.
 
@@ -93,13 +97,13 @@ Suggestions use Chromium's normal desktop-popup factory instead of its in-window
 
 ## Symbol resolution, privacy and updates
 
-Brave Acrylic resolves exact C++ prototypes and the background-class identity with Windhawk's supported `HookSymbols` / `WH_HOOK_SYMBOLS_OPTIONS::onlineCacheUrl` mechanism. Windhawk handles its ordinary local cache and optional online download. No build-specific addresses are embedded and remote PDB downloads remain disabled. The mod retains local executable-range, unwind-boundary, approved-leaf, thunk and overlap checks before registering hooks.
+Brave Acrylic uses Windhawk’s `HookSymbols` to resolve exact C++ prototypes and the background-class identity. Windhawk checks its local symbol cache and then the author-hosted cache when enabled. If those lookups do not resolve the symbols and the fallback is on, Windhawk can download and unpack the official Brave PDB. Both sources use the mod’s local executable-range, unwind-boundary, approved-leaf, thunk and overlap checks before hooks are registered. The workflow also checks for compiler aliases when generating the small cache.
 
 Small named-symbol files are published under `brave-acrylic-features-v9/` on our [`symbol-cache` branch](https://github.com/bardelyne/brave-acrylic/tree/symbol-cache). They contain the native function locations needed for each Brave build. The service and publishing workflow are controlled and maintained by bardelyne.
 
 Windhawk handles compatibility downloads and local caching through its standard mechanism. Our workflow uses pinned actions and checks the official Brave archive and matching symbols before publishing. See [cache hosting](https://github.com/bardelyne/brave-acrylic/blob/main/docs/trusted-pipeline.md) for the technical details.
 
-**No telemetry, uploads or login:** the mod only downloads compatibility data through Windhawk. Browser cookies, history, page content, settings and account details stay on your PC. Turn **Use online symbol cache** off and restart Brave to use suitable existing local cached symbols only.
+**No telemetry, uploads or login.** Windhawk downloads symbol data. The server used for the download receives your IP address and the requested build. Browser cookies, history, page content, settings and account details stay on your PC. Turn both symbol download options off and restart Brave to use local symbols only.
 
 The workflow checks the stable release, asset identities and native contract before downloading large files. Unchanged releases skip browser and PDB downloads. Both generation and publication use the run's same source revision; large official files stay on the GitHub runner. Restart Brave after newly required compatibility data becomes available.
 
@@ -111,6 +115,6 @@ The extractor handles verified compiler folding according to each function's rol
 
 ## Troubleshooting
 
-Restart Brave after installing or applying changes: close all windows and its background instance, then reopen normally. Enable Windhawk debug logging to check each feature's availability or a symbol-cache message. For website styling, check Zen Internet's transparency setting and whether that site has a supported style, or check the CSS and site scope of your Stylus style.
+After installing or applying changes, close all Brave windows and its background instance, then reopen normally. If Windhawk cached a failed symbol lookup, enable debug logging in the mod’s Advanced tab before restarting Brave to retry. For website styling, check Zen Internet's transparency setting and whether that site has a supported style, or check the CSS and site scope of your Stylus style.
 
 For reports, include Windows/Brave versions, window type, enabled areas, backdrop configuration, and reproduction steps. See the [advanced reference](https://github.com/bardelyne/brave-acrylic/blob/main/docs/advanced.md), [compatibility data](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compatibility.md), [webview investigation](https://github.com/bardelyne/brave-acrylic/blob/main/docs/webview-background.md), and [changelog](https://github.com/bardelyne/brave-acrylic/blob/main/CHANGELOG.md).
