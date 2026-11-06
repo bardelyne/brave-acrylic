@@ -120,13 +120,11 @@ test('partial discovery cannot hide malformed public records or unsupported symb
 test('the compiled feature names and dependency groups match the producer contract',async()=>{
   const source=await fs.readFile(path.join(__dirname,'../brave-acrylic.wh.cpp'),'utf8');
   const resolve=source.slice(source.indexOf('static bool ResolveFeatureAddresses'),source.indexOf('// </feature-kernel>'));
-  const names=resolve.slice(resolve.indexOf('WindhawkUtils::SYMBOL_HOOK'),resolve.indexOf('static_assert'));
+  const names=source.slice(source.indexOf('static constexpr FeatureSymbol kFeatureSymbols[]'),source.indexOf('static_assert(ARRAYSIZE(kFeatureSymbols)'));
   assert.deepEqual([...names.matchAll(/L"([^"\n]+)"/g)].map(m=>m[1]),cache.SYMBOLS);
-  const fallback=resolve.slice(resolve.indexOf('fallbackHooks[]'),resolve.indexOf('static_assert(ARRAYSIZE(fallbackHooks)'));
-  assert.deepEqual([...fallback.matchAll(/L"([^"\n]+)"/g)].map(m=>m[1]),cache.SYMBOLS);
-  assert.deepEqual([...fallback.matchAll(/LR"\(([^\n]+)\)"/g)].map(m=>m[1]),
+  assert.deepEqual([...names.matchAll(/LR"\(([^\n]+)\)"/g)].map(m=>m[1]),
     cache.DECORATED.flatMap(name=>[name,...(cache.ALTERNATE_NAMES[name]||[])]));
-  assert.match(resolve,/options\.noUndecoratedSymbols\s*=\s*TRUE/);
+  assert.match(resolve,/options\.noUndecoratedSymbols\s*=\s*allowFallback/);
   assert.match(resolve,/WindhawkUtils::HookSymbols/);
   assert.ok(resolve.indexOf('WindhawkUtils::HookSymbols(')<resolve.indexOf('ValidateFeatureAddresses('));
   assert.doesNotMatch(source,/namespace PipelineTrust|WinHttp|kWorkflowSha256|kWorkflowBlob/);

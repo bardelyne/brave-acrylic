@@ -46,10 +46,10 @@ test('standard Windhawk fetching keeps local structural checks without a pipelin
   const source=await fs.readFile(path.join(__dirname,'../brave-acrylic.wh.cpp'),'utf8');
   const code=source.slice(source.indexOf('#include <windhawk_api.h>'));
   assert.doesNotMatch(code,/PipelineTrust|WinHttp|kWorkflowBlob|kWorkflowSha256|api.github.com|proof.json/);
-  assert.equal([...code.matchAll(/CreateThread\(/g)].length,1);
+  assert.equal([...code.matchAll(/WindhawkUtils::HookSymbols\(/g)].length,1);
   assert.match(source,/- allowBraveSymbolServerFallback: false/);
   assert.match(code,/options\.symbolServer\s*=\s*allowFallback\s*\?\s*kBraveSymbolServer\s*:\s*L""/);
-  assert.match(code,/options\.onlineCacheUrl\s*=\s*s_useOnlineSymbolCache/);
+  assert.match(code,/options\.onlineCacheUrl\s*=\s*useOnlineCache\s*\?\s*kOnlineSymbolCache\s*:\s*L""/);
   assert.match(code,/ValidateFeatureAddresses\(module,\s*addresses,\s*result\)/);
   assert.doesNotMatch(code,/kBuiltinMap|knownBuild|builtIn/);
   assert.match(source,/- hideNativeCaptionButtons: true/);

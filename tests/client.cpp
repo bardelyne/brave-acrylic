@@ -9,19 +9,28 @@
 #include <thread>
 #include <vector>
 static unsigned captionPropertyReads=0;
+static HMODULE fakeModule=nullptr;
 static HANDLE WINAPI TestGetPropW(HWND window,LPCWSTR name);
+static BOOL WINAPI TestGetModuleHandleExW(DWORD flags,LPCWSTR address,HMODULE* module);
 #define GetPropW TestGetPropW
+#define GetModuleHandleExW TestGetModuleHandleExW
 #include "../brave-acrylic.wh.cpp"
+#undef GetModuleHandleExW
 #undef GetPropW
 #include "cache-contract.h"
 static HANDLE WINAPI TestGetPropW(HWND window,LPCWSTR name){++captionPropertyReads;return GetPropW(window,name);}
+static BOOL WINAPI TestGetModuleHandleExW(DWORD flags,LPCWSTR address,HMODULE* module) {
+    if(address==reinterpret_cast<LPCWSTR>(fakeModule))
+        address=reinterpret_cast<LPCWSTR>(&TestGetModuleHandleExW);
+    return GetModuleHandleExW(flags,address,module);
+}
 
 static int checks=0,failures=0,hookCalls=0,lookupCalls=0;
 static bool engineSuccess=true,applySuccess=true,blockLookup=false,entered=false,released=false;
 static int badSlot=-1,failHook=-1;
 static std::mutex mutex;
 static std::condition_variable condition;
-static HMODULE fakeModule=nullptr,mockModule=nullptr;
+static HMODULE mockModule=nullptr;
 static CompatibilityMap fixture{},mockMap{};
 static bool featureCache=true;
 static void Check(bool ok,const char* label) {
@@ -73,6 +82,7 @@ static std::vector<unsigned char> ReadFile(const wchar_t* file) {
 static void Reset() {
     hookCalls=lookupCalls=0;engineSuccess=applySuccess=true;badSlot=failHook=-1;
     blockLookup=entered=released=false;s_stopping=false;s_chromeAttempted=false;
+    s_symbolLookup={};
     s_activateAfterInit=false;s_transparencyReady=false;s_isBrowserProcess=false;
     s_availableAreas=BraveBackground::All;s_background.areas=BraveBackground::All;NativeUi::supported=0;NativeUi::ready=false;
     NativeUi::Material::stopping=false;featureCache=true;
@@ -154,12 +164,20 @@ static void TestValidation() {
     memcpy(bytes+0x1700,savedStub,5);
 
 }
+static bool ResolveAndInstallNativeBackground(HMODULE module) {
+    size_t rva[kFeatureSlots]{};
+    if (!ResolveFeatureAddresses(module,rva,s_useOnlineSymbolCache,s_allowBraveSymbolServerFallback))
+        return false;
+    InstallNativeBackgroundHooks(module,rva);
+    return true;
+}
+
 static void TestSymbols() {
     Reset();size_t output[13]{};
     for(bool online:{false,true})for(bool fallback:{false,true}){
         Reset();s_useOnlineSymbolCache=online;s_allowBraveSymbolServerFallback=fallback;
         size_t entries[kFeatureSlots]{};
-        Check(ResolveFeatureAddresses(fakeModule,entries)&&lookupCalls==1&&hookCalls==0&&
+        Check(ResolveFeatureAddresses(fakeModule,entries,online,fallback)&&lookupCalls==1&&hookCalls==0&&
               entries[1]==fixture.functions[1].rva,
               "both download preferences independently configure the standard Windhawk lookup");
     }
@@ -174,12 +192,12 @@ static void TestSymbols() {
         Check(!s_transparencyReady&&!HasCompleteTransparencyPath(),"incomplete lookup publishes no callable helpers");
     }
     Reset();s_useOnlineSymbolCache=false;
-    Check(ResolveNativeBackground(fakeModule)&&lookupCalls==1&&hookCalls==7,"ordinary offline Windhawk cache needs no workflow proof");
+    Check(ResolveAndInstallNativeBackground(fakeModule)&&lookupCalls==1&&hookCalls==7,"ordinary offline Windhawk cache needs no workflow proof");
     Reset();mockMap.functions[0].rva=fixture.functions[1].rva;
-    Check(ResolveNativeBackground(fakeModule)&&hookCalls==0&&!s_availableAreas,
+    Check(ResolveAndInstallNativeBackground(fakeModule)&&hookCalls==0&&!s_availableAreas,
           "both duplicate roles are rejected before their dependent hooks");
     Reset();engineSuccess=false;
-    Check(!ResolveNativeBackground(fakeModule)&&hookCalls==0,"even thirteen outputs cannot override a failed engine lookup");
+    Check(!ResolveAndInstallNativeBackground(fakeModule)&&hookCalls==0,"even thirteen outputs cannot override a failed engine lookup");
     for(bool online:{false,true}){
         Reset();s_useOnlineSymbolCache=online;
         Check(TryInstallChromeHooks(fakeModule,false)&&hookCalls==7&&!s_transparencyReady,
@@ -222,6 +240,50 @@ static void TestShutdown() {
     Check(stopped&&!s_transparencyReady,"shutdown cannot leave late readiness");
     Check(!TryInstallChromeHooks(fakeModule,true)&&hookCalls==registered,"no registration after shutdown returns");
 }
+static void TestFallbackStartup() {
+    Reset();
+    s_allowBraveSymbolServerFallback=true;
+    Check(TryInstallChromeHooks(fakeModule,true)&&hookCalls==7&&s_transparencyReady,
+          "fast fallback activates the validated hooks before startup continues");
+    Wh_ModBeforeUninit();
+    Check(!s_symbolWorker&&!s_transparencyReady,"unload joins a completed resolver");
+
+    Reset();
+    s_allowBraveSymbolServerFallback=true;
+    blockLookup=true;
+    const auto started=GetTickCount64();
+    const bool installed=TryInstallChromeHooks(fakeModule,true,30);
+    {std::unique_lock lock(mutex);condition.wait(lock,[]{return entered;});}
+    Check(!installed&&GetTickCount64()-started<1000&&hookCalls==0&&!s_transparencyReady,
+          "cold fallback returns within its budget while symbol lookup continues");
+    {std::lock_guard lock(mutex);released=true;}condition.notify_all();
+    WaitForSingleObject(s_symbolWorker,INFINITE);
+    Check(s_symbolLookup.succeeded&&!s_transparencyReady&&hookCalls==0&&
+          !TryInstallChromeHooks(fakeModule,true),
+          "late fallback only primes the cache and cannot install hooks in this process");
+    Wh_ModBeforeUninit();
+
+    Reset();
+    s_allowBraveSymbolServerFallback=true;
+    blockLookup=true;
+    std::atomic<bool> startupReturned=false,unloaded=false;
+    bool startupInstalled=true;
+    std::thread startup([&] {
+        startupInstalled=TryInstallChromeHooks(fakeModule,true);
+        startupReturned=true;
+    });
+    {std::unique_lock lock(mutex);condition.wait(lock,[]{return entered;});}
+    std::thread unload([&]{Wh_ModBeforeUninit();unloaded=true;});
+    const auto deadline=GetTickCount64()+1000;
+    while(!startupReturned&&GetTickCount64()<deadline)
+        Sleep(1);
+    Check(startupReturned&&!startupInstalled&&!unloaded,
+          "unload releases the startup waiter but keeps the DLL alive until resolution ends");
+    {std::lock_guard lock(mutex);released=true;}condition.notify_all();
+    startup.join();unload.join();
+    Check(unloaded&&hookCalls==0&&!s_transparencyReady&&!s_symbolWorker,
+          "a resolver finishing during unload cannot activate hooks");
+}
 static void TestCaptionRestore() {
     Reset();pOrigGetWindowLongPtrW=GetWindowLongPtrW;pOrigSetWindowLongPtrW=SetWindowLongPtrW;
     pOrigGetWindowLongW=GetWindowLongW;pOrigSetWindowLongW=SetWindowLongW;
@@ -257,7 +319,7 @@ int wmain(int argc,wchar_t** argv) {
     const auto* nt=reinterpret_cast<const IMAGE_NT_HEADERS64*>(base+reinterpret_cast<IMAGE_DOS_HEADER*>(base)->e_lfanew);
     const auto* section=IMAGE_FIRST_SECTION(nt);
     for(unsigned i=0;i<nt->FileHeader.NumberOfSections;i++)memcpy(base+section[i].VirtualAddress,file.data()+section[i].PointerToRawData,section[i].SizeOfRawData);
-    TestValidation();TestSymbols();TestShutdown();TestCaptionRestore();Reset();
+    TestValidation();TestSymbols();TestShutdown();TestFallbackStartup();TestCaptionRestore();Reset();
     if(argc==5) {
         HMODULE actual=LoadLibraryExW(argv[3],nullptr,DONT_RESOLVE_DLL_REFERENCES);
         auto bytes=ReadFile(argv[4]);CompatibilityMap real{};size_t rva[kFunctionSlots]{};
@@ -269,7 +331,7 @@ int wmain(int argc,wchar_t** argv) {
             featureCache=false;
             Check(ResolveSymbolAddresses(actual,rva),"real named-entry validation, including the live E9 thunk");
             featureCache=true;
-            Check(ResolveNativeBackground(actual)&&hookCalls==7&&lookupCalls==2,
+            Check(ResolveAndInstallNativeBackground(actual)&&hookCalls==7&&lookupCalls==2,
                   "real build always uses Windhawk lookup before installing seven hooks");
             real.functions[2].code[0]^=1;Check(!ValidateCompatibilityMap(actual,real,rva),"reject altered real-build fingerprint");
         }
