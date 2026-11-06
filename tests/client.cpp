@@ -1,5 +1,6 @@
 #define NOMINMAX
 #include <windows.h>
+#include <shellapi.h>
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
@@ -12,9 +13,12 @@ static unsigned captionPropertyReads=0;
 static HMODULE fakeModule=nullptr;
 static HANDLE WINAPI TestGetPropW(HWND window,LPCWSTR name);
 static BOOL WINAPI TestGetModuleHandleExW(DWORD flags,LPCWSTR address,HMODULE* module);
+static BOOL WINAPI TestShellNotifyIconW(DWORD operation,PNOTIFYICONDATAW data);
 #define GetPropW TestGetPropW
 #define GetModuleHandleExW TestGetModuleHandleExW
+#define Shell_NotifyIconW TestShellNotifyIconW
 #include "../brave-acrylic.wh.cpp"
+#undef Shell_NotifyIconW
 #undef GetModuleHandleExW
 #undef GetPropW
 #include "cache-contract.h"
@@ -30,6 +34,8 @@ static bool engineSuccess=true,applySuccess=true,blockLookup=false,entered=false
 static int badSlot=-1,failHook=-1;
 static std::mutex mutex;
 static std::condition_variable condition;
+static std::vector<std::wstring> symbolNotices;
+static unsigned symbolIconsRemoved=0;
 static HMODULE mockModule=nullptr;
 static CompatibilityMap fixture{},mockMap{};
 static bool featureCache=true;
@@ -50,6 +56,15 @@ BOOL Wh_SetFunctionHook(void* target,void*,void** original) {
     return TRUE;
 }
 BOOL Wh_ApplyHookOperations() {return applySuccess;}
+static BOOL WINAPI TestShellNotifyIconW(DWORD operation,PNOTIFYICONDATAW data) {
+    std::lock_guard lock(mutex);
+    if(operation==NIM_MODIFY&&(data->uFlags&NIF_INFO))
+        symbolNotices.emplace_back(data->szTip);
+    if(operation==NIM_DELETE)
+        ++symbolIconsRemoved;
+    condition.notify_all();
+    return TRUE;
+}
 bool WindhawkUtils::HookSymbols(HMODULE module,const SYMBOL_HOOK* hooks,size_t count,
                                const WH_HOOK_SYMBOLS_OPTIONS* options) {
     ++lookupCalls;
@@ -83,6 +98,7 @@ static void Reset() {
     hookCalls=lookupCalls=0;engineSuccess=applySuccess=true;badSlot=failHook=-1;
     blockLookup=entered=released=false;s_stopping=false;s_chromeAttempted=false;
     s_symbolLookup={};
+    symbolNotices.clear();symbolIconsRemoved=0;
     s_activateAfterInit=false;s_transparencyReady=false;s_isBrowserProcess=false;
     s_availableAreas=BraveBackground::All;s_background.areas=BraveBackground::All;NativeUi::supported=0;NativeUi::ready=false;
     NativeUi::Material::stopping=false;featureCache=true;
@@ -247,20 +263,58 @@ static void TestFallbackStartup() {
           "fast fallback activates the validated hooks before startup continues");
     Wh_ModBeforeUninit();
     Check(!s_symbolWorker&&!s_transparencyReady,"unload joins a completed resolver");
+    Check(symbolNotices.empty()&&symbolIconsRemoved==0,"fast fallback shows no symbol status icon");
 
     Reset();
     s_allowBraveSymbolServerFallback=true;
     blockLookup=true;
     const auto started=GetTickCount64();
-    const bool installed=TryInstallChromeHooks(fakeModule,true,30);
-    {std::unique_lock lock(mutex);condition.wait(lock,[]{return entered;});}
-    Check(!installed&&GetTickCount64()-started<1000&&hookCalls==0&&!s_transparencyReady,
+    const bool installed=TryInstallChromeHooks(fakeModule,true);
+    const auto elapsed=GetTickCount64()-started;
+    bool preparing;
+    {
+        std::unique_lock lock(mutex);
+        preparing=condition.wait_for(lock,std::chrono::seconds(2),[]{
+            return entered&&symbolNotices==std::vector<std::wstring>{L"Brave Acrylic: preparing symbols"};
+        });
+    }
+    Check(!installed&&elapsed>=kBraveSymbolStartupWaitMs-50&&
+          elapsed<kBraveSymbolStartupWaitMs+2000&&hookCalls==0&&!s_transparencyReady,
           "cold fallback returns within its budget while symbol lookup continues");
+    Check(preparing,"slow fallback shows that Brave symbols are being prepared");
     {std::lock_guard lock(mutex);released=true;}condition.notify_all();
     WaitForSingleObject(s_symbolWorker,INFINITE);
+    bool restart;
+    {
+        std::unique_lock lock(mutex);
+        restart=condition.wait_for(lock,std::chrono::seconds(2),[]{
+            return symbolNotices.size()==2&&symbolNotices.back()==L"Brave Acrylic: restart Brave";
+        });
+    }
     Check(s_symbolLookup.succeeded&&!s_transparencyReady&&hookCalls==0&&
           !TryInstallChromeHooks(fakeModule,true),
           "late fallback only primes the cache and cannot install hooks in this process");
+    Check(restart,"completed fallback tells the user to restart Brave");
+    Wh_ModBeforeUninit();
+    Check(symbolIconsRemoved==1&&!s_symbolNotification.thread,
+          "unload removes the symbol status icon and joins its thread");
+
+    Reset();
+    // A completed engine lookup may have no usable feature groups.
+    s_symbolLookup.succeeded=true;
+    s_symbolWorker=CreateEventW(nullptr,TRUE,TRUE,nullptr);
+    AcquireSRWLockExclusive(&s_initLock);
+    if(s_symbolWorker)
+        StartSymbolNotifications();
+    ReleaseSRWLockExclusive(&s_initLock);
+    bool unavailable;
+    {
+        std::unique_lock lock(mutex);
+        unavailable=condition.wait_for(lock,std::chrono::seconds(2),[]{
+            return symbolNotices==std::vector<std::wstring>{L"Brave Acrylic: symbols unavailable"};
+        });
+    }
+    Check(unavailable,"a completed lookup with no usable effects reports unavailable symbols");
     Wh_ModBeforeUninit();
 
     Reset();
@@ -283,6 +337,8 @@ static void TestFallbackStartup() {
     startup.join();unload.join();
     Check(unloaded&&hookCalls==0&&!s_transparencyReady&&!s_symbolWorker,
           "a resolver finishing during unload cannot activate hooks");
+    Check(symbolNotices.empty()&&!s_symbolNotification.thread,
+          "disabling during the startup wait does not show a notification");
 }
 static void TestCaptionRestore() {
     Reset();pOrigGetWindowLongPtrW=GetWindowLongPtrW;pOrigSetWindowLongPtrW=SetWindowLongPtrW;

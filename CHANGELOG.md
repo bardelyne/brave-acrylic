@@ -3,7 +3,7 @@
 ## 4.0 — Alpha
 
 - Check for new Brave releases hourly.
-- Add an opt-in fallback to Brave’s official symbol server when Windhawk cannot resolve symbols from the caches. If lookup takes longer than five seconds, Brave opens without acrylic while Windhawk prepares symbols for the next launch.
+- Add an opt-in fallback to Brave’s official symbol server when Windhawk cannot resolve symbols from the caches. If lookup takes longer than five seconds, Brave opens without acrylic and shows symbol progress in the Windows notification area.
 - Recognize Chromium 157’s virtual popup opacity setter.
 - Enable Hide duplicate Windows buttons by default on fresh installs.
 
