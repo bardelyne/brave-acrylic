@@ -1,0 +1,235 @@
+{
+  "format": "windhawk-feature-cache-v1",
+  "extractor": 1,
+  "abiRevision": 9,
+  "clientVersion": "4.0",
+  "key": "7FB719C68E7B61FC4C4C44205044422E1",
+  "machine": 34404,
+  "timestamp": 1794975316,
+  "imageSize": 341413888,
+  "records": 4152958,
+  "infoAge": 2,
+  "dbiAge": 1,
+  "sha256": "b95ad2fa6ca99c4b417ed91da545787ab029fe1e3fa990dc2b286ad9c1fd3947",
+  "features": {
+    "verticalTabs": {
+      "available": true,
+      "missing": [],
+      "reasons": []
+    },
+    "toolbar": {
+      "available": true,
+      "missing": [],
+      "reasons": []
+    },
+    "addressBar": {
+      "available": true,
+      "missing": [],
+      "reasons": []
+    },
+    "webpage": {
+      "available": true,
+      "missing": [],
+      "reasons": []
+    },
+    "menus": {
+      "available": true,
+      "missing": [],
+      "reasons": []
+    },
+    "popups": {
+      "available": true,
+      "missing": [],
+      "reasons": []
+    },
+    "roundedWebpage": {
+      "available": true,
+      "missing": [],
+      "reasons": []
+    },
+    "suggestions": {
+      "available": true,
+      "missing": [],
+      "reasons": []
+    }
+  },
+  "functions": [
+    {
+      "name": "protected: virtual void __cdecl views::View::OnPaintBackground(class gfx::Canvas *)",
+      "rva": 5111776
+    },
+    {
+      "name": "public: void __cdecl gfx::Canvas::DrawColor(unsigned int,enum SkBlendMode)",
+      "rva": 65740144
+    },
+    {
+      "name": "public: class std::__Cr::basic_string_view<char,struct std::__Cr::char_traits<char> > __cdecl views::View::GetClassNameW(void)const",
+      "rva": 13488976
+    },
+    {
+      "name": "private: virtual bool __cdecl BrowserDesktopWindowTreeHostWin_ChromiumImpl::ShouldWindowContentsBeTransparent(void)const",
+      "rva": 64968768
+    },
+    {
+      "name": "public: __cdecl BraveVerticalTabStripContainerView::BraveVerticalTabStripContainerView(class BrowserView *,class views::View *)",
+      "rva": 62486288
+    },
+    {
+      "name": "public: void __cdecl views::View::SetBackground(class std::__Cr::unique_ptr<class views::Background,struct std::__Cr::default_delete<class views::Background> >)",
+      "rva": 20142112
+    },
+    {
+      "name": "public: virtual bool __cdecl LocationBarView::HasFocus(void)const",
+      "rva": 190363856
+    },
+    {
+      "name": "public: virtual bool __cdecl views::View::HasFocus(void)const",
+      "rva": 7028704
+    },
+    {
+      "name": "public: virtual void __cdecl ContentsWebView::OnThemeChanged(void)",
+      "rva": 30134736
+    },
+    {
+      "name": "public: virtual void __cdecl ContentsWebView::RenderViewReady(void)",
+      "rva": 51023952
+    },
+    {
+      "name": "public: virtual void __cdecl ui::LayerAnimator::SetColor(struct SkRGBA4f<3>)",
+      "rva": 18407872
+    },
+    {
+      "name": "public: virtual void __cdecl content::WebContentsImpl::SetPageBaseBackgroundColor(class std::__Cr::optional<unsigned int>)",
+      "rva": 50624976
+    },
+    {
+      "name": "public: virtual void __cdecl ContentsWebView::SetWebContents(class content::WebContents *)",
+      "rva": 42870928
+    },
+    {
+      "name": "struct HWND__ * __cdecl views::HWNDForView(class views::View const *)",
+      "rva": 65654032
+    },
+    {
+      "name": "public: unsigned int __cdecl ui::ColorProvider::GetColor(int)const",
+      "rva": 98751632
+    },
+    {
+      "name": "public: virtual void __cdecl views::MenuScrollViewContainer::OnPaintBackground(class gfx::Canvas *)",
+      "rva": 204925840
+    },
+    {
+      "name": "public: virtual void __cdecl views::BubbleBackground::Paint(class gfx::Canvas *,class views::View *)const",
+      "rva": 205217232
+    },
+    {
+      "name": "public: virtual void __cdecl cc::RecordPaintCanvas::drawRRect(class SkRRect const &,class cc::PaintFlags const &)",
+      "rva": 1879376
+    },
+    {
+      "name": "public: __cdecl RoundedOmniboxResultsFrame::RoundedOmniboxResultsFrame(class views::View *,class LocationBar *,bool)",
+      "rva": 202153472
+    },
+    {
+      "name": "public: virtual __cdecl RoundedOmniboxResultsFrame::~RoundedOmniboxResultsFrame(void)",
+      "rva": 202155392
+    },
+    {
+      "name": "private: virtual void __cdecl ui::Layer::SetRoundedCornersFromAnimation(class gfx::RoundedCornersF const &,enum ui::PropertyChangeReason)",
+      "rva": 21423616
+    },
+    {
+      "name": "public: virtual void __cdecl views::SolidBackground::Paint(class gfx::Canvas *,class views::View *)const",
+      "rva": 52005024
+    },
+    {
+      "name": "public: class gfx::Rect __cdecl views::View::GetLocalBounds(void)const",
+      "rva": 118677728
+    },
+    {
+      "name": "public: static int __cdecl RoundedOmniboxResultsFrame::GetNonResultSectionHeight(bool)",
+      "rva": 202155776
+    },
+    {
+      "name": "const views::SolidBackground::`vftable'",
+      "rva": 290402352
+    },
+    {
+      "name": "public: virtual void __cdecl views::BubbleFrameView::OnThemeChanged(void)",
+      "rva": 205152512
+    },
+    {
+      "name": "public: void __cdecl ui::Layer::SetFillsBoundsOpaquely(bool)",
+      "rva": 21421184
+    },
+    {
+      "name": "public: virtual void __cdecl FadeLabel::OnPaintBackground(class gfx::Canvas *)",
+      "rva": 174572752
+    },
+    {
+      "name": "public: class gfx::Rect __cdecl views::View::GetBoundsInScreen(void)const",
+      "rva": 11534448
+    },
+    {
+      "name": "public: static void __cdecl RoundedOmniboxResultsFrame::OnBeforeWidgetInit(struct views::Widget::InitParams *,class views::Widget *)",
+      "rva": 202155632
+    },
+    {
+      "name": "protected: virtual void __cdecl views::View::OnPaintBorder(class gfx::Canvas *)",
+      "rva": 5112016
+    },
+    {
+      "name": "public: virtual void __cdecl cc::RecordPaintCanvas::drawPath(class SkPath const &,class cc::PaintFlags const &,enum cc::UsePaintCache)",
+      "rva": 3583168
+    },
+    {
+      "name": "bool __cdecl wm::AnimateOnChildWindowVisibilityChanged(class aura::Window *,bool)",
+      "rva": 15190592
+    },
+    {
+      "name": "struct HWND__ * __cdecl views::HWNDForNativeWindow(class aura::Window *const)",
+      "rva": 121174000
+    },
+    {
+      "name": "void __cdecl wm::SetWindowVisibilityAnimationType(class aura::Window *,int)",
+      "rva": 212856304
+    },
+    {
+      "name": "void __cdecl wm::SetWindowVisibilityAnimationDuration(class aura::Window *,class base::TimeDelta const &)",
+      "rva": 212856368
+    },
+    {
+      "name": "public: __cdecl ViewShadow::ViewShadow(class views::View *,class gfx::RoundedCornersF const &,struct ViewShadow::ShadowParameters const &)",
+      "rva": 60704864
+    }
+  ],
+  "modContract": {
+    "abiSha256": "9e55f337e872f5dcd6d3aaa055e0ada1495dce2121abf1a6adb25b8aa1d6e4a0"
+  },
+  "tag": "v1.100.58",
+  "assets": {
+    "archive": {
+      "id": 762360681,
+      "name": "brave-v1.100.58-win32-x64.zip",
+      "size": 259470571,
+      "updated_at": "2026-11-18T07:21:07Z",
+      "digest": "sha256:4da0032c59caeb76b5669aed562b399826bd7c2156c685855d461e169b8dd9c8"
+    },
+    "checksum": {
+      "id": 762360683,
+      "name": "brave-v1.100.58-win32-x64.zip.sha256",
+      "size": 95,
+      "updated_at": "2026-11-18T07:20:55Z",
+      "digest": "sha256:4e92cc13226a96246f1a65fd2b360aa73fb982f3587d965182e9ab40b93037bb"
+    }
+  },
+  "modSourceSha256": "4c37ff4e1525d9ccde994a8a7a7189199008dfeb56e39cf41381b98f8bf1fe79",
+  "createdUtc": "2026-11-18T19:54:58.039Z",
+  "source": {
+    "release": "https://github.com/brave/brave-browser/releases/download/v1.100.58/brave-v1.100.58-win32-x64.zip",
+    "archiveSha256": "4da0032c59caeb76b5669aed562b399826bd7c2156c685855d461e169b8dd9c8",
+    "dllSha256": "be842bf3a479d88dfc1fdc4ef4cbb52589ff1de0b34259c5921cbd6489ddcf1f",
+    "symbols": "https://brave-symbols.s3.brave.com/chrome.dll.pdb/7FB719C68E7B61FC4C4C44205044422E1/chrome.dll.pdb"
+  },
+  "elapsedMs": 43094
+}
