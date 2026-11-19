@@ -4,7 +4,7 @@
 
 > **If the mod isn’t working after a Brave update**
 >
-> - **Wait for the small cache (default).** The workflow checks for new Brave builds every hour. Give it about an hour, then fully exit and reopen Brave. GitHub can delay scheduled runs.
+> - **Wait for the small cache (default).** New Brave builds are checked every 30 minutes. Once GitHub Actions has published the cache for your build, fully exit and reopen Brave. Allow extra time for GitHub to queue the job and generate the cache.
 > - **Download directly from Brave.** If you have a fast connection and enough disk space, enable **Download symbols from Brave as a fallback** in the mod’s Windhawk settings, then fully exit and reopen Brave. On a cache miss, Windhawk can download the full symbols from Brave’s official server. For a recent build, the download was about **1.2 GB** and expanded to about **6 GB** on disk. If symbols are still loading after **five seconds**, Brave opens without acrylic. Keep Brave open and check the **Brave Acrylic** icon in the Windows notification area. When it says **Restart Brave**, fully exit and reopen Brave to apply the effect.
 
 ![Brave Acrylic](https://raw.githubusercontent.com/bardelyne/brave-acrylic/main/assets/brave-acrylic-v3.3.png)
@@ -105,7 +105,7 @@ Windhawk handles compatibility downloads and local caching through its standard 
 
 **No telemetry, uploads or login.** Windhawk downloads symbol data. The server used for the download receives your IP address and the requested build. Browser cookies, history, page content, settings and account details stay on your PC. Turn both symbol download options off and restart Brave to use local symbols only.
 
-The workflow checks the stable release, asset identities and native contract before downloading large files. Unchanged releases skip browser and PDB downloads. Both generation and publication use the run's same source revision; large official files stay on the GitHub runner. Restart Brave after newly required compatibility data becomes available.
+A Cloudflare Worker checks for a new stable Brave build or changed release assets every 30 minutes and starts GitHub Actions when a cache needs to be generated. The workflow rechecks the release, asset identities and native contract before downloading large files. Both generation and publication use the run's same source revision. Large official files stay on the GitHub runner. Restart Brave after newly required compatibility data becomes available.
 
 The extractor handles verified compiler folding according to each function's role, while rejecting unrelated sharing on patched functions. The workflow reports compatibility separately for vertical tabs, the toolbar, the address bar, webpage backing, menus, popups, suggestions, and rounded webpage backing. A missing or changed function disables only its dependent features. Validated features are still published, and the workflow summary lists unavailable features with their reasons. Invalid files, mismatched symbols, failed downloads, and publishing errors still stop publication.
 

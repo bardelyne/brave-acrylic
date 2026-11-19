@@ -3,6 +3,7 @@
 const fs = require('node:fs/promises');
 const crypto = require('node:crypto');
 const native = require('./symbol-map-v6.cjs');
+const {FORMAT, EXTRACTOR, ABI_REVISION, CLIENT_VERSION, CACHE_ROOT, RELEASE_ROOT} = require('./compatibility-release.cjs');
 const {PeImage, Pdb} = native;
 const DECORATED = Object.freeze([
   "?OnPaintBackground@View@views@@MEAAXPEAVCanvas@gfx@@@Z",
@@ -153,10 +154,7 @@ const ALTERNATE_NAMES = Object.freeze({
   [DECORATED[26]]: Object.freeze(["?SetFillsBoundsOpaquely@Layer@ui@@UEAAX_N@Z"])
 });
 const HOOK_SLOTS = Object.freeze([...native.HOOK_SLOTS,5,14,15,16,17,18,19,20,21,25,26,27,29,30,31,32,36]);
-const FORMAT = 'windhawk-feature-cache-v1', EXTRACTOR = 1, ABI_REVISION = 9;
-const CLIENT_VERSION = '4.0', MAP_SIZE = 16384;
-const CACHE_ROOT = 'brave-acrylic-features-v' + ABI_REVISION;
-const RELEASE_ROOT = 'feature-releases-v' + ABI_REVISION;
+const MAP_SIZE = 16384;
 const REQUIRED_SLOTS = Object.freeze([]); // Required per feature, never guessed.
 function check(ok, message) { if (!ok) throw Error(message); }
 function executable(pe, rva, length) {

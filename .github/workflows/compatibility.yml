@@ -1,9 +1,7 @@
 name: Brave compatibility data
 
 on:
-  schedule:
-    # Unchanged releases skip all binary downloads.
-    - cron: '17 * * * *'
+  # The external release poller dispatches this workflow for unpublished builds.
   workflow_dispatch:
     inputs:
       tag:
@@ -14,13 +12,6 @@ on:
         description: Regenerate an existing release record
         type: boolean
         default: false
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/compatibility.yml'
-      - 'tools/**'
-      - 'tests/**'
-      - 'brave-acrylic.wh.cpp'
 
 permissions:
   contents: read
@@ -44,10 +35,6 @@ jobs:
           # Both jobs use this run's exact source revision.
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Record requested and actual schedule times
-        env:
-          REQUESTED_SCHEDULE: ${{ github.event.schedule }}
-        run: node -e 'console.log("Requested cron:", process.env.REQUESTED_SCHEDULE || "manual/push", "Actual start UTC:", new Date().toISOString())'
       - name: Test the data extractor
         run: node --test tests/*.test.cjs
       - name: Check the official stable release

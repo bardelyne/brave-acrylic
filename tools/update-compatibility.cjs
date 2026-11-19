@@ -9,16 +9,11 @@ const {pipeline} = require('node:stream/promises');
 const {spawnSync} = require('node:child_process');
 const {FORMAT, MAP_SIZE, EXTRACTOR, ABI_REVISION, CLIENT_VERSION, CACHE_ROOT, RELEASE_ROOT,
   SYMBOLS, REQUIRED_SLOTS, FEATURES, DECORATED, HOOK_SLOTS, generate, validateMap} = require('./feature-cache.cjs');
-const REPOSITORY = 'bardelyne/brave-acrylic';
-const BRANCH = 'symbol-cache';
+const {REPOSITORY, BRANCH, tagName, assetIdentity, releaseIdentity} = require('./compatibility-release.cjs');
 const WORK = path.resolve(process.env.COMPATIBILITY_WORK_DIR ||
   (process.env.RUNNER_TEMP ? path.join(process.env.RUNNER_TEMP, 'brave-compatibility') : 'compatibility-work'));
 const API = 'https://api.github.com';
 function check(ok, message) { if (!ok) throw Error(message); }
-function tagName(value) {
-  check(/^v\d{1,3}\.\d{1,3}\.\d{1,5}$/.test(value), 'Expected a stable Brave tag such as v1.98.60');
-  return value;
-}
 function hash(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
 const hexHash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 async function contractMetadata() {
@@ -47,25 +42,6 @@ async function modSourceHash(source) {
   return hash(source ?? await fs.readFile(path.join(__dirname, '..', 'brave-acrylic.wh.cpp')));
 }
 function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
-function assetIdentity(asset, name, limit) {
-  check(asset && asset.name === name && Number.isSafeInteger(asset.id) && asset.id > 0 &&
-    Number.isSafeInteger(asset.size) && asset.size > 0 && asset.size <= limit &&
-    typeof asset.updated_at === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(asset.updated_at) &&
-    Number.isFinite(Date.parse(asset.updated_at)) &&
-    (asset.digest == null || /^sha256:[a-f0-9]{64}$/.test(asset.digest)), 'Invalid official release asset');
-  return {id:asset.id, name, size:asset.size, updated_at:asset.updated_at, digest:asset.digest ?? null};
-}
-function releaseIdentity(release) {
-  const tag = tagName(release.tag_name), name = `brave-${tag}-win32-x64.zip`;
-  check(release.draft === false && release.prerelease === false && Array.isArray(release.assets),
-    'Only stable Brave releases are generated automatically');
-  const find = filename => {
-    const matches = release.assets.filter(a => a.name === filename);
-    check(matches.length === 1, 'Missing or ambiguous official asset'); return matches[0];
-  };
-  return {tag, name, assets:{archive:assetIdentity(find(name), name, 1024 ** 3),
-    checksum:assetIdentity(find(name + '.sha256'), name + '.sha256', 4096)}};
-}
 async function api(route, method = 'GET', body, missing = false) {
   check(route.startsWith('/'), 'Invalid API route');
   const headers = {'User-Agent':'brave-acrylic-compatibility', Accept:'application/vnd.github+json',
