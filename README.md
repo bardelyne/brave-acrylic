@@ -34,7 +34,22 @@ The 4.0 compatibility study validated all eight feature groups on one official s
 
 <!-- brave-compatibility:start -->
 
-GitHub Actions updates this table after a compatibility cache is published.
+Stable Brave [v1.100.59](https://github.com/brave/brave-browser/releases/tag/v1.100.59) on Windows x64.
+
+**8 of 8 features available**
+
+| Feature | Status |
+| --- | --- |
+| Vertical tabs | Available |
+| Toolbar | Available |
+| Address bar | Available |
+| Webpage | Available |
+| Menus | Available |
+| Popups | Available |
+| Rounded webpage | Available |
+| Suggestions | Available |
+
+[Published cache record](https://github.com/bardelyne/brave-acrylic/blob/symbol-cache/feature-releases-v9/v1.100.59.json)
 
 <!-- brave-compatibility:end -->
 
