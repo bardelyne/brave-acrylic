@@ -30,6 +30,14 @@ Native popup suggestions were tested in Brave 1.98, including YouTube with Zen I
 
 The 4.0 compatibility study validated all eight feature groups on one official stable build from each Brave 1.93–1.99 release line (Chromium 151–157). Builds tested from 1.88–1.92 had partial coverage. The study checks matching binaries and symbols. Visual behavior is tested separately. Brave Acrylic uses compatibility data for the exact installed `chrome.dll`. See the [compatibility matrix run](https://github.com/bardelyne/brave-acrylic/actions/runs/42106823647) and [compiler study](https://github.com/bardelyne/brave-acrylic/blob/main/docs/compiler-resilience.md).
 
+### Latest published Brave compatibility
+
+<!-- brave-compatibility:start -->
+
+GitHub Actions updates this table after a compatibility cache is published.
+
+<!-- brave-compatibility:end -->
+
 ## Fast setup
 
 1. Enable Translucent Windows for `brave.exe` and choose the desired backdrop.

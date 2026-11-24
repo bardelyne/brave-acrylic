@@ -49,6 +49,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node tools/update-compatibility.cjs build
+      - name: Report compatibility from the existing cache
+        if: steps.plan.outputs.needed == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/update-compatibility.cjs report
       - name: Inspect unsupported compiler output using the existing downloads
         if: failure() && steps.plan.outputs.needed == 'true'
         continue-on-error: true
@@ -77,7 +82,7 @@ jobs:
 
   publish:
     needs: generate
-    if: needs.generate.outputs.needed == 'true'
+    if: needs.generate.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -88,10 +93,16 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.generate.outputs.needed == 'true'
         with:
           name: windhawk-symbol-cache-v1
           path: ${{ runner.temp }}/brave-compatibility/out/
       - name: Validate and publish data only
+        if: needs.generate.outputs.needed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node tools/update-compatibility.cjs publish
+      - name: Update README feature availability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/update-compatibility.cjs sync-readme

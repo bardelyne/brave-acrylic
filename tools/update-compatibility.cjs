@@ -13,9 +13,12 @@ const {REPOSITORY, BRANCH, tagName, assetIdentity, releaseIdentity} = require('.
 const WORK = path.resolve(process.env.COMPATIBILITY_WORK_DIR ||
   (process.env.RUNNER_TEMP ? path.join(process.env.RUNNER_TEMP, 'brave-compatibility') : 'compatibility-work'));
 const API = 'https://api.github.com';
+const README_START = '<!-- brave-compatibility:start -->';
+const README_END = '<!-- brave-compatibility:end -->';
 function check(ok, message) { if (!ok) throw Error(message); }
 function hash(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
 const hexHash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+const validCacheKey = key => typeof key === 'string' && /^[A-F0-9]{32}[1-9A-F][A-F0-9]{0,7}$/.test(key);
 async function contractMetadata() {
   return {format:FORMAT, extractor:EXTRACTOR, abiRevision:ABI_REVISION, clientVersion:CLIENT_VERSION,
     modContract:{abiSha256:hash(JSON.stringify({format:FORMAT, abiRevision:ABI_REVISION,
@@ -42,6 +45,35 @@ async function modSourceHash(source) {
   return hash(source ?? await fs.readFile(path.join(__dirname, '..', 'brave-acrylic.wh.cpp')));
 }
 function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+function featureLabel(name) {
+  return name[0].toUpperCase() + name.slice(1).replace(/[A-Z]/g, letter => ' ' + letter.toLowerCase());
+}
+function featureTable(features) {
+  const entries = Object.entries(features);
+  const available = entries.filter(([, status]) => status.available).length;
+  return [
+    '**' + available + ' of ' + entries.length + ' features available**',
+    '',
+    '| Feature | Status |',
+    '| --- | --- |',
+    ...entries.map(([name, status]) =>
+      '| ' + featureLabel(name) + ' | ' + (status.available ? 'Available' : 'Unavailable') + ' |'),
+  ];
+}
+async function writeFeatureSummary(tag, features) {
+  if (!process.env.GITHUB_STEP_SUMMARY) return;
+  const lines = ['## Brave ' + tag + ' · Windows x64', '', ...featureTable(features)];
+  const unavailable = Object.entries(features).filter(([, status]) => !status.available);
+  if (unavailable.length) lines.push('', 'Unavailable features are excluded from the cache.');
+  const diagnostics = unavailable.filter(([, status]) => status.reasons?.length);
+  if (diagnostics.length) {
+    lines.push('', '<details>', '<summary>Why features are unavailable</summary>', '', '~~~text');
+    for (const [name, status] of diagnostics)
+      lines.push(featureLabel(name), ...status.reasons.map(reason => '  ' + reason), '');
+    lines.push('~~~', '', '</details>');
+  }
+  await fs.appendFile(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+}
 async function api(route, method = 'GET', body, missing = false) {
   check(route.startsWith('/'), 'Invalid API route');
   const headers = {'User-Agent':'brave-acrylic-compatibility', Accept:'application/vnd.github+json',
@@ -51,8 +83,16 @@ async function api(route, method = 'GET', body, missing = false) {
   const r = await fetch(API + route, {method, headers, body: body ? JSON.stringify(body) : undefined,
     redirect:'error', signal:AbortSignal.timeout(30000)});
   if (missing && r.status === 404) return null;
-  check(r.ok, 'GitHub API request failed (' + r.status + ')');
+  if (!r.ok) throw Object.assign(Error('GitHub API request failed (' + r.status + ')'), {status:r.status});
   return r.json();
+}
+function decodeFile(file, maxSize) {
+  check(file.encoding === 'base64' && Number.isSafeInteger(file.size) && file.size > 0 &&
+    file.size <= maxSize && typeof file.content === 'string' && file.content.length <= maxSize * 1.5 + 4,
+    'Invalid GitHub file response');
+  const bytes = Buffer.from(file.content, 'base64');
+  check(bytes.length === file.size, 'GitHub file size changed');
+  return bytes;
 }
 async function output(name, value) {
   if (process.env.GITHUB_OUTPUT) await fs.appendFile(process.env.GITHUB_OUTPUT, name + '=' + value + '\n');
@@ -158,10 +198,6 @@ async function build() {
   const featureLines = Object.entries(result.features).map(([name,status]) =>
     `${status.available ? 'Available' : 'Unavailable'}: ${name}${status.available ? '' : ' — ' + status.reasons.join('; ')}`);
   console.log(featureLines.join('\n'));
-  if (process.env.GITHUB_STEP_SUMMARY)
-    await fs.appendFile(process.env.GITHUB_STEP_SUMMARY,
-      `## Brave ${plan.tag}: feature compatibility\n\n` + featureLines.map(line => '- ' + line).join('\n') +
-      '\n\nOnly complete, validated features are published. Missing or changed functions disable their dependent features.\n');
   for (const [name,status] of Object.entries(result.features))
     if (!status.available) console.log(`::warning title=Brave feature unavailable::${name}: ${status.reasons.join('; ')}`);
   const record = {...result, ...metadata, tag:plan.tag, assets:plan.assets,
@@ -170,6 +206,7 @@ async function build() {
       dllSha256:await shaFile(dll), symbols:url}, elapsedMs:Date.now() - started};
   await fs.writeFile(path.join(out, 'record.json'), JSON.stringify(record, null, 2) + '\n');
   await verify(out, {allowLegacy:false});
+  await writeFeatureSummary(plan.tag, record.features);
   console.log('Generated ' + (await fs.stat(path.join(out, 'cache.txt'))).size + ' bytes in ' + Math.round(record.elapsedMs / 1000) + ' seconds');
 }
 async function verify(directory, {modSource} = {}) {
@@ -184,7 +221,7 @@ async function verify(directory, {modSource} = {}) {
   const identity = validateMap(map);
   tagName(record.tag);
   const metadata = await contractMetadata();
-  check(Object.entries(metadata).every(([key, value]) => same(record[key], value)) && typeof record.key === "string" && /^[A-F0-9]{32}[1-9A-F][A-F0-9]{0,7}$/.test(record.key) &&
+  check(Object.entries(metadata).every(([key, value]) => same(record[key], value)) && validCacheKey(record.key) &&
     record.sha256 === hash(map) && record.modSourceSha256 === await modSourceHash(modSource),
     'Invalid generated artifact');
   check(record.machine === identity.machine && record.timestamp === identity.timestamp &&
@@ -210,10 +247,13 @@ async function verify(directory, {modSource} = {}) {
   'Invalid generated provenance or ABI slots');
   return {map, record};
 }
-async function publish() {
+function requirePublisher() {
   check(process.env.GITHUB_REPOSITORY === REPOSITORY && process.env.GITHUB_REF === 'refs/heads/main',
     'Publishing is allowed only from the owner repository default branch');
   check(process.env.GH_TOKEN, 'Publishing token is required');
+}
+async function publish() {
+  requirePublisher();
   const {map, record} = await verify(path.join(WORK, 'out'), {allowLegacy:false});
   const official = releaseIdentity(await api('/repos/brave/brave-browser/releases/tags/' + record.tag));
   check(official.tag === record.tag && same(official.assets, record.assets), 'Official assets changed before publication');
@@ -242,10 +282,78 @@ async function publish() {
   else await api(`/repos/${REPOSITORY}/git/refs`, 'POST', {ref:'refs/heads/' + BRANCH, sha:next.sha});
   console.log(`Published ${CACHE_ROOT}/pdb_${record.key}.txt on ${BRANCH}`);
 }
-module.exports = {tagName, verify, prepare, build, publish, contractMetadata, assetIdentity, releaseIdentity, BRANCH,CACHE_ROOT,RELEASE_ROOT};
+async function publishedFeatures(official) {
+  const {tag} = official;
+  tagName(tag);
+  const contents = '/repos/' + REPOSITORY + '/contents/';
+  const file = await api(contents + RELEASE_ROOT + '/' + tag + '.json?ref=' + BRANCH, 'GET', undefined, true);
+  if (!file) return null;
+  const record = JSON.parse(decodeFile(file, 65536).toString('utf8'));
+  const metadata = await contractMetadata();
+  if (!Object.entries(metadata).every(([key, value]) => same(record[key], value)) ||
+      !same(record.assets, official.assets)) return null;
+  check(record.tag === tag && validCacheKey(record.key) && hexHash(record.sha256),
+    'Invalid published release record');
+  const cache = await api(contents + CACHE_ROOT + '/pdb_' + record.key + '.txt?ref=' + BRANCH);
+  const map = decodeFile(cache, MAP_SIZE);
+  check(hash(map) === record.sha256, 'Published cache checksum mismatch');
+  return validateMap(map).features;
+}
+async function report() {
+  const plan = JSON.parse(await fs.readFile(path.join(WORK, 'plan.json'), 'utf8'));
+  check(plan.needed === false, 'No published cache report requested');
+  const features = await publishedFeatures(plan);
+  check(features, 'The published cache has changed since the release check');
+  await writeFeatureSummary(plan.tag, features);
+  console.log('Reported published feature compatibility for ' + plan.tag);
+}
+async function syncReadme() {
+  requirePublisher();
+  const official = releaseIdentity(await api('/repos/brave/brave-browser/releases/latest'));
+  const features = await publishedFeatures(official);
+  if (!features) {
+    console.log('Waiting for the published cache for ' + official.tag);
+    return;
+  }
+  const {tag} = official;
+  const route = '/repos/' + REPOSITORY + '/contents/README.md';
+  const block = [
+    'Stable Brave [' + tag + '](https://github.com/brave/brave-browser/releases/tag/' + tag + ') on Windows x64.',
+    '',
+    ...featureTable(features),
+    '',
+    '[Published cache record](https://github.com/' + REPOSITORY + '/blob/' + BRANCH + '/' + RELEASE_ROOT + '/' + tag + '.json)',
+  ];
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const file = await api(route + '?ref=main');
+    const readme = decodeFile(file, 1024 ** 2).toString('utf8');
+    const start = readme.indexOf(README_START);
+    const end = readme.indexOf(README_END);
+    check(start >= 0 && end >= start + README_START.length &&
+      start === readme.lastIndexOf(README_START) && end === readme.lastIndexOf(README_END),
+      'Missing or ambiguous compatibility markers in README.md');
+    const newline = readme.includes('\r\n') ? '\r\n' : '\n';
+    const updated = readme.slice(0, start + README_START.length) +
+      ['', '', ...block, '', ''].join(newline) + readme.slice(end);
+    if (updated === readme) {
+      console.log('README already reports Brave compatibility for ' + tag);
+      return;
+    }
+    try {
+      await api(route, 'PUT', {branch:'main', sha:file.sha, content:Buffer.from(updated).toString('base64'),
+        message:'docs: update Brave compatibility for ' + tag});
+      console.log('Updated the README compatibility table for ' + tag);
+      return;
+    } catch (error) {
+      if (error.status !== 409 || attempt === 2) throw error;
+    }
+  }
+}
+module.exports = {tagName, verify, prepare, build, publish, report, syncReadme, contractMetadata, assetIdentity, releaseIdentity, BRANCH,CACHE_ROOT,RELEASE_ROOT};
 if (require.main === module) {
   const mode = process.argv[2];
-  const action = {prepare, build, publish, verify:() => verify(path.join(WORK, 'out'), {allowLegacy:false})}[mode];
-  if (!action) { console.error('Usage: node tools/update-compatibility.cjs prepare|build|verify|publish'); process.exitCode = 1; }
+  const action = {prepare, build, publish, report, 'sync-readme':syncReadme,
+    verify:() => verify(path.join(WORK, 'out'), {allowLegacy:false})}[mode];
+  if (!action) { console.error('Usage: node tools/update-compatibility.cjs prepare|build|verify|publish|report|sync-readme'); process.exitCode = 1; }
   else action().catch(e => { console.error(e.message); process.exitCode = 1; });
 }

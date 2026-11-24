@@ -71,7 +71,9 @@ async function context(t, sourceRoot, {zipEntries, badPdb=false}={}) {
     GITHUB_REF:'refs/heads/main',GITHUB_RUN_ID:'456',GITHUB_SHA:'a'.repeat(40),
     COMPATIBILITY_WORK_DIR:work,PYTHON:process.env.PYTHON || 'python'};
   delete env.GITHUB_OUTPUT;delete env.BRAVE_TAG;delete env.FORCE_REBUILD;
+  delete env.GITHUB_STEP_SUMMARY; // The runner summary describes its real release only.
   const json = value => new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json'}});
+  const file = (bytes, sha) => json({encoding:'base64',size:bytes.length,content:bytes.toString('base64'),sha});
   const fetch = async (url,options={}) => {
     const u=new URL(url),method=options.method || 'GET';state.calls.push({url,method});
     if(u.hostname==='api.github.com') {
@@ -80,11 +82,25 @@ async function context(t, sourceRoot, {zipEntries, badPdb=false}={}) {
         if(route==='/repos/brave/brave-browser/releases/latest' || route==='/repos/brave/brave-browser/releases/tags/'+tag)return json(clone(state.official));
         if(route===`/repos/${REPO}/contents/${releaseRoot}/${tag}.json?ref=symbol-cache`)
           return state.existing ? json(state.existing) : new Response('',{status:404});
+        if(route===`/repos/${REPO}/contents/${cacheRoot}/pdb_${pe.identity.key}.txt?ref=symbol-cache`)
+          return state.cache ? file(state.cache) : new Response('',{status:404});
+        if(route===`/repos/${REPO}/contents/README.md?ref=main`)
+          return file(Buffer.from(state.readme),state.readmeSha);
         if(route===`/repos/${REPO}/git/ref/heads/symbol-cache`)return new Response('',{status:404});
       }
       // Writes exist only inside this fetch mock. No network tool is invoked.
       const body=options.body ? JSON.parse(options.body) : undefined;
       state.writes.push({route,method,body});
+      if(route===`/repos/${REPO}/contents/README.md` && method==='PUT') {
+        assert.equal(body.branch,'main');
+        if(state.concurrentReadmeEdit) {
+          state.readme=state.concurrentReadmeEdit;state.readmeSha='new-blob';state.concurrentReadmeEdit=null;
+          return new Response('',{status:409});
+        }
+        assert.equal(body.sha,state.readmeSha);
+        state.readme=Buffer.from(body.content,'base64').toString('utf8');
+        return json({});
+      }
       if(route===`/repos/${REPO}/git/blobs` && method==='POST') {
         state.blobs.push(body);return json({sha:hash(JSON.stringify(body)).slice(0,40)});
       }
@@ -127,7 +143,18 @@ async function context(t, sourceRoot, {zipEntries, badPdb=false}={}) {
 }
 
 test('current workflow builds and publishes only the small cache and record',async t=>{
-  const run=await context(t,root),cache=await run.build();
+  const run=await context(t,root);
+  assert.equal(run.env.GITHUB_STEP_SUMMARY,undefined);
+  const summaryPath=path.join(run.state.base,'fixture-summary.md');
+  run.env.GITHUB_STEP_SUMMARY=summaryPath;
+  const cache=await run.build();
+  const summary=await fs.readFile(summaryPath,'utf8');
+  assert.match(summary,/^## Brave v1\.98\.60 · Windows x64$/m);
+  assert.match(summary,/\*\*4 of 8 features available\*\*/);
+  assert.match(summary,/^\| Address bar \| Available \|$/m);
+  assert.match(summary,/^\| Menus \| Unavailable \|$/m);
+  assert.doesNotMatch(summary.split('<details>')[0],/Missing or ambiguous ABI|@/);
+  assert.match(summary,/~~~text\n[\s\S]+Missing or ambiguous ABI: \?.+@[\s\S]+~~~\n/);
   assert.equal(run.state.spawn.length,1);assert.equal(run.state.spawn[0].args[0],'-I');
   assert.equal(await fs.readFile(path.join(run.state.work,'chrome.dll')).then(hash),hash(run.state.pe.bytes));
   await assert.rejects(fs.stat(path.join(run.state.work,'must-not-extract.txt')),/ENOENT/);
@@ -137,6 +164,39 @@ test('current workflow builds and publishes only the small cache and record',asy
   assert.deepEqual(run.state.published.tree.map(v=>v.path),[
     `${run.state.cacheRoot}/pdb_${run.state.pe.identity.key}.txt`,`${run.state.releaseRoot}/v1.98.60.json`]);
   assert.equal(run.state.calls.some(c=>c.url.includes('/actions/')),false);
+});
+
+test('a verified cached release updates only the managed README block and reports without downloading symbols',async t=>{
+  const run=await context(t,root);
+  run.state.readme='# Brave Acrylic\r\n\r\n<!-- brave-compatibility:start -->\r\nPrevious version\r\n<!-- brave-compatibility:end -->\r\n\r\nKeep this text.\r\n';
+  run.state.readmeSha='original-blob';
+  await run.actions.syncReadme();
+  assert.equal(run.state.writes.length,0);
+
+  run.state.cache=await run.build();
+  const record=Buffer.from(JSON.stringify(run.state.record));
+  run.state.existing={encoding:'base64',size:record.length,content:record.toString('base64')};
+  run.state.concurrentReadmeEdit=run.state.readme.replace('Keep this text.','Keep this concurrent edit.');
+  await run.actions.syncReadme();
+  assert.equal(run.state.writes.length,2);
+  assert.equal(run.state.writes[1].body.sha,'new-blob');
+  assert.match(run.state.readme,/Stable Brave \[v1\.98\.60\]/);
+  assert.match(run.state.readme,/\*\*4 of 8 features available\*\*/);
+  assert.ok(run.state.readme.endsWith('<!-- brave-compatibility:end -->\r\n\r\nKeep this concurrent edit.\r\n'));
+  await run.actions.syncReadme();
+  assert.equal(run.state.writes.length,2);
+
+  assert.equal((await run.prepare()).needed,false);
+  const summaryPath=path.join(run.state.base,'cached-summary.md');
+  run.env.GITHUB_STEP_SUMMARY=summaryPath;
+  await run.actions.report();
+  assert.match(await fs.readFile(summaryPath,'utf8'),/\*\*4 of 8 features available\*\*/);
+  assert.equal(run.state.spawn.length,1);
+
+  run.state.cache=Buffer.from(run.state.cache);
+  run.state.cache[0]^=1;
+  await assert.rejects(run.actions.syncReadme(),/Published cache checksum mismatch/);
+  assert.equal(run.state.writes.length,2);
 });
 test('publisher rejects inconsistent cache bytes and metadata before writing',async t=>{
   const run=await context(t,root),cache=await run.build();
